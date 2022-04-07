@@ -17,6 +17,5 @@ jobs:
       - name: Forge test
         uses: docker://ghcr.io/gakonst/foundry:latest
         with:
-          options: -v $GITHUB_WORKSPACE:/app
-          args: forge test --root /app
+          args: forge test
           
