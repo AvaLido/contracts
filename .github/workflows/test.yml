@@ -11,9 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: docker://ghcr.io/gakonst/foundry:latest
-      - name: Build and test in docker
-        run: |
-          docker run -v $GITHUB_WORKSPACE:/app foundry "forge test --root /app"
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Forge test
+        uses: docker://ghcr.io/gakonst/foundry:latest
+        with:
+          options: -v $GITHUB_WORKSPACE:/app
+          args: forge test --root /app
           
