@@ -12,9 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
+      - uses: ghcr.io/gakonst/foundry:latest
       - name: Build and test in docker
         run: |
-          docker pull ghcr.io/gakonst/foundry:latest
           docker run -v $GITHUB_WORKSPACE:/app foundry "forge test --root /app"
           
