@@ -5,11 +5,7 @@ contract AvaLido {
     // main contract that is single source of truth for state variables,
     // coordinates other contracts, accepts deposits and withdrawal requests, etc.
 
-    function deposit() public {
+    function deposit() public {}
 
-    }
-
-    function requestWithdrawal() public {
-
-    }
+    function requestWithdrawal() public {}
 }

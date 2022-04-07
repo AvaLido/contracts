@@ -3,3 +3,5 @@ cache/
 
 network/node-*
 network/build
+
+node_modules/
