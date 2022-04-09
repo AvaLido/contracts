@@ -2,19 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-contract stAVAX {
+// import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+
+contract stAVAX is ERC20 {
+    constructor() ERC20("Staked AVAX", "stAVAX") {}
+
     // the ERC-20 implementation of a rebasing token 1:1 pegged to AVAX
-    function mint() public {
+    function mint() public {}
 
-    }
-
-    function burn() public {
-
-    }
+    function burn() public {}
 
     // Note: does this stuff need to be in the main contract as helpers?
 
@@ -23,8 +22,9 @@ contract stAVAX {
      * @return Total pooled Avax
      */
     function gettotalPooledAvax() public view returns (uint256) {
-        uint256 totalStaked = // need to figure this out from oracle contract
-        return totalStaked + totalBuffered - reservedFunds;
+        // uint256 totalStaked = // need to figure this out from oracle contract
+        // return totalStaked + totalBuffered - reservedFunds;
+        return 0;
     }
 
     /**
