@@ -44,4 +44,4 @@ This uses the pre-funded AVAX account label "Contract deployer" above.
 
 Use `cast` to call contract functions directly, like: `cast call <address> "deposit()" --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc`.
 
-Or, you can use the `task` which has the RPC URL pre-set: `cast call -- <address> "deposit()"`
+Or, you can use the `task` which has the RPC URL pre-set: `task call -- <address> "deposit()"`
