@@ -57,7 +57,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
     // WithdrawalRequestCompleted
 
     // States variables
-    UnstakeRequest[] private unstakeRequests;
+    UnstakeRequest[] public unstakeRequests;
     mapping(address => uint32) private nextUserRequestId;
     mapping(address => uint32[]) public userRequests;
 
@@ -98,6 +98,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
             newRequests[i] = currentRequests[i];
         }
         newRequests[currentRequests.length] = currentId;
+        userRequests[msg.sender] = newRequests;
 
         emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp);
     }
