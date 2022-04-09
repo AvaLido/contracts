@@ -35,6 +35,8 @@ import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
+import "./test/console.sol";
+
 struct UnstakeRequest {
     address requester;
     uint32 id;
@@ -51,6 +53,10 @@ contract AvaLido is Pausable, ReentrancyGuard {
 
     event DepositEvent(address indexed _from, uint256 indexed _amount);
     event WithdrawRequestSubmittedEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
+
+    // Emitted to signal the MPC system to stake AVAX.
+    // TODO: Move to mpc manager contract
+    event StakeEvent(uint256 indexed amount);
 
     // WithdrawRequestFilled
     // WithdrawalRequestClaimed
@@ -145,7 +151,6 @@ contract AvaLido is Pausable, ReentrancyGuard {
             if (amountFilled == inputAmount) {
                 break;
             }
-            remaining = inputAmount - amountFilled;
 
             if (unstakeRequests[i].amountFilled < unstakeRequests[i].amountRequested) {
                 uint256 amountRequired = unstakeRequests[i].amountRequested - unstakeRequests[i].amountFilled;
@@ -155,12 +160,26 @@ contract AvaLido is Pausable, ReentrancyGuard {
 
                 unstakeRequests[i].amountFilled += amountToFill;
             }
-        }
 
+            remaining = inputAmount - amountFilled;
+        }
         return remaining;
     }
 
+    function receiveFromMPC() external payable {
+        // Fill unstake requests
+        uint256 remaining = fillUnstakeRequests(msg.value);
+        // Rebalance liquidity pool
+
+        // Restake excess
+        _stake(remaining);
+    }
+
     function _stake(uint256 amount) internal {
+        if (amount <= 0) {
+            return;
+        }
         // TODO: Send AVAX to MPC wallet to be staked.
+        emit StakeEvent(amount);
     }
 }
