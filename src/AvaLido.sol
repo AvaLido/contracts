@@ -69,7 +69,6 @@ contract AvaLido is Pausable, ReentrancyGuard {
     // from the array. This allows us to:
     // - maintain an immutable order of requests.
     // - find the next requests to fill in constant time.
-    // - Use a mapping to store indicies for point lookups.
     UnstakeRequest[] public unstakeRequests;
 
     // Pointer to the head of the unfilled section of the queue.
@@ -152,7 +151,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
                 unstakeRequests[i].amountFilled += amountToFill;
 
                 // We filled the request entirely, so move the head pointer on
-                if (unstakeRequests[i].amountFilled == unstakeRequests[i].amountRequested) {
+                if (isFilled(unstakeRequests[i])) {
                     unfilledHead = i + 1;
                 }
             }
@@ -160,6 +159,10 @@ contract AvaLido is Pausable, ReentrancyGuard {
             remaining = inputAmount - amountFilled;
         }
         return remaining;
+    }
+
+    function isFilled(UnstakeRequest memory request) private pure returns (bool) {
+        return request.amountFilled == request.amountRequested;
     }
 
     function receiveFromMPC() external payable {
