@@ -39,7 +39,6 @@ import "./test/console.sol";
 
 struct UnstakeRequest {
     address requester;
-    uint32 id;
     uint256 amountRequested;
     uint256 amountFilled;
     uint256 requestedAt;
@@ -63,9 +62,21 @@ contract AvaLido is Pausable, ReentrancyGuard {
     // WithdrawalRequestCompleted
 
     // States variables
+
+    // The array of all unstake requests.
+    // This acts as a queue, and we maintain a separate pointer
+    // to point to the head of the queue rather than removing state
+    // from the array. This allows us to:
+    // - maintain an immutable order of requests.
+    // - find the next requests to fill in constant time.
+    // - Use a mapping to store indicies for point lookups.
     UnstakeRequest[] public unstakeRequests;
-    mapping(address => uint32) private nextUserRequestId;
-    mapping(address => uint32[]) public userRequests;
+
+    // Pointer to the head of the unfilled section of the queue.
+    uint256 private unfilledHead = 0;
+
+    // Lookup of user to array index for quick reads.
+    mapping(address => uint256[]) public userRequestIndicies;
 
     /**
      * @dev Receives AVAX and mints StAVAX to msg.sender
@@ -90,32 +101,26 @@ contract AvaLido is Pausable, ReentrancyGuard {
         // TODO: Transfer stAVAX from user to our contract.
 
         // Find the next Id for the unstake request.
-        uint32 currentId = nextUserRequestId[msg.sender];
-        nextUserRequestId[msg.sender] = currentId + 1;
+        uint256 newId = unstakeRequests.length;
 
         // Create the request and store in our list.
-        UnstakeRequest memory newRequest = UnstakeRequest(msg.sender, currentId, amount, 0, block.timestamp);
+        UnstakeRequest memory newRequest = UnstakeRequest(msg.sender, amount, 0, block.timestamp);
         unstakeRequests.push(newRequest);
 
         // Record some metadata about the request so we can find it more easily.
-        uint32[] memory currentRequests = userRequests[msg.sender];
-        uint32[] memory newRequests = new uint32[](currentRequests.length + 1);
+        uint256[] memory currentRequests = userRequestIndicies[msg.sender];
+        uint256[] memory newRequests = new uint256[](currentRequests.length + 1);
         for (uint32 i = 0; i < currentRequests.length; i++) {
             newRequests[i] = currentRequests[i];
         }
-        newRequests[currentRequests.length] = currentId;
-        userRequests[msg.sender] = newRequests;
+        newRequests[currentRequests.length] = newId;
+        userRequestIndicies[msg.sender] = newRequests;
 
         emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp);
     }
 
     function requestById(uint32 requestId) external view returns (UnstakeRequest memory) {
-        for (uint32 i = 0; i < unstakeRequests.length; i++) {
-            if (unstakeRequests[i].id == requestId) {
-                return unstakeRequests[i];
-            }
-        }
-        revert("Request not found");
+        return unstakeRequests[requestId];
     }
 
     function claim(uint32 requestId, uint256 amount) external whenNotPaused nonReentrant {
@@ -146,10 +151,10 @@ contract AvaLido is Pausable, ReentrancyGuard {
         uint256 amountFilled = 0;
         uint256 remaining = inputAmount;
 
-        // TODO: Assumes order of the array is creation order.
-        for (uint256 i = 0; i < unstakeRequests.length; i++) {
+        // Assumes order of the array is creation order.
+        for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
             if (amountFilled == inputAmount) {
-                break;
+                revert("Invalid state - filled request in queue");
             }
 
             if (unstakeRequests[i].amountFilled < unstakeRequests[i].amountRequested) {
@@ -159,6 +164,11 @@ contract AvaLido is Pausable, ReentrancyGuard {
                 amountFilled += amountToFill;
 
                 unstakeRequests[i].amountFilled += amountToFill;
+
+                // We filled the request entirely, so move the head pointer on
+                if (unstakeRequests[i].amountFilled == unstakeRequests[i].amountRequested) {
+                    unfilledHead = i + 1;
+                }
             }
 
             remaining = inputAmount - amountFilled;
