@@ -73,6 +73,26 @@ contract AvaLidoTest is DSTest {
         assertEq(amountFilled, 0.5 ether);
     }
 
+    function testMultipleFillUnstakeRequestsSingleFill() public {
+        lido.deposit{value: 1 ether}(1 ether);
+        lido.requestWithdrawal(0.5 ether);
+        lido.requestWithdrawal(0.25 ether);
+        lido.requestWithdrawal(0.1 ether);
+        lido.receiveFromMPC{value: 2 ether}();
+
+        (, uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(0);
+        assertEq(amountRequested, 0.5 ether);
+        assertEq(amountFilled, 0.5 ether);
+
+        (, uint256 amountRequested2, uint256 amountFilled2, ) = lido.unstakeRequests(1);
+        assertEq(amountRequested2, 0.25 ether);
+        assertEq(amountFilled2, 0.25 ether);
+
+        (, uint256 amountRequested3, uint256 amountFilled3, ) = lido.unstakeRequests(2);
+        assertEq(amountRequested3, 0.1 ether);
+        assertEq(amountFilled3, 0.1 ether);
+    }
+
     function testFillUnstakeRequestPartial() public {
         lido.deposit{value: 1 ether}(1 ether);
         lido.requestWithdrawal(0.5 ether);
