@@ -37,23 +37,22 @@ contract AvaLidoTest is DSTest {
         lido.deposit{value: 1 ether}(1 ether);
         // TODO: Test stAVAX transfer.
 
-        lido.requestWithdrawal(0.5 ether);
-
-        uint256 requestId = lido.userRequestIndicies(TEST_ADDRESS, 0);
+        uint256 requestId = lido.requestWithdrawal(0.5 ether);
         assertEq(requestId, 0);
 
-        (address requester, uint256 amountRequested, uint256 amountFilled, uint256 requestAt) = lido.unstakeRequests(0);
+        (address requester, uint256 amountRequested, uint256 amountFilled, uint256 requestAt) = lido.unstakeRequests(
+            requestId
+        );
 
         assertEq(requester, TEST_ADDRESS);
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0 ether);
         assertEq(requestAt, block.timestamp);
 
-        lido.requestWithdrawal(0.1 ether);
+        uint256 requestId2 = lido.requestWithdrawal(0.1 ether);
         (address requester2, uint256 amountRequested2, uint256 amountFilled2, uint256 requestAt2) = lido
-            .unstakeRequests(1);
+            .unstakeRequests(requestId2);
 
-        uint256 requestId2 = lido.userRequestIndicies(TEST_ADDRESS, 1);
         assertEq(requestId2, 1);
 
         assertEq(requester2, TEST_ADDRESS);
@@ -95,11 +94,10 @@ contract AvaLidoTest is DSTest {
 
     function testFillUnstakeRequestPartial() public {
         lido.deposit{value: 1 ether}(1 ether);
-        lido.requestWithdrawal(0.5 ether);
+        uint256 reqId = lido.requestWithdrawal(0.5 ether);
         lido.receiveFromMPC{value: 0.1 ether}();
 
-        uint256 id = lido.userRequestIndicies(TEST_ADDRESS, 0);
-        (, uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(id);
+        (, uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(reqId);
 
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0.1 ether);
@@ -136,20 +134,17 @@ contract AvaLidoTest is DSTest {
 
     function testMultipleRequestReads() public {
         lido.deposit{value: 1 ether}(1 ether);
-        lido.requestWithdrawal(0.5 ether);
+        uint256 reqId = lido.requestWithdrawal(0.5 ether);
 
         // Make a request as somebody else
         cheats.prank(ZERO_ADDRESS);
         lido.requestWithdrawal(0.1 ether);
 
         // Make another request as the original user.
-        lido.requestWithdrawal(0.2 ether);
+        uint256 reqId2 = lido.requestWithdrawal(0.2 ether);
 
-        uint256 requestId = lido.userRequestIndicies(TEST_ADDRESS, 0);
-        assertEq(requestId, 0);
-
+        assertEq(reqId, 0);
         // Ensure that the next id for the user is the 3rd overall, not second.
-        uint256 requestId2 = lido.userRequestIndicies(TEST_ADDRESS, 1);
-        assertEq(requestId2, 2);
+        assertEq(reqId2, 2);
     }
 }

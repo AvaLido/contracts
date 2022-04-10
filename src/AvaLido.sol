@@ -75,9 +75,6 @@ contract AvaLido is Pausable, ReentrancyGuard {
     // Pointer to the head of the unfilled section of the queue.
     uint256 private unfilledHead = 0;
 
-    // Lookup of user to array index for quick reads.
-    mapping(address => uint256[]) public userRequestIndicies;
-
     /**
      * @dev Receives AVAX and mints StAVAX to msg.sender
      * @param amount - Amount of AVAX sent from msg.sender
@@ -97,35 +94,24 @@ contract AvaLido is Pausable, ReentrancyGuard {
     /**
      * @dev Requests to unstake an amount of AVAX.
      */
-    function requestWithdrawal(uint256 amount) external whenNotPaused nonReentrant {
+    function requestWithdrawal(uint256 amount) external whenNotPaused nonReentrant returns (uint256) {
         // TODO: Transfer stAVAX from user to our contract.
 
-        // Find the next Id for the unstake request.
-        uint256 newId = unstakeRequests.length;
-
         // Create the request and store in our list.
-        UnstakeRequest memory newRequest = UnstakeRequest(msg.sender, amount, 0, block.timestamp);
-        unstakeRequests.push(newRequest);
-
-        // Record some metadata about the request so we can find it more easily.
-        uint256[] memory currentRequests = userRequestIndicies[msg.sender];
-        uint256[] memory newRequests = new uint256[](currentRequests.length + 1);
-        for (uint32 i = 0; i < currentRequests.length; i++) {
-            newRequests[i] = currentRequests[i];
-        }
-        newRequests[currentRequests.length] = newId;
-        userRequestIndicies[msg.sender] = newRequests;
+        unstakeRequests.push(UnstakeRequest(msg.sender, amount, 0, block.timestamp));
 
         emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp);
+
+        return unstakeRequests.length - 1;
     }
 
-    function requestById(uint32 requestId) external view returns (UnstakeRequest memory) {
-        return unstakeRequests[requestId];
+    function requestByIndex(uint32 requestIndex) external view returns (UnstakeRequest memory) {
+        return unstakeRequests[requestIndex];
     }
 
-    function claim(uint32 requestId, uint256 amount) external whenNotPaused nonReentrant {
+    function claim(uint32 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
         // TODO: Find request by ID
-        UnstakeRequest memory request = this.requestById(requestId);
+        UnstakeRequest memory request = this.requestByIndex(requestIndex);
 
         require(request.requester == msg.sender, "Can only claim your own requests");
         require(amount <= request.amountFilled, "Can only claim what is filled");
