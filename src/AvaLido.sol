@@ -201,7 +201,6 @@ contract AvaLido is Pausable, ReentrancyGuard {
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
-
         _stake(remaining);
     }
 
