@@ -106,7 +106,11 @@ contract AvaLido is Pausable, ReentrancyGuard {
         unstakeRequestCount[msg.sender]++;
 
         // Create the request and store in our queue.
+<<<<<<< HEAD
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0));
+=======
+        unstakeRequests.push(UnstakeRequest(msg.sender, amount, 0, block.timestamp));
+>>>>>>> 5b64d3c (Cleanup, comments, add errors, tests)
 
         emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp);
 
