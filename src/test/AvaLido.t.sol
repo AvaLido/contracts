@@ -20,21 +20,34 @@ contract AvaLidoTest is DSTest {
     // Deposit
 
     function testStakeBasic() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
     }
 
-    function testFailStakeNotEnoughAVAX() public {
-        lido.deposit{value: 0.9 ether}(1 ether);
-    }
-
-    function testFailStakeZeroDeposit() public {
-        lido.deposit{value: 0 ether}(0 ether);
+    function testStakeZeroDeposit() public {
+        cheats.expectRevert(AvaLido.InvalidStakeAmount.selector);
+        lido.deposit{value: 0 ether}();
     }
 
     // Unstake Requests
 
+    function testUnstakeRequestZeroAmount() public {
+        cheats.expectRevert(AvaLido.InvalidStakeAmount.selector);
+        lido.requestWithdrawal(0 ether);
+    }
+
+    function testTooManyConcurrentUnstakes() public {
+        lido.deposit{value: 100 ether}();
+        // Do all the allowed requests
+        for (uint256 i = 1; i <= MAXIMUM_UNSTAKE_REQUESTS; i++) {
+            lido.requestWithdrawal(1 ether);
+        }
+        // Try one more
+        cheats.expectRevert(AvaLido.TooManyConcurrentUnstakeRequests.selector);
+        lido.requestWithdrawal(1 ether);
+    }
+
     function testUnstakeRequest() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
         // TODO: Test stAVAX transfer.
 
         uint256 requestId = lido.requestWithdrawal(0.5 ether);
@@ -62,7 +75,7 @@ contract AvaLidoTest is DSTest {
     }
 
     function testFillUnstakeRequestSingle() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
         lido.requestWithdrawal(0.5 ether);
         lido.receiveFromMPC{value: 0.5 ether}();
 
@@ -73,7 +86,7 @@ contract AvaLidoTest is DSTest {
     }
 
     function testMultipleFillUnstakeRequestsSingleFill() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
         lido.requestWithdrawal(0.5 ether);
         lido.requestWithdrawal(0.25 ether);
         lido.requestWithdrawal(0.1 ether);
@@ -93,7 +106,7 @@ contract AvaLidoTest is DSTest {
     }
 
     function testFillUnstakeRequestPartial() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
         lido.receiveFromMPC{value: 0.1 ether}();
 
@@ -104,7 +117,7 @@ contract AvaLidoTest is DSTest {
     }
 
     function testFillUnstakeRequestPartialMultiple() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
         lido.requestWithdrawal(0.5 ether);
         lido.receiveFromMPC{value: 0.1 ether}();
         lido.receiveFromMPC{value: 0.1 ether}();
@@ -116,7 +129,7 @@ contract AvaLidoTest is DSTest {
     }
 
     function testFillUnstakeRequestPartialMultipleFilled() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
         lido.requestWithdrawal(0.5 ether);
         lido.receiveFromMPC{value: 0.1 ether}();
 
@@ -133,7 +146,7 @@ contract AvaLidoTest is DSTest {
     }
 
     function testMultipleRequestReads() public {
-        lido.deposit{value: 1 ether}(1 ether);
+        lido.deposit{value: 1 ether}();
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
 
         // Make a request as somebody else
@@ -146,5 +159,37 @@ contract AvaLidoTest is DSTest {
         assertEq(reqId, 0);
         // Ensure that the next id for the user is the 3rd overall, not second.
         assertEq(reqId2, 2);
+    }
+
+    // Claiming
+
+    function testClaimOwnedByOtherUser() public {
+        lido.deposit{value: 1 ether}();
+        uint256 reqId = lido.requestWithdrawal(0.5 ether);
+        lido.receiveFromMPC{value: 0.5 ether}();
+
+        // Make a request as somebody else
+        cheats.prank(ZERO_ADDRESS);
+        cheats.expectRevert(AvaLido.NotAuthorized.selector);
+        lido.claim(reqId, 0.5 ether);
+    }
+
+    function testClaimTooLarge() public {
+        lido.deposit{value: 1 ether}();
+        uint256 reqId = lido.requestWithdrawal(0.5 ether);
+        lido.receiveFromMPC{value: 0.5 ether}();
+
+        cheats.expectRevert(AvaLido.ClaimTooLarge.selector);
+        lido.claim(reqId, 1 ether);
+    }
+
+    function testClaimSucceeds() public {
+        lido.deposit{value: 1 ether}();
+        uint256 reqId = lido.requestWithdrawal(0.5 ether);
+        lido.receiveFromMPC{value: 0.5 ether}();
+
+        assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
+        lido.claim(reqId, 0.5 ether);
+        assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 0);
     }
 }
