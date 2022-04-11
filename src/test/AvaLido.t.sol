@@ -28,12 +28,6 @@ contract AvaLidoTest is DSTest {
         lido.deposit{value: 0 ether}();
     }
 
-    function testDepositTooLarge() public {
-        cheats.deal(TEST_ADDRESS, type(uint256).max);
-        cheats.expectRevert(AvaLido.ShareTooLarge.selector);
-        lido.deposit{value: 57896044618658097711785492504343953926634992332820282019728792003956564819968}();
-    }
-
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
 
