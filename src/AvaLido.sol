@@ -39,12 +39,12 @@ import "./test/console.sol";
 
 struct UnstakeRequest {
     address requester; // The user who requested the unstake.
+    uint64 requestedAt; // The block.timestamp when the unstake request was made.
     uint256 amountRequested; // The amount of stAVAX requested to be unstaked.
     uint256 amountFilled; // The amount of free'd AVAX that has been allocated to this request.
-    uint256 requestedAt; // The block.timestamp when the unstake request was made.
 }
 
-uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
+uint64 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 
 /**
@@ -106,7 +106,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
         unstakeRequestCount[msg.sender]++;
 
         // Create the request and store in our queue.
-        unstakeRequests.push(UnstakeRequest(msg.sender, amount, 0, block.timestamp));
+        unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0));
 
         emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp);
 
