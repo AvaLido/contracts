@@ -64,6 +64,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
     error TooManyConcurrentUnstakeRequests();
     error NotAuthorized();
     error ClaimTooLarge();
+    error ShareTooLarge();
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract
@@ -195,6 +196,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
     function deposit() external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
         if (amount < MINIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (address(this).balance > type(uint256).max / 2) revert ShareTooLarge();
 
         // STAVAX.mint();
         // Send stAVAX to user
