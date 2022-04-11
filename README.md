@@ -9,6 +9,8 @@ One time:
 1. Run `forge install` in this repo to install dependencies.
 1. Run `forge test` to check everything is working.
 
+To see any `forge` assertion failure details or console logs, run `forge test` with `-vv`
+
 **Avalanche local network**
 
 1. Make sure you have `go` installed (`brew install go`).
@@ -42,6 +44,11 @@ This uses the pre-funded AVAX account label "Contract deployer" above.
 
 ### Interaction
 
-Use `cast` to call contract functions directly, like: `cast call <address> "deposit()" --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc`.
+Use `cast` to call contract functions directly. Examples:
 
-Or, you can use the `task` which has the RPC URL pre-set: `cast call -- <address> "deposit()"`
+* Calling a method: `cast call <address> "deposit()" --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc`
+* Sending AVAX to a `payable` method: `cast send --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc --from <address> --private-key <key> --value 1 <address> "deposit()"`
+
+You can also use the `task` command, which has the RPC URL pre-set: `task call -- <address> "deposit()"`
+
+To pass arguments to a function, you'll need to split them out: `task call -- <address> "deposit(uint256)" 1`
