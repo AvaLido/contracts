@@ -86,6 +86,10 @@ contract AvaLido is Pausable, ReentrancyGuard {
     // Pointer to the head of the unfilled section of the queue.
     uint256 private unfilledHead = 0;
 
+    // Tracks the amount of AVAX being staked.
+    // Also includes AVAX pending staking or unstaking.
+    uint256 private amountStakedAVAX = 0;
+
     // Record the number of unstake requests per user so that we can limit them to our max.
     mapping(address => uint8) public unstakeRequestCount;
 
@@ -166,6 +170,18 @@ contract AvaLido is Pausable, ReentrancyGuard {
         emit ClaimEvent(msg.sender, amount, false);
     }
 
+    /**
+     * @notice Calculate the amount of AVAX controlled by the protocol.
+     * @dev This is the amount of AVAX staked (or technically pending being staked),
+     * plus the amount of AVAX that is in the contract. This _does_ include the AVAX
+     * in the contract which has been allocated to unstake requests, but not yet claimed,
+     * because we don't burn stAVAX until the claim happens.
+     * *This should always be >= the total supply of stAVAX*.
+     */
+    function protocolControlledAVAX() external view returns (uint256) {
+        return amountStakedAVAX + address(this).balance;
+    }
+
     // -------------------------------------------------------------------------
     //  Payable functions
     // -------------------------------------------------------------------------
@@ -185,6 +201,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
+
         _stake(remaining);
     }
 
@@ -194,7 +211,11 @@ contract AvaLido is Pausable, ReentrancyGuard {
      * uses it to fill unstake requests. Any remaining funds after all requests
      * are filled are re-staked.
      */
-    function receiveFromMPC() external payable {
+    function receivePrincipalFromMPC() external payable {
+        // We received this from an unstake, so remove from our count.
+        // Anything restaked will be counted again on the way out.
+        amountStakedAVAX -= msg.value;
+
         // Fill unstake requests
         uint256 remaining = fillUnstakeRequests(msg.value);
 
@@ -202,6 +223,19 @@ contract AvaLido is Pausable, ReentrancyGuard {
 
         // Restake excess
         _stake(remaining);
+    }
+
+    /**
+     * @notice You should not call this funciton.
+     */
+    function receiveRewardsFromMPC() external payable {
+        if (msg.value == 0) return;
+
+        // TODO Take fee from rewards and distribute to protocol/insurance.
+        // Question: Also use this to fill unstake requests?
+        // Remaining funds stay in the contract.
+        // Calculate stAVAX rebase
+        // Emit events
     }
 
     // -------------------------------------------------------------------------
@@ -261,6 +295,9 @@ contract AvaLido is Pausable, ReentrancyGuard {
         if (amount <= 0) {
             return;
         }
+        // Count the AVAX that we're staking as protocol controlled.
+        amountStakedAVAX += amount;
+
         // TODO: Send AVAX to MPC wallet to be staked.
         emit StakeEvent(amount);
     }
