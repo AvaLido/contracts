@@ -53,8 +53,6 @@ uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 
-import "./test/console.sol";
-
 /**
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
