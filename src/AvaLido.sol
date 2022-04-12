@@ -103,12 +103,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     PaymentSplitter public protocolFeeSplitter;
     uint256 public protocolFeePercentage = 10;
 
-    constructor(address lidoFeeAddress, address heFeeAddress) {
+    constructor(address lidoFeeAddress, address authorFeeAddress) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         address[] memory paymentAddresses = new address[](2);
         paymentAddresses[0] = lidoFeeAddress;
-        paymentAddresses[1] = heFeeAddress;
+        paymentAddresses[1] = authorFeeAddress;
 
         uint256[] memory paymentSplit = new uint256[](2);
         paymentSplit[0] = 80;

@@ -17,11 +17,11 @@ contract AvaLidoTest is DSTest {
 
     AvaLido lido;
 
-    address feeAddressHE = 0x0000000000000000000000000000000000000001;
+    address feeAddressAuthor = 0x0000000000000000000000000000000000000001;
     address feeAddressLido = 0x0000000000000000000000000000000000000002;
 
     function setUp() public {
-        lido = new AvaLido(feeAddressLido, feeAddressHE);
+        lido = new AvaLido(feeAddressLido, feeAddressAuthor);
     }
 
     receive() external payable {}
@@ -359,10 +359,10 @@ contract AvaLidoTest is DSTest {
 
         PaymentSplitter splitter = PaymentSplitter(lido.protocolFeeSplitter());
 
-        splitter.release(payable(feeAddressHE));
+        splitter.release(payable(feeAddressAuthor));
         splitter.release(payable(feeAddressLido));
 
-        assertEq(address(feeAddressHE).balance, 0.02 ether);
+        assertEq(address(feeAddressAuthor).balance, 0.02 ether);
         assertEq(address(feeAddressLido).balance, 0.08 ether);
     }
 }
