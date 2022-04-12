@@ -28,6 +28,14 @@ contract AvaLidoTest is DSTest {
         lido.deposit{value: 0 ether}();
     }
 
+    function testStakeWithFuzzing(uint256 x) public {
+        cheats.deal(TEST_ADDRESS, type(uint256).max);
+
+        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x < type(uint256).max / 2);
+        lido.deposit{value: x}();
+    }
+
     // Unstake Requests
 
     function testUnstakeRequestZeroAmount() public {
@@ -172,6 +180,28 @@ contract AvaLidoTest is DSTest {
         assertEq(reqId2, 2);
     }
 
+    function testUnstakeRequestFillWithFuzzing(uint256 x) public {
+        cheats.deal(TEST_ADDRESS, type(uint256).max);
+        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x < type(uint256).max / 2);
+
+        lido.deposit{value: x}();
+
+        uint256 requestId = lido.requestWithdrawal(x);
+        assertEq(requestId, 0);
+
+        cheats.deal(ZERO_ADDRESS, type(uint256).max);
+        console.log(ZERO_ADDRESS.balance);
+
+        cheats.prank(ZERO_ADDRESS);
+        lido.receivePrincipalFromMPC{value: x}();
+
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(0);
+
+        assertEq(amountRequested, x);
+        assertEq(amountFilled, x);
+    }
+
     // Claiming
 
     function testClaimOwnedByOtherUser() public {
@@ -258,6 +288,21 @@ contract AvaLidoTest is DSTest {
 
         // Full claim so expect the data to be removed.
         assertEq(requester, ZERO_ADDRESS);
+    }
+
+    function testClaimWithFuzzing(uint256 x) public {
+        cheats.deal(TEST_ADDRESS, type(uint256).max);
+
+        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x < type(uint256).max / 2);
+
+        lido.deposit{value: x}();
+        uint256 reqId = lido.requestWithdrawal(x);
+        lido.receivePrincipalFromMPC{value: x}();
+
+        lido.claim(reqId, x);
+
+        // TODO: Assert tokens transferred correctly
     }
 
     // Tokens
