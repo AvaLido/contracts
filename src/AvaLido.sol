@@ -42,6 +42,7 @@ struct UnstakeRequest {
     uint64 requestedAt; // The block.timestamp when the unstake request was made.
     uint256 amountRequested; // The amount of stAVAX requested to be unstaked.
     uint256 amountFilled; // The amount of free'd AVAX that has been allocated to this request.
+    uint256 amountClaimed; // The amount of AVAX that has been claimed by the requester.
 }
 
 uint64 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
@@ -55,6 +56,8 @@ contract AvaLido is Pausable, ReentrancyGuard {
     // Events
     event DepositEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
     event WithdrawRequestSubmittedEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
+    event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
+    event ClaimEvent(address indexed _from, uint256 indexed _claimAmount, bool finalClaim);
 
     // Errors
     error InvalidStakeAmount();
@@ -106,7 +109,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
         unstakeRequestCount[msg.sender]++;
 
         // Create the request and store in our queue.
-        unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0));
+        unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));
 
         emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp);
 
@@ -136,23 +139,31 @@ contract AvaLido is Pausable, ReentrancyGuard {
         UnstakeRequest memory request = this.requestByIndex(requestIndex);
 
         if (request.requester != msg.sender) revert NotAuthorized();
-        if (amount > request.amountFilled) revert ClaimTooLarge();
+        if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
 
         // Partial claim, update amounts.
-        // TODO: Should we maintain 'amountClaimed' instead of changing these fields?
-        // request.amountRequested -= amount;
-        // request.amountFilled -= amount;
+        request.amountClaimed += amount;
+        unstakeRequests[requestIndex] = request;
 
+        // TODO
         // Burn {amount} stAVAX owned by the contract
-        // Transfer {amount} stAVAX to the user
+        // Transfer {amount} AVAX to the user
 
         // Emit claim event.
-        if (amount == request.amountRequested) {
-            // TODO.
+        if (isFullyClaimed(request)) {
             // Final claim, remove this request.
+            // Note that we just delete for gas refunds, this doesn't alter the indicies of
+            // the other requests.
             unstakeRequestCount[msg.sender]--;
+            delete unstakeRequests[requestIndex];
+
+            emit ClaimEvent(msg.sender, amount, true);
+
             return;
         }
+
+        // Emit an event which describes the partial claim.
+        emit ClaimEvent(msg.sender, amount, false);
     }
 
     // -------------------------------------------------------------------------
@@ -229,6 +240,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
                 // We filled the request entirely, so move the head pointer on
                 if (isFilled(unstakeRequests[i])) {
                     unfilledHead = i + 1;
+                    emit RequestFilledEvent(amountToFill, block.timestamp);
                 }
             }
 
@@ -239,6 +251,10 @@ contract AvaLido is Pausable, ReentrancyGuard {
 
     function isFilled(UnstakeRequest memory request) private pure returns (bool) {
         return request.amountFilled == request.amountRequested;
+    }
+
+    function isFullyClaimed(UnstakeRequest memory request) private pure returns (bool) {
+        return request.amountClaimed == request.amountRequested;
     }
 
     function _stake(uint256 amount) internal {

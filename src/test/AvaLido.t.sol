@@ -53,25 +53,36 @@ contract AvaLidoTest is DSTest {
         uint256 requestId = lido.requestWithdrawal(0.5 ether);
         assertEq(requestId, 0);
 
-        (address requester, uint64 requestAt, uint256 amountRequested, uint256 amountFilled) = lido.unstakeRequests(
-            requestId
-        );
+        (
+            address requester,
+            uint64 requestAt,
+            uint256 amountRequested,
+            uint256 amountFilled,
+            uint256 amountClaimed
+        ) = lido.unstakeRequests(requestId);
 
         assertEq(requester, TEST_ADDRESS);
+        assertEq(requestAt, uint64(block.timestamp));
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0 ether);
-        assertEq(requestAt, uint64(block.timestamp));
+        assertEq(amountClaimed, 0 ether);
 
         uint256 requestId2 = lido.requestWithdrawal(0.1 ether);
-        (address requester2, uint256 requestAt2, uint256 amountRequested2, uint256 amountFilled2) = lido
-            .unstakeRequests(requestId2);
+        (
+            address requester2,
+            uint256 requestAt2,
+            uint256 amountRequested2,
+            uint256 amountFilled2,
+            uint256 amountClaimed2
+        ) = lido.unstakeRequests(requestId2);
 
         assertEq(requestId2, 1);
 
         assertEq(requester2, TEST_ADDRESS);
+        assertEq(requestAt2, uint64(block.timestamp));
         assertEq(amountRequested2, 0.1 ether);
         assertEq(amountFilled2, 0 ether);
-        assertEq(requestAt2, uint64(block.timestamp));
+        assertEq(amountClaimed2, 0 ether);
     }
 
     function testFillUnstakeRequestSingle() public {
@@ -79,7 +90,7 @@ contract AvaLidoTest is DSTest {
         lido.requestWithdrawal(0.5 ether);
         lido.receiveFromMPC{value: 0.5 ether}();
 
-        (, , uint256 amountRequested, uint256 amountFilled) = lido.unstakeRequests(0);
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(0);
 
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0.5 ether);
@@ -92,15 +103,15 @@ contract AvaLidoTest is DSTest {
         lido.requestWithdrawal(0.1 ether);
         lido.receiveFromMPC{value: 2 ether}();
 
-        (, , uint256 amountRequested, uint256 amountFilled) = lido.unstakeRequests(0);
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(0);
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0.5 ether);
 
-        (, , uint256 amountRequested2, uint256 amountFilled2) = lido.unstakeRequests(1);
+        (, , uint256 amountRequested2, uint256 amountFilled2, ) = lido.unstakeRequests(1);
         assertEq(amountRequested2, 0.25 ether);
         assertEq(amountFilled2, 0.25 ether);
 
-        (, , uint256 amountRequested3, uint256 amountFilled3) = lido.unstakeRequests(2);
+        (, , uint256 amountRequested3, uint256 amountFilled3, ) = lido.unstakeRequests(2);
         assertEq(amountRequested3, 0.1 ether);
         assertEq(amountFilled3, 0.1 ether);
     }
@@ -110,7 +121,7 @@ contract AvaLidoTest is DSTest {
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
         lido.receiveFromMPC{value: 0.1 ether}();
 
-        (, , uint256 amountRequested, uint256 amountFilled) = lido.unstakeRequests(reqId);
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(reqId);
 
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0.1 ether);
@@ -122,7 +133,7 @@ contract AvaLidoTest is DSTest {
         lido.receiveFromMPC{value: 0.1 ether}();
         lido.receiveFromMPC{value: 0.1 ether}();
 
-        (, , uint256 amountRequested, uint256 amountFilled) = lido.unstakeRequests(0);
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(0);
 
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0.2 ether);
@@ -139,7 +150,7 @@ contract AvaLidoTest is DSTest {
 
         lido.receiveFromMPC{value: 1 ether}();
 
-        (, , uint256 amountRequested, uint256 amountFilled) = lido.unstakeRequests(0);
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(0);
 
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0.5 ether);
@@ -191,5 +202,61 @@ contract AvaLidoTest is DSTest {
         assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
         lido.claim(reqId, 0.5 ether);
         assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 0);
+
+        (address requester, , uint256 amountRequested, , uint256 amountClaimed) = lido.unstakeRequests(reqId);
+
+        // Full claim so expect the data to be removed.
+        assertEq(requester, ZERO_ADDRESS);
+        assertEq(amountRequested, 0);
+        assertEq(amountClaimed, 0);
+    }
+
+    function testPartialClaimSucceeds() public {
+        lido.deposit{value: 1 ether}();
+        uint256 reqId = lido.requestWithdrawal(1 ether);
+        lido.receiveFromMPC{value: 1 ether}();
+
+        assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
+        lido.claim(reqId, 0.5 ether);
+
+        // Request should still be there.
+        assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
+
+        (, , uint256 amountRequested, uint256 amountFilled, uint256 amountClaimed) = lido.unstakeRequests(reqId);
+
+        assertEq(amountRequested, 1 ether);
+        assertEq(amountRequested, 1 ether);
+        assertEq(amountClaimed, 0.5 ether);
+    }
+
+    function testMultiplePartialClaims() public {
+        lido.deposit{value: 1 ether}();
+        uint256 reqId = lido.requestWithdrawal(1 ether);
+        lido.receiveFromMPC{value: 1 ether}();
+
+        assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
+        lido.claim(reqId, 0.5 ether);
+
+        // Request should still be there.
+        assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
+
+        (, , uint256 amountRequested, uint256 amountFilled, uint256 amountClaimed) = lido.unstakeRequests(reqId);
+
+        assertEq(amountRequested, 1 ether);
+        assertEq(amountRequested, 1 ether);
+        assertEq(amountClaimed, 0.5 ether);
+
+        lido.claim(reqId, 0.25 ether);
+
+        (, , , , uint256 amountClaimed2) = lido.unstakeRequests(reqId);
+        assertEq(amountClaimed2, 0.75 ether);
+
+        lido.claim(reqId, 0.25 ether);
+        assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 0);
+
+        (address requester, , , , ) = lido.unstakeRequests(reqId);
+
+        // Full claim so expect the data to be removed.
+        assertEq(requester, ZERO_ADDRESS);
     }
 }
