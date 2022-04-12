@@ -6,6 +6,8 @@ import "../AvaLido.sol";
 import "./console.sol";
 import "./cheats.sol";
 
+import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
+
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 address constant USER1_ADDRESS = 0x0000000000000000000000000000000000000001;
 address constant USER2_ADDRESS = 0x0000000000000000000000000000000000000002;
@@ -15,8 +17,11 @@ contract AvaLidoTest is DSTest {
 
     AvaLido lido;
 
+    address feeAddressHE = 0x0000000000000000000000000000000000000001;
+    address feeAddressLido = 0x0000000000000000000000000000000000000002;
+
     function setUp() public {
-        lido = new AvaLido();
+        lido = new AvaLido(feeAddressLido, feeAddressHE);
     }
 
     receive() external payable {}
@@ -345,5 +350,19 @@ contract AvaLidoTest is DSTest {
 
         lido.receivePrincipalFromMPC{value: 0.4 ether}();
         assertEq(lido.protocolControlledAVAX(), 0 ether);
+    }
+
+    function testRewardReceived() public {
+        lido.receiveRewardsFromMPC{value: 1 ether}();
+
+        assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
+
+        PaymentSplitter splitter = PaymentSplitter(lido.protocolFeeSplitter());
+
+        splitter.release(payable(feeAddressHE));
+        splitter.release(payable(feeAddressLido));
+
+        assertEq(address(feeAddressHE).balance, 0.02 ether);
+        assertEq(address(feeAddressLido).balance, 0.08 ether);
     }
 }

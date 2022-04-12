@@ -33,7 +33,9 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 
 import "./stAVAX.sol";
 
@@ -51,11 +53,13 @@ uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 
+import "./test/console.sol";
+
 /**
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
  */
-contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
+contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();
@@ -96,6 +100,33 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
 
     // Record the number of unstake requests per user so that we can limit them to our max.
     mapping(address => uint8) public unstakeRequestCount;
+
+    // Address which protocol fees are sent to.
+    PaymentSplitter public protocolFeeSplitter;
+    uint256 public protocolFeePercentage = 10;
+
+    constructor(address lidoFeeAddress, address heFeeAddress) {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        address[] memory paymentAddresses = new address[](2);
+        paymentAddresses[0] = lidoFeeAddress;
+        paymentAddresses[1] = heFeeAddress;
+
+        uint256[] memory paymentSplit = new uint256[](2);
+        paymentSplit[0] = 80;
+        paymentSplit[1] = 20;
+        protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
+    }
+
+    // -------------------------------------------------------------------------
+    //  Modifiers
+    // -------------------------------------------------------------------------
+
+    modifier onlyAdmin() {
+        // TODO: Define proper RBAC. For now just use deployer as admin.
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin");
+        _;
+    }
 
     // -------------------------------------------------------------------------
     //  Public functions
@@ -239,13 +270,19 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
 
     /**
      * @notice You should not call this funciton.
+     * @dev this function takes the protocol fee from the rewards, distributes
+     * it to the protocol fee splitters, and then retains the rest.
+     * We then kick off our stAVAX rebase.
      */
     function receiveRewardsFromMPC() external payable {
         if (msg.value == 0) return;
 
-        // TODO Take fee from rewards and distribute to protocol/insurance.
+        uint256 protocolFee = (msg.value / 100) * protocolFeePercentage;
+        payable(protocolFeeSplitter).transfer(protocolFee);
+
         // Question: Also use this to fill unstake requests?
-        // Remaining funds stay in the contract.
+
+        // TODO
         // Calculate stAVAX rebase
         // Emit events
     }
@@ -319,5 +356,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
 
         // TODO: Send AVAX to MPC wallet to be staked.
         emit StakeEvent(amount);
+    }
+
+    // -------------------------------------------------------------------------
+    //  Admin functions
+    // -------------------------------------------------------------------------
+
+    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
+        protocolFeePercentage = _protocolFeePercentage;
     }
 }
