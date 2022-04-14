@@ -3,78 +3,50 @@
 pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-// import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+abstract contract stAVAX is ERC20 {
+    uint256 private totalShares = 0;
 
-contract stAVAX is ERC20 {
+    error CannotMintToZeroAddress();
+    error NotEnoughBalance();
+
     constructor() ERC20("Staked AVAX", "stAVAX") {}
 
+    mapping(address => uint256) private shares;
+
+    function totalSupply() public view override returns (uint256) {
+        return getTotalPooledAvax();
+    }
+
+    function balanceOf(address account) public view override returns (uint256) {
+        return getBalanceByShares(shares[account]);
+    }
+
     // the ERC-20 implementation of a rebasing token 1:1 pegged to AVAX
-    function mint() public {}
+    function mint(address recipient, uint256 amount) internal {
+        if (recipient == address(0)) revert CannotMintToZeroAddress();
 
-    function burn() public {}
+        totalShares += amount;
+        shares[recipient] += amount;
+    }
 
-    // Note: does this stuff need to be in the main contract as helpers?
+    function burn(address owner, uint256 amount) internal {
+        if (shares[owner] < amount) revert NotEnoughBalance();
+
+        totalShares -= amount;
+        shares[owner] += amount;
+    }
 
     /**
      * @dev Function that calculates total pooled Avax
      * @return Total pooled Avax
      */
-    function gettotalPooledAvax() public view returns (uint256) {
-        // uint256 totalStaked = // need to figure this out from oracle contract
-        // return totalStaked + totalBuffered - reservedFunds;
-        return 0;
-    }
+    function getTotalPooledAvax() public view virtual returns (uint256);
 
-    /**
-     * @dev Function that converts arbitrary Avax to stAVAX
-     * @param _balance - Balance in Avax
-     * @return Balance in stAVAX, totalShares and totalPooledAvax
-     */
-    function convertAvaxToStAvax(uint256 _balance)
-        public
-        view
-        returns (
-            uint256,
-            uint256,
-            uint256
-        )
-    {
-        uint256 totalShares = totalSupply();
-        // If total supply is 0 (i.e. first person depositing) then totalShares is 1 bc they have it all
-        totalShares = totalShares == 0 ? 1 : totalShares;
-
-        uint256 totalPooledAvax = gettotalPooledAvax();
-        totalPooledAvax = totalPooledAvax == 0 ? 1 : totalPooledAvax;
-
-        uint256 balanceInStAvax = (_balance * totalShares) / totalPooledAvax;
-
-        return (balanceInStAvax, totalShares, totalPooledAvax);
-    }
-
-    /**
-     * @dev Function that converts arbitrary stAVAX to Avax
-     * @param _balance - Balance in stAVAX
-     * @return Balance in Avax, totalShares and totalPooledAvax
-     */
-    function convertStAvaxToAvax(uint256 _balance)
-        public
-        view
-        returns (
-            uint256,
-            uint256,
-            uint256
-        )
-    {
-        uint256 totalShares = totalSupply();
-        totalShares = totalShares == 0 ? 1 : totalShares;
-
-        uint256 totalPooledAvax = gettotalPooledAvax();
-        totalPooledAvax = totalPooledAvax == 0 ? 1 : totalPooledAvax;
-
-        uint256 balanceInAvax = (_balance * totalPooledAvax) / totalShares;
-
-        return (balanceInAvax, totalShares, totalPooledAvax);
+    function getBalanceByShares(uint256 _sharesAmount) public view returns (uint256) {
+        if (totalShares == 0) {
+            return 0;
+        }
+        return (_sharesAmount * getTotalPooledAvax()) / totalShares;
     }
 }
