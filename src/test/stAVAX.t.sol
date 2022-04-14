@@ -17,7 +17,7 @@ contract TestToken is stAVAX {
         totalControlled = _totalControlled;
     }
 
-    function getProtocolControlledAVAX() public view override returns (uint256) {
+    function protocolControlledAVAX() public view override returns (uint256) {
         return totalControlled;
     }
 

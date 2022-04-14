@@ -21,6 +21,7 @@ contract AvaLidoTest is DSTest {
 
     function testStakeBasic() public {
         lido.deposit{value: 1 ether}();
+        assertEq(lido.balanceOf(TEST_ADDRESS), 1 ether);
     }
 
     function testStakeZeroDeposit() public {
@@ -34,6 +35,7 @@ contract AvaLidoTest is DSTest {
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
         cheats.assume(x < type(uint256).max / 2);
         lido.deposit{value: x}();
+        assertEq(lido.balanceOf(msg.sender), x);
     }
 
     // Unstake Requests

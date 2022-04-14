@@ -3,6 +3,9 @@
 pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+
+import "./test/console.sol";
 
 /**
  * @notice stAVAX tokens are liquid staked AVAX tokens.
@@ -11,11 +14,12 @@ import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
  * knows the total amount of controlled AVAX.
  * TODO: Transfers, approvals, events.
  */
-abstract contract stAVAX is ERC20 {
+abstract contract stAVAX is ERC20, ReentrancyGuard {
     uint256 private totalShares = 0;
 
     error CannotMintToZeroAddress();
-    error NotEnoughBalance();
+    error CannotSendToZeroAddress();
+    error InsufficientSTAVAXBalance();
 
     constructor() ERC20("Staked AVAX", "stAVAX") {}
 
@@ -27,7 +31,7 @@ abstract contract stAVAX is ERC20 {
      * AVAX that the protocol controls.
      */
     function totalSupply() public view override returns (uint256) {
-        return getProtocolControlledAVAX();
+        return protocolControlledAVAX();
     }
 
     function balanceOf(address account) public view override returns (uint256) {
@@ -50,10 +54,33 @@ abstract contract stAVAX is ERC20 {
      * @dev Burn tokens from a given address.
      */
     function burn(address owner, uint256 amount) internal {
-        if (shares[owner] < amount) revert NotEnoughBalance();
-
+        if (shares[owner] < amount) revert InsufficientSTAVAXBalance();
         totalShares -= amount;
         shares[owner] += amount;
+    }
+
+    // TODO: Temporarily set to allow all.
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return type(uint256).max;
+    }
+
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        _transferShares(msg.sender, recipient, amount);
+        return true;
+    }
+
+    function _transferShares(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal nonReentrant {
+        if (sender == address(0) || recipient == address(0)) revert CannotSendToZeroAddress();
+
+        uint256 currentSenderShares = shares[sender];
+        if (amount > currentSenderShares) revert InsufficientSTAVAXBalance();
+
+        shares[sender] = currentSenderShares -= amount;
+        shares[recipient] = shares[recipient] += amount;
     }
 
     /**
@@ -61,7 +88,7 @@ abstract contract stAVAX is ERC20 {
      * owning contract.
      * @return amount protocol controlled AVAX
      */
-    function getProtocolControlledAVAX() public view virtual returns (uint256);
+    function protocolControlledAVAX() public view virtual returns (uint256);
 
     /**
      * @dev Computes the total amount of AVAX represented by a number of shares.
@@ -73,6 +100,18 @@ abstract contract stAVAX is ERC20 {
         if (totalShares == 0 || sharesAmount == 0) {
             return 0;
         }
-        return (sharesAmount * getProtocolControlledAVAX()) / totalShares;
+        return (sharesAmount * protocolControlledAVAX()) / totalShares;
+    }
+
+    /**
+     * @dev Computes the total amount of shares represented by a number of AVAX.
+     * @param amount amount of AVAX
+     * @return number of shares represented by AVAX
+     */
+    function getSharesByAmount(uint256 amount) public view returns (uint256) {
+        if (totalShares == 0 || amount == 0) {
+            return 0;
+        }
+        return (amount * totalShares) / protocolControlledAVAX();
     }
 }
