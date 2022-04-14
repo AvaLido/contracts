@@ -56,7 +56,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     function burn(address owner, uint256 amount) internal {
         if (shares[owner] < amount) revert InsufficientSTAVAXBalance();
         totalShares -= amount;
-        shares[owner] += amount;
+        shares[owner] -= amount;
     }
 
     // TODO: Temporarily set to allow all.

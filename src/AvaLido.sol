@@ -106,21 +106,24 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
      * people flooding the queue. The amount for each unstake request is unbounded.
      * @param amount The amount of stAVAX to unstake.
      */
-    function requestWithdrawal(uint256 amount) external whenNotPaused /* nonReentrant */ returns (uint256) {
+    function requestWithdrawal(uint256 amount)
+        external
+        whenNotPaused /* nonReentrant */
+        returns (uint256)
+    {
         if (amount == 0) revert InvalidStakeAmount();
-
-        // Transfer stAVAX from user to our contract.
-        transfer(address(this), amount);
 
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
             revert TooManyConcurrentUnstakeRequests();
         }
+        unstakeRequestCount[msg.sender]++;
 
         if (balanceOf(msg.sender) < amount) {
             revert InsufficientBalance();
         }
 
-        unstakeRequestCount[msg.sender]++;
+        // Transfer stAVAX from user to our contract.
+        transfer(address(this), amount);
 
         // Create the request and store in our queue.
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));
@@ -161,10 +164,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
 
         // Burn stAVAX and send AVAX to the user.
         burn(address(this), amount);
-
-        // TODO: Get our AVAX back in order to transfer to user (currently reverts).
-        if (address(this).balance >= amount) revert InsufficientBalance();
-        
         payable(msg.sender).transfer(amount);
 
         // Emit claim event.
@@ -267,13 +266,16 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
      * @param inputAmount The amount of free'd AVAX made available to fill requests.
      */
     function fillUnstakeRequests(uint256 inputAmount) private returns (uint256) {
-        // Fill as many unstake requests as possible
+        if (inputAmount == 0) return 0;
+
         uint256 amountFilled = 0;
         uint256 remaining = inputAmount;
 
         // Assumes order of the array is creation order.
         for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
-            if (amountFilled == inputAmount) {
+            if (remaining == 0) break;
+
+            if (unstakeRequests[i].amountFilled == unstakeRequests[i].amountRequested) {
                 // This shouldn't happen, but revert if it does for clearer testing
                 revert("Invalid state - filled request in queue");
             }

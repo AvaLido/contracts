@@ -17,6 +17,8 @@ contract AvaLidoTest is DSTest {
         lido = new AvaLido();
     }
 
+    receive() external payable {}
+
     // Deposit
 
     function testStakeBasic() public {
@@ -164,6 +166,21 @@ contract AvaLidoTest is DSTest {
 
         assertEq(amountRequested, 0.5 ether);
         assertEq(amountFilled, 0.5 ether);
+    }
+
+    function testFillUnstakeRequestMultiRequestSingleFill() public {
+        lido.deposit{value: 1 ether}();
+        uint256 req1 = lido.requestWithdrawal(0.5 ether);
+        uint256 req2 = lido.requestWithdrawal(0.5 ether);
+        lido.receivePrincipalFromMPC{value: 0.5 ether}();
+
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(req1);
+        assertEq(amountRequested, 0.5 ether);
+        assertEq(amountFilled, 0.5 ether);
+
+        (, , uint256 amountRequested2, uint256 amountFilled2, ) = lido.unstakeRequests(req2);
+        assertEq(amountRequested2, 0.5 ether);
+        assertEq(amountFilled2, 0);
     }
 
     function testMultipleRequestReads() public {
