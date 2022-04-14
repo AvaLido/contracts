@@ -3,13 +3,13 @@
 pragma solidity 0.8.10;
 
 /*
- █████╗ ██╗   ██╗ █████╗ ██╗     ██╗██████╗  ██████╗ 
+ █████╗ ██╗   ██╗ █████╗ ██╗     ██╗██████╗  ██████╗
 ██╔══██╗██║   ██║██╔══██╗██║     ██║██╔══██╗██╔═══██╗
 ███████║██║   ██║███████║██║     ██║██║  ██║██║   ██║
 ██╔══██║╚██╗ ██╔╝██╔══██║██║     ██║██║  ██║██║   ██║
 ██║  ██║ ╚████╔╝ ██║  ██║███████╗██║██████╔╝╚██████╔╝
-╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝╚═╝╚═════╝  ╚═════╝      
-     
+╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝╚═╝╚═════╝  ╚═════╝
+
                          ,██▄
                         /█████
                        ████████
@@ -18,7 +18,7 @@ pragma solidity 0.8.10;
                    ▄████████   ████
                   ████████    ██████
                  ████████    ████████
-     
+
               ████                 ,███
              ████████▌         ,████████
              ████████████,  █████████████
@@ -106,10 +106,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
      * people flooding the queue. The amount for each unstake request is unbounded.
      * @param amount The amount of stAVAX to unstake.
      */
-    function requestWithdrawal(uint256 amount) external whenNotPaused nonReentrant returns (uint256) {
+    function requestWithdrawal(uint256 amount) external whenNotPaused /* nonReentrant */ returns (uint256) {
         if (amount == 0) revert InvalidStakeAmount();
 
-        // TODO: Transfer stAVAX from user to our contract.
+        // Transfer stAVAX from user to our contract.
+        transfer(address(this), amount);
+
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
             revert TooManyConcurrentUnstakeRequests();
         }
@@ -159,6 +161,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
 
         // Burn stAVAX and send AVAX to the user.
         burn(address(this), amount);
+
+        // TODO: Get our AVAX back in order to transfer to user (currently reverts).
+        if (address(this).balance >= amount) revert InsufficientBalance();
+        
         payable(msg.sender).transfer(amount);
 
         // Emit claim event.
