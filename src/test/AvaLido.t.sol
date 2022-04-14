@@ -7,6 +7,8 @@ import "./console.sol";
 import "./cheats.sol";
 
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+address constant USER1_ADDRESS = 0x0000000000000000000000000000000000000001;
+address constant USER2_ADDRESS = 0x0000000000000000000000000000000000000002;
 
 contract AvaLidoTest is DSTest {
     event StakeEvent(uint256 amount);
@@ -188,8 +190,11 @@ contract AvaLidoTest is DSTest {
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
 
         // Make a request as somebody else
-        cheats.prank(ZERO_ADDRESS);
-        lido.requestWithdrawal(0.1 ether);
+        cheats.deal(USER1_ADDRESS, 0.2 ether);
+        cheats.startPrank(USER1_ADDRESS);
+        lido.deposit{value: 0.2 ether}();
+        lido.requestWithdrawal(0.2 ether);
+        cheats.stopPrank();
 
         // Make another request as the original user.
         uint256 reqId2 = lido.requestWithdrawal(0.2 ether);
