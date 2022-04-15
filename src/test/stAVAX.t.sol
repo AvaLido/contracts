@@ -38,36 +38,57 @@ contract stAVAXTest is DSTest {
     }
 
     function testSharesSingleUser() public {
-        stavax.proxyMint(USER1_ADDRESS, 100);
-        stavax._setTotalControlled(100);
+        stavax.proxyMint(USER1_ADDRESS, 100 ether);
+        stavax._setTotalControlled(100 ether);
 
-        assertEq(stavax.totalSupply(), 100);
-        assertEq(stavax.balanceOf(USER1_ADDRESS), 100);
+        assertEq(stavax.totalSupply(), 100 ether);
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 100 ether);
+    }
+
+    function testSharesSingleUserBurn() public {
+        stavax.proxyMint(USER1_ADDRESS, 100 ether);
+        stavax.proxyBurn(USER1_ADDRESS, 10 ether);
+        stavax._setTotalControlled(90 ether);
+
+        assertEq(stavax.totalSupply(), 90 ether);
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 90 ether);
     }
 
     function testSharesSingleUserNotEqual() public {
-        stavax.proxyMint(USER1_ADDRESS, 100);
-        stavax._setTotalControlled(50);
+        stavax.proxyMint(USER1_ADDRESS, 100 ether);
+        stavax._setTotalControlled(50 ether);
 
-        assertEq(stavax.balanceOf(USER1_ADDRESS), 50);
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 50 ether);
     }
 
     function testSharesMultipleUser() public {
-        stavax.proxyMint(USER1_ADDRESS, 100);
-        stavax.proxyMint(USER2_ADDRESS, 100);
-        stavax._setTotalControlled(100);
+        stavax.proxyMint(USER1_ADDRESS, 100 ether);
+        stavax.proxyMint(USER2_ADDRESS, 100 ether);
+        stavax._setTotalControlled(100 ether);
 
-        assertEq(stavax.balanceOf(USER1_ADDRESS), 50);
-        assertEq(stavax.balanceOf(USER2_ADDRESS), 50);
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 50 ether);
+        assertEq(stavax.balanceOf(USER2_ADDRESS), 50 ether);
+    }
+
+    function testSharesMultipleUserBurn() public {
+        stavax.proxyMint(USER1_ADDRESS, 100 ether);
+        stavax.proxyMint(USER2_ADDRESS, 100 ether);
+        stavax._setTotalControlled(100 ether);
+
+        // Ater burn, USER1 has 60 AVAX remaining; total in protocol is now 160.
+        stavax.proxyBurn(USER1_ADDRESS, 40 ether);
+
+        assertEq(stavax.balanceOf(USER1_ADDRESS), (60 ether / 160) * 100);
+        assertEq(stavax.balanceOf(USER2_ADDRESS), (100 ether / 160) * 100);
     }
 
     function testSharesMultipleUserNotEqual() public {
-        stavax.proxyMint(USER1_ADDRESS, 2);
-        stavax.proxyMint(USER2_ADDRESS, 8);
-        stavax._setTotalControlled(50);
+        stavax.proxyMint(USER1_ADDRESS, 2 ether);
+        stavax.proxyMint(USER2_ADDRESS, 8 ether);
+        stavax._setTotalControlled(50 ether);
 
-        assertEq(stavax.balanceOf(USER1_ADDRESS), 10);
-        assertEq(stavax.balanceOf(USER2_ADDRESS), 40);
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 10 ether);
+        assertEq(stavax.balanceOf(USER2_ADDRESS), 40 ether);
     }
 
     function testSharesMultipleUserWithFuzzing(uint256 u1Amount, uint256 u2Amount) public {
