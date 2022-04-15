@@ -33,11 +33,16 @@ contract AvaLidoTest is DSTest {
         lido.deposit{value: 0 ether}();
     }
 
+    function testStakeTooLargeDeposit() public {
+        cheats.expectRevert(AvaLido.InvalidStakeAmount.selector);
+        lido.deposit{value: (MAXIMUM_STAKE_AMOUNT + 1)}();
+    }
+
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
 
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
-        cheats.assume(x < type(uint256).max / 2);
+        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
         lido.deposit{value: x}();
         assertEq(lido.balanceOf(msg.sender), x);
     }
@@ -207,7 +212,7 @@ contract AvaLidoTest is DSTest {
     function testUnstakeRequestFillWithFuzzing(uint256 x) public {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
-        cheats.assume(x < type(uint256).max / 2);
+        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         lido.deposit{value: x}();
 
@@ -318,7 +323,7 @@ contract AvaLidoTest is DSTest {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
 
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
-        cheats.assume(x < type(uint256).max / 2);
+        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         lido.deposit{value: x}();
         uint256 reqId = lido.requestWithdrawal(x);

@@ -47,7 +47,8 @@ struct UnstakeRequest {
     uint256 amountClaimed; // The amount of AVAX that has been claimed by the requester.
 }
 
-uint64 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
+uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
+uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 
 /**
@@ -111,7 +112,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
         whenNotPaused /* nonReentrant */
         returns (uint256)
     {
-        if (amount == 0) revert InvalidStakeAmount();
+        if (amount == 0 || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
             revert TooManyConcurrentUnstakeRequests();
@@ -207,7 +208,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
      */
     function deposit() external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
-        if (amount < MINIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         // Mint stAVAX for user
         mint(msg.sender, amount);
