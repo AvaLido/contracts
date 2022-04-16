@@ -107,11 +107,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
      * people flooding the queue. The amount for each unstake request is unbounded.
      * @param amount The amount of stAVAX to unstake.
      */
-    function requestWithdrawal(uint256 amount)
-        external
-        whenNotPaused /* nonReentrant */
-        returns (uint256)
-    {
+    function requestWithdrawal(uint256 amount) external whenNotPaused nonReentrant returns (uint256) {
         if (amount == 0 || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
@@ -124,7 +120,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
         }
 
         // Transfer stAVAX from user to our contract.
-        transfer(address(this), amount);
+        // We use the internal call to avoid double-reentrancy issues.
+        _transferShares(msg.sender, address(this), amount);
 
         // Create the request and store in our queue.
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));

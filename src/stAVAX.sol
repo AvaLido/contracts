@@ -64,7 +64,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
         return type(uint256).max;
     }
 
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
+    function transfer(address recipient, uint256 amount) public override nonReentrant returns (bool) {
         _transferShares(msg.sender, recipient, amount);
         return true;
     }
@@ -73,7 +73,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
         address sender,
         address recipient,
         uint256 amount
-    ) internal nonReentrant {
+    ) internal {
         if (sender == address(0) || recipient == address(0)) revert CannotSendToZeroAddress();
 
         uint256 currentSenderShares = shares[sender];
