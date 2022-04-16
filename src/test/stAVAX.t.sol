@@ -7,6 +7,7 @@ import "./cheats.sol";
 import "./console.sol";
 import "../stAVAX.sol";
 
+address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 address constant USER1_ADDRESS = 0x0000000000000000000000000000000000000001;
 address constant USER2_ADDRESS = 0x0000000000000000000000000000000000000002;
 
@@ -111,5 +112,42 @@ contract stAVAXTest is DSTest {
 
         assertEq(stavax.balanceOf(USER1_ADDRESS), 66666666666666666666);
         assertEq(stavax.balanceOf(USER2_ADDRESS), 33333333333333333333);
+    }
+
+    function testTransferNoZero() public {
+        stavax._setTotalControlled(10 ether);
+        stavax.proxyMint(USER1_ADDRESS, 2 ether);
+
+        cheats.prank(USER1_ADDRESS);
+        cheats.expectRevert(stAVAX.CannotSendToZeroAddress.selector);
+        stavax.transfer(ZERO_ADDRESS, 1 ether);
+
+        // Original balance remains
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 10 ether);
+    }
+
+    function testTransferNoBalance() public {
+        stavax._setTotalControlled(10 ether);
+        stavax.proxyMint(USER1_ADDRESS, 2 ether);
+
+        cheats.prank(USER1_ADDRESS);
+        cheats.expectRevert(stAVAX.InsufficientSTAVAXBalance.selector);
+        stavax.transfer(USER2_ADDRESS, 3 ether);
+
+        // Original balance remains
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 10 ether);
+    }
+
+    function testTransfer() public {
+        stavax._setTotalControlled(10 ether);
+        stavax.proxyMint(USER1_ADDRESS, 2 ether);
+
+        cheats.prank(USER1_ADDRESS);
+        bool res = stavax.transfer(USER2_ADDRESS, 1 ether);
+        assertTrue(res);
+
+        // Equal share of the 10 eth in the protocol.
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 5 ether);
+        assertEq(stavax.balanceOf(USER2_ADDRESS), 5 ether);
     }
 }
