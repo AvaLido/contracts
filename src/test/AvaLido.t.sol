@@ -44,7 +44,7 @@ contract AvaLidoTest is DSTest {
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
         lido.deposit{value: x}();
-        assertEq(lido.balanceOf(msg.sender), x);
+        assertEq(lido.balanceOf(TEST_ADDRESS), x);
     }
 
     // Unstake Requests
