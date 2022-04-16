@@ -56,18 +56,18 @@ uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
  * @author Hyperelliptic Labs and RockX
  */
 contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
-    // Events
-    event DepositEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
-    event WithdrawRequestSubmittedEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
-    event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
-    event ClaimEvent(address indexed _from, uint256 indexed _claimAmount, bool finalClaim);
-
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();
     error NotAuthorized();
     error ClaimTooLarge();
     error InsufficientBalance();
+
+    // Events
+    event DepositEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
+    event WithdrawRequestSubmittedEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
+    event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
+    event ClaimEvent(address indexed _from, uint256 indexed _claimAmount, bool finalClaim);
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract

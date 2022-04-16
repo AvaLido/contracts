@@ -64,11 +64,21 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
         return type(uint256).max;
     }
 
+    /**
+     * @notice Transfer your stAVAX to another account.
+     * @param recipient The address of the recipient.
+     * @param amount The amount of stAVAX to send.
+     */
     function transfer(address recipient, uint256 amount) public override nonReentrant returns (bool) {
         _transferShares(msg.sender, recipient, amount);
         return true;
     }
 
+    /**
+     * @dev Transfer shares in the allocation from one address to another.
+     * Note that you should use `transfer` instead if possible. Only use this when
+     * calling from a nonReentrant function.
+     */
     function _transferShares(
         address sender,
         address recipient,
