@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-contract ValidatorOracle {
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
+
+contract ValidatorOracle is AccessControlEnumerable {
     struct Validator {
         uint64 stakeEndTime;
         uint256 primaryStakeAmount;
@@ -11,9 +13,30 @@ contract ValidatorOracle {
     }
 
     Validator[] validators;
+    mapping(string => bool) validatorAllowlist;
+
+    constructor() {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
+    modifier onlyAdmin() {
+        hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _;
+    }
+
+    function addValidatorToAllowlist(string memory validatorId) public onlyAdmin {
+        validatorAllowlist[validatorId] = true;
+    }
+
+    function removeValidatorFromAllowlist(string memory validatorId) public onlyAdmin {
+        delete validatorAllowlist[validatorId];
+    }
 
     function __debug_setValidators(Validator[] memory vals) public {
-        validators = vals;
+        delete validators;
+        for (uint256 i = 0; i < vals.length; i++) {
+            validators.push(vals[i]);
+        }
     }
 
     function getAvailableValidators() public view returns (Validator[] memory) {
@@ -40,7 +63,15 @@ contract ValidatorOracle {
         return result;
     }
 
-    function calculateFreeSpace(Validator memory val) internal pure returns (uint256) {
+    function calculateFreeSpace(Validator memory val) public pure returns (uint256) {
         return (val.primaryStakeAmount * 4) - val.delegatedAmount;
     }
+
+    function isInAllowlist(string memory validatorId) public view returns (bool) {
+        return validatorAllowlist[validatorId];
+    }
+
+    // TODO: functions which set the validator data.
+    // NOTE: We should take the allowlist into account when deciding which validators to write data for,
+    // this will be much simpler (and more efficient) than taking all data and filtering afterwards.
 }
