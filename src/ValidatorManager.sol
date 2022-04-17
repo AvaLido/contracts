@@ -90,7 +90,7 @@ contract ValidatorManager {
 
             // Move on, and loop back to the start.
             n++;
-            if (n > validators.length) {
+            if (n > validators.length - 1) {
                 n = 0;
             }
         }
