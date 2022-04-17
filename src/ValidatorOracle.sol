@@ -4,14 +4,10 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 
-contract ValidatorOracle is AccessControlEnumerable {
-    struct Validator {
-        uint64 stakeEndTime;
-        uint256 primaryStakeAmount;
-        uint256 delegatedAmount;
-        string id;
-    }
+import "./interfaces/IValidatorOracle.sol";
+import "./Types.sol";
 
+contract ValidatorOracle is BaseValidatorOracle, AccessControlEnumerable {
     Validator[] validators;
     mapping(string => bool) validatorAllowlist;
 
@@ -32,18 +28,11 @@ contract ValidatorOracle is AccessControlEnumerable {
         delete validatorAllowlist[validatorId];
     }
 
-    function __debug_setValidators(Validator[] memory vals) public {
-        delete validators;
-        for (uint256 i = 0; i < vals.length; i++) {
-            validators.push(vals[i]);
-        }
-    }
-
-    function getAvailableValidators() public view returns (Validator[] memory) {
+    function getAvailableValidators() public view override returns (Validator[] memory) {
         return validators;
     }
 
-    function getAvailableValidatorsWithCapacity(uint256 amount) public view returns (Validator[] memory) {
+    function getAvailableValidatorsWithCapacity(uint256 amount) public view override returns (Validator[] memory) {
         // TODO: Can we re-think a way to filter this without needing to iterate twice?
         // We can't do it client-side because it happens at stake-time, and we do not want
         // clients to control where the stake goes.
@@ -61,10 +50,6 @@ contract ValidatorOracle is AccessControlEnumerable {
             }
         }
         return result;
-    }
-
-    function calculateFreeSpace(Validator memory val) public pure returns (uint256) {
-        return (val.primaryStakeAmount * 4) - val.delegatedAmount;
     }
 
     function isInAllowlist(string memory validatorId) public view returns (bool) {

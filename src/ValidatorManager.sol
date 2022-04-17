@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "./ValidatorOracle.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
+import "./interfaces/IValidatorOracle.sol";
+import "./Types.sol";
+
 contract ValidatorManager {
-    ValidatorOracle vOracle;
+    IValidatorOracle vOracle;
 
     constructor(address oracleAddress) {
-        vOracle = ValidatorOracle(oracleAddress);
+        vOracle = IValidatorOracle(oracleAddress);
     }
 
     function selectValidatorsForStake(uint256 amount)
@@ -23,7 +25,7 @@ contract ValidatorManager {
     {
         if (amount == 0) return (new string[](0), new uint256[](0), 0);
 
-        ValidatorOracle.Validator[] memory validators = vOracle.getAvailableValidatorsWithCapacity(100);
+        Validator[] memory validators = vOracle.getAvailableValidatorsWithCapacity(100);
 
         // We have no nodes with capacity, don't do anything.
         if (validators.length == 0) {
@@ -34,7 +36,7 @@ contract ValidatorManager {
         // For cases where we're staking < 100, we just shove everything on one pseudo-random node.
         // This is significantly simpler and cheaper than spreading it out, and 100 will not be enough
         // to skew the distribution across the network.
-        if (amount < 100 ether) {
+        if (amount <= 100 ether) {
             uint256 i = uint256(keccak256(abi.encodePacked(block.timestamp))) % validators.length;
             string[] memory vals = new string[](1);
             vals[0] = validators[i].id;
@@ -68,7 +70,7 @@ contract ValidatorManager {
         uint256 chunkSize = amount / validators.length;
 
         // Because we need to create a fixed size array, we use every validator, and we set the amount to 0
-        // if we can't stake anything on it.
+        // if we can't stake anything on it. Callers must check this when using the result.
         uint256[] memory resultAmounts = new uint256[](validators.length);
 
         // Keep track of the amount we've staked
@@ -80,7 +82,7 @@ contract ValidatorManager {
             // Our actual fillable space is the initial free space, minus anything already allocated.
             uint256 freeSpace = freeSpaces[n] - resultAmounts[n];
 
-            // Stake the smallest of (toal remaining, space for this node, or 1 chunk).
+            // Stake the smallest of (total remaining, space for this node, or 1 chunk).
             uint256 amountToStake = Math.min(remaining, Math.min(freeSpace, chunkSize));
 
             resultAmounts[n] += amountToStake;
