@@ -34,7 +34,7 @@ contract ValidatorManager {
         // For cases where we're staking < 100, we just shove everything on one pseudo-random node.
         // This is significantly simpler and cheaper than spreading it out, and 100 will not be enough
         // to skew the distribution across the network.
-        if (amount < 100) {
+        if (amount < 100 ether) {
             uint256 i = uint256(keccak256(abi.encodePacked(block.timestamp))) % validators.length;
             string[] memory vals = new string[](1);
             vals[0] = validators[i].id;
