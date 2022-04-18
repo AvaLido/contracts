@@ -17,6 +17,11 @@ abstract contract BaseValidatorOracle is IValidatorOracle {
 
     function getAvailableValidatorsWithCapacity(uint256 amount) external view virtual returns (Validator[] memory);
 
+    /**
+     * Calculates the amount of free space in the validator's stake.
+     * @param val The validator to calculate the free space for.
+     * @return amount The amount of free space on the validator.
+     */
     function calculateFreeSpace(Validator memory val) public pure returns (uint256) {
         return (val.primaryStakeAmount * 4) - val.delegatedAmount;
     }

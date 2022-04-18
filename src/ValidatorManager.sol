@@ -7,13 +7,39 @@ import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "./interfaces/IValidatorOracle.sol";
 import "./Types.sol";
 
+/**
+ * @title Lido on Avalanche Validator Manager
+ * @dev This contract is used to encapsulate logic for reading Validator state and computing
+ * staking allocations. It contains a ValidatorOracle contract that is used to query the state
+ * of validators on the network.
+ */
 contract ValidatorManager {
     IValidatorOracle vOracle;
+
+    uint256 smallStakeThreshold = 100 ether;
 
     constructor(address oracleAddress) {
         vOracle = IValidatorOracle(oracleAddress);
     }
 
+    /**
+     * @notice Select valdators to dsitribute stake to. You should not need to call this function.
+     * @dev This selects the validators to distribute stake to. It is called by the Lido contract
+     * when we want to allocate a stake to validators.
+     * In general, our aim is to maintain decentralisation of stake across many validator nodes.
+     * Assuming that we end up handling a significant proportion of total stake in the network,
+     * we want to a pseudo-even distribution of stake across all validators.
+     * To be pragmatic, we use a greatly simplified option for small stakes where we just allocate
+     * everything to a single pseudo-random validator.
+     * For larger stakes, we use a packing-esque algorithm to allocate each validator a portion
+     * of the total stake. This is clearly more expensive in gas, but only applies to people with more
+     * capital anyway. They are free to use many transactions under the threshold which will have the same
+     * distribution effect (assuming they are in different blocks).
+     * @param amount The amount of stake to distribute.
+     * @return validators The validator node ids to distribute the stake to.
+     * @return allocations The amount of AVAX to allocate to each validator
+     * @return remainder The remaining stake which could not be allocated.
+     */
     function selectValidatorsForStake(uint256 amount)
         public
         view

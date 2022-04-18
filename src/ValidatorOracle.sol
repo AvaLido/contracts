@@ -7,6 +7,13 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "./interfaces/IValidatorOracle.sol";
 import "./Types.sol";
 
+/**
+ * @title Lido on Avalanche Validator Oracle
+ * @dev This contract is used to provide data on the Avalanche validators.
+ * For efficiency, we only expect data for the validators which we wish to use.
+ * If other validator data is posted to the contract, it will be ignored based
+ * on the contents of the allowlist.
+ */
 contract ValidatorOracle is BaseValidatorOracle, AccessControlEnumerable {
     Validator[] validators;
     mapping(string => bool) validatorAllowlist;
@@ -32,6 +39,12 @@ contract ValidatorOracle is BaseValidatorOracle, AccessControlEnumerable {
         return validators;
     }
 
+    /**
+     * @notice Gets the validators which have capacity to handle the given amount of AVAX.
+     * @dev Returns an dynamic array of validators.
+     * @param amount The amount of AVAX to allocate in total.
+     * @return validators The validators which have capacity to handle the given amount of AVAX.
+     */
     function getAvailableValidatorsWithCapacity(uint256 amount) public view override returns (Validator[] memory) {
         // TODO: Can we re-think a way to filter this without needing to iterate twice?
         // We can't do it client-side because it happens at stake-time, and we do not want
