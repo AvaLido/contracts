@@ -51,7 +51,7 @@ contract ValidatorManager {
     {
         if (amount == 0) return (new string[](0), new uint256[](0), 0);
 
-        Validator[] memory validators = vOracle.getAvailableValidatorsWithCapacity(100);
+        Validator[] memory validators = vOracle.getAvailableValidatorsWithCapacity(smallStakeThreshold);
 
         // We have no nodes with capacity, don't do anything.
         if (validators.length == 0) {
@@ -62,7 +62,7 @@ contract ValidatorManager {
         // For cases where we're staking < 100, we just shove everything on one pseudo-random node.
         // This is significantly simpler and cheaper than spreading it out, and 100 will not be enough
         // to skew the distribution across the network.
-        if (amount <= 100 ether) {
+        if (amount <= smallStakeThreshold) {
             uint256 i = uint256(keccak256(abi.encodePacked(block.timestamp))) % validators.length;
             string[] memory vals = new string[](1);
             vals[0] = validators[i].id;
