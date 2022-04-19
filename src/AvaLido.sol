@@ -3,13 +3,13 @@
 pragma solidity 0.8.10;
 
 /*
- █████╗ ██╗   ██╗ █████╗ ██╗     ██╗██████╗  ██████╗ 
+ █████╗ ██╗   ██╗ █████╗ ██╗     ██╗██████╗  ██████╗
 ██╔══██╗██║   ██║██╔══██╗██║     ██║██╔══██╗██╔═══██╗
 ███████║██║   ██║███████║██║     ██║██║  ██║██║   ██║
 ██╔══██║╚██╗ ██╔╝██╔══██║██║     ██║██║  ██║██║   ██║
 ██║  ██║ ╚████╔╝ ██║  ██║███████╗██║██████╔╝╚██████╔╝
-╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝╚═╝╚═════╝  ╚═════╝      
-     
+╚═╝  ╚═╝  ╚═══╝  ╚═╝  ╚═╝╚══════╝╚═╝╚═════╝  ╚═════╝
+
                          ,██▄
                         /█████
                        ████████
@@ -18,7 +18,7 @@ pragma solidity 0.8.10;
                    ▄████████   ████
                   ████████    ██████
                  ████████    ████████
-     
+
               ████                 ,███
              ████████▌         ,████████
              ████████████,  █████████████
@@ -35,6 +35,8 @@ import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
+import "./stAVAX.sol";
+
 import "./test/console.sol";
 
 struct UnstakeRequest {
@@ -45,25 +47,27 @@ struct UnstakeRequest {
     uint256 amountClaimed; // The amount of AVAX that has been claimed by the requester.
 }
 
-uint64 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
+uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
+uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 
 /**
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
  */
-contract AvaLido is Pausable, ReentrancyGuard {
-    // Events
-    event DepositEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
-    event WithdrawRequestSubmittedEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
-    event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
-    event ClaimEvent(address indexed _from, uint256 indexed _claimAmount, bool finalClaim);
-
+contract AvaLido is Pausable, ReentrancyGuard, stAVAX {
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();
     error NotAuthorized();
     error ClaimTooLarge();
+    error InsufficientBalance();
+
+    // Events
+    event DepositEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
+    event WithdrawRequestSubmittedEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
+    event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
+    event ClaimEvent(address indexed _from, uint256 indexed _claimAmount, bool finalClaim);
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract
@@ -104,13 +108,20 @@ contract AvaLido is Pausable, ReentrancyGuard {
      * @param amount The amount of stAVAX to unstake.
      */
     function requestWithdrawal(uint256 amount) external whenNotPaused nonReentrant returns (uint256) {
-        if (amount == 0) revert InvalidStakeAmount();
+        if (amount == 0 || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
-        // TODO: Transfer stAVAX from user to our contract.
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
             revert TooManyConcurrentUnstakeRequests();
         }
         unstakeRequestCount[msg.sender]++;
+
+        if (balanceOf(msg.sender) < amount) {
+            revert InsufficientBalance();
+        }
+
+        // Transfer stAVAX from user to our contract.
+        // We use the internal call to avoid double-reentrancy issues.
+        _transferShares(msg.sender, address(this), amount);
 
         // Create the request and store in our queue.
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));
@@ -126,7 +137,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
      * @param requestIndex index The index of the request to look up.
      * @return UnstakeRequest The request at the given index.
      */
-    function requestByIndex(uint256 requestIndex) external view returns (UnstakeRequest memory) {
+    function requestByIndex(uint256 requestIndex) public view returns (UnstakeRequest memory) {
         return unstakeRequests[requestIndex];
     }
 
@@ -140,7 +151,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
      */
     function claim(uint256 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
         // TODO: Find request by ID
-        UnstakeRequest memory request = this.requestByIndex(requestIndex);
+        UnstakeRequest memory request = requestByIndex(requestIndex);
 
         if (request.requester != msg.sender) revert NotAuthorized();
         if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
@@ -149,9 +160,9 @@ contract AvaLido is Pausable, ReentrancyGuard {
         request.amountClaimed += amount;
         unstakeRequests[requestIndex] = request;
 
-        // TODO
-        // Burn {amount} stAVAX owned by the contract
-        // Transfer {amount} AVAX to the user
+        // Burn stAVAX and send AVAX to the user.
+        burn(address(this), amount);
+        payable(msg.sender).transfer(amount);
 
         // Emit claim event.
         if (isFullyClaimed(request)) {
@@ -178,7 +189,7 @@ contract AvaLido is Pausable, ReentrancyGuard {
      * because we don't burn stAVAX until the claim happens.
      * *This should always be >= the total supply of stAVAX*.
      */
-    function protocolControlledAVAX() external view returns (uint256) {
+    function protocolControlledAVAX() public view override returns (uint256) {
         return amountStakedAVAX + address(this).balance;
     }
 
@@ -194,10 +205,10 @@ contract AvaLido is Pausable, ReentrancyGuard {
      */
     function deposit() external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
-        if (amount < MINIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
-        // STAVAX.mint();
-        // Send stAVAX to user
+        // Mint stAVAX for user
+        mint(msg.sender, amount);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
@@ -213,6 +224,8 @@ contract AvaLido is Pausable, ReentrancyGuard {
     function receivePrincipalFromMPC() external payable {
         // We received this from an unstake, so remove from our count.
         // Anything restaked will be counted again on the way out.
+        // Note: This avoids double counting, as the total count includes AVAX held by
+        // the contract.
         amountStakedAVAX -= msg.value;
 
         // Fill unstake requests
@@ -251,13 +264,16 @@ contract AvaLido is Pausable, ReentrancyGuard {
      * @param inputAmount The amount of free'd AVAX made available to fill requests.
      */
     function fillUnstakeRequests(uint256 inputAmount) private returns (uint256) {
-        // Fill as many unstake requests as possible
+        if (inputAmount == 0) return 0;
+
         uint256 amountFilled = 0;
         uint256 remaining = inputAmount;
 
         // Assumes order of the array is creation order.
         for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
-            if (amountFilled == inputAmount) {
+            if (remaining == 0) break;
+
+            if (unstakeRequests[i].amountFilled == unstakeRequests[i].amountRequested) {
                 // This shouldn't happen, but revert if it does for clearer testing
                 revert("Invalid state - filled request in queue");
             }
@@ -296,6 +312,10 @@ contract AvaLido is Pausable, ReentrancyGuard {
         }
         // Count the AVAX that we're staking as protocol controlled.
         amountStakedAVAX += amount;
+
+        // TODO
+        // Send to the MPC wallet
+        payable(0).transfer(amount);
 
         // TODO: Send AVAX to MPC wallet to be staked.
         emit StakeEvent(amount);

@@ -7,6 +7,8 @@ import "./console.sol";
 import "./cheats.sol";
 
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+address constant USER1_ADDRESS = 0x0000000000000000000000000000000000000001;
+address constant USER2_ADDRESS = 0x0000000000000000000000000000000000000002;
 
 contract AvaLidoTest is DSTest {
     event StakeEvent(uint256 amount);
@@ -17,10 +19,13 @@ contract AvaLidoTest is DSTest {
         lido = new AvaLido();
     }
 
+    receive() external payable {}
+
     // Deposit
 
     function testStakeBasic() public {
         lido.deposit{value: 1 ether}();
+        assertEq(lido.balanceOf(TEST_ADDRESS), 1 ether);
     }
 
     function testStakeZeroDeposit() public {
@@ -28,12 +33,18 @@ contract AvaLidoTest is DSTest {
         lido.deposit{value: 0 ether}();
     }
 
+    function testStakeTooLargeDeposit() public {
+        cheats.expectRevert(AvaLido.InvalidStakeAmount.selector);
+        lido.deposit{value: (MAXIMUM_STAKE_AMOUNT + 1)}();
+    }
+
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
 
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
-        cheats.assume(x < type(uint256).max / 2);
+        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
         lido.deposit{value: x}();
+        assertEq(lido.balanceOf(TEST_ADDRESS), x);
     }
 
     // Unstake Requests
@@ -164,13 +175,31 @@ contract AvaLidoTest is DSTest {
         assertEq(amountFilled, 0.5 ether);
     }
 
+    function testFillUnstakeRequestMultiRequestSingleFill() public {
+        lido.deposit{value: 1 ether}();
+        uint256 req1 = lido.requestWithdrawal(0.5 ether);
+        uint256 req2 = lido.requestWithdrawal(0.5 ether);
+        lido.receivePrincipalFromMPC{value: 0.5 ether}();
+
+        (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(req1);
+        assertEq(amountRequested, 0.5 ether);
+        assertEq(amountFilled, 0.5 ether);
+
+        (, , uint256 amountRequested2, uint256 amountFilled2, ) = lido.unstakeRequests(req2);
+        assertEq(amountRequested2, 0.5 ether);
+        assertEq(amountFilled2, 0);
+    }
+
     function testMultipleRequestReads() public {
         lido.deposit{value: 1 ether}();
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
 
         // Make a request as somebody else
-        cheats.prank(ZERO_ADDRESS);
-        lido.requestWithdrawal(0.1 ether);
+        cheats.deal(USER1_ADDRESS, 0.2 ether);
+        cheats.startPrank(USER1_ADDRESS);
+        lido.deposit{value: 0.2 ether}();
+        lido.requestWithdrawal(0.2 ether);
+        cheats.stopPrank();
 
         // Make another request as the original user.
         uint256 reqId2 = lido.requestWithdrawal(0.2 ether);
@@ -183,7 +212,7 @@ contract AvaLidoTest is DSTest {
     function testUnstakeRequestFillWithFuzzing(uint256 x) public {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
-        cheats.assume(x < type(uint256).max / 2);
+        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         lido.deposit{value: x}();
 
@@ -294,7 +323,7 @@ contract AvaLidoTest is DSTest {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
 
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
-        cheats.assume(x < type(uint256).max / 2);
+        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         lido.deposit{value: x}();
         uint256 reqId = lido.requestWithdrawal(x);
