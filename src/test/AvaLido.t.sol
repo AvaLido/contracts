@@ -117,10 +117,12 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 1 ether}();
         validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
         lido.initiateStake();
-        // TODO: Test stAVAX transfer.
+
+        assertEq(lido.balanceOf(TEST_ADDRESS), 1 ether);
 
         uint256 requestId = lido.requestWithdrawal(0.5 ether);
         assertEq(requestId, 0);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 0.5 ether);
 
         (
             address requester,
@@ -146,6 +148,7 @@ contract AvaLidoTest is DSTest, Helpers {
         ) = lido.unstakeRequests(requestId2);
 
         assertEq(requestId2, 1);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 0.4 ether);
 
         assertEq(requester2, TEST_ADDRESS);
         assertEq(requestAt2, uint64(block.timestamp));
@@ -333,17 +336,34 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testClaimSucceeds() public {
+        cheats.deal(TEST_ADDRESS, 1 ether);
+
         lido.deposit{value: 1 ether}();
         validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
         lido.initiateStake();
 
-        uint256 reqId = lido.requestWithdrawal(0.5 ether);
+        // No longer has any AVAX, but has stAVAX
+        assertEq(address(TEST_ADDRESS).balance, 0);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 1 ether);
 
+        uint256 reqId = lido.requestWithdrawal(0.4 ether);
+
+        // Some stAVAX is transferred to contract when requesting withdrawal.
+        assertEq(lido.balanceOf(TEST_ADDRESS), 0.6 ether);
+
+        cheats.deal(mpcWalletAddress, 1 ether);
+        cheats.prank(mpcWalletAddress);
         lido.receivePrincipalFromMPC{value: 0.5 ether}();
 
         assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
-        lido.claim(reqId, 0.5 ether);
+        lido.claim(reqId, 0.4 ether);
         assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 0);
+
+        // Has the AVAX they claimed back.
+        assertEq(address(TEST_ADDRESS).balance, 0.4 ether);
+
+        // Still has remaming stAVAX
+        assertEq(lido.balanceOf(TEST_ADDRESS), 0.6 ether);
 
         (address requester, , uint256 amountRequested, , uint256 amountClaimed) = lido.unstakeRequests(reqId);
 
