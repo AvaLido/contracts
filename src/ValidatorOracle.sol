@@ -39,6 +39,23 @@ contract ValidatorOracle is BaseValidatorOracle, AccessControlEnumerable {
         return validators;
     }
 
+    // Temporary function to force setting validators whilst the oracle is not built.
+    function _TEMP_setValidators(Validator[] memory vals) public {
+        delete validators;
+        for (uint256 i = 0; i < vals.length; i++) {
+            validators.push(vals[i]);
+        }
+    }
+
+    function _TEMP_addValidator(
+        uint64 stakeEndTime,
+        uint256 primaryStakeAmount,
+        uint256 delegatedAmount,
+        string memory id
+    ) public {
+        validators.push(Validator(stakeEndTime, primaryStakeAmount, delegatedAmount, id));
+    }
+
     /**
      * @notice Gets the validators which have capacity to handle the given amount of AVAX.
      * @dev Returns an dynamic array of validators.
@@ -51,14 +68,14 @@ contract ValidatorOracle is BaseValidatorOracle, AccessControlEnumerable {
         // clients to control where the stake goes.
         uint256 count = 0;
         for (uint256 index = 0; index < validators.length; index++) {
-            if (calculateFreeSpace(validators[index]) < amount) {
+            if (calculateFreeSpace(validators[index]) >= amount) {
                 count++;
             }
         }
 
         Validator[] memory result = new Validator[](count);
         for (uint256 index = 0; index < validators.length; index++) {
-            if (calculateFreeSpace(validators[index]) < amount) {
+            if (calculateFreeSpace(validators[index]) >= amount) {
                 result[index] = validators[index];
             }
         }
