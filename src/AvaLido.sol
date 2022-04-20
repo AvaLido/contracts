@@ -38,6 +38,7 @@ import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 
 import "./stAVAX.sol";
+import "./ValidatorManager.sol";
 
 import "./test/console.sol";
 
@@ -64,6 +65,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error NotAuthorized();
     error ClaimTooLarge();
     error InsufficientBalance();
+    error NoAvailableValidators();
 
     // Events
     event DepositEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
@@ -73,13 +75,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract
-    event StakeEvent(uint256 indexed amount);
+    event StakeEvent(uint256 indexed amount, string validator);
 
     // WithdrawRequestFilled
     // WithdrawalRequestClaimed
     // WithdrawalRequestCompleted
 
-    // States variables
+    // State variables
 
     // The array of all unstake requests.
     // This acts as a queue, and we maintain a separate pointer
@@ -96,6 +98,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Also includes AVAX pending staking or unstaking.
     uint256 private amountStakedAVAX = 0;
 
+    // Track the amount of AVAX in the contract which is waiting to be staked.
+    // When the stake is triggered, this amount will be sent to the MPC system.
+    uint256 private amountPendingAVAX = 0;
+
     // Record the number of unstake requests per user so that we can limit them to our max.
     mapping(address => uint8) public unstakeRequestCount;
 
@@ -103,8 +109,21 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     PaymentSplitter public protocolFeeSplitter;
     uint256 public protocolFeePercentage = 10;
 
-    constructor(address lidoFeeAddress, address authorFeeAddress) {
+    ValidatorManager public validatorManager;
+
+    // Address where we'll send AVAX to be staked.
+    address private mpcWalletAddress;
+
+    constructor(
+        address lidoFeeAddress,
+        address authorFeeAddress,
+        address validatorManagerAddress,
+        address _mpcWalletAddress
+    ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        validatorManager = ValidatorManager(validatorManagerAddress);
+        mpcWalletAddress = _mpcWalletAddress;
 
         address[] memory paymentAddresses = new address[](2);
         paymentAddresses[0] = lidoFeeAddress;
@@ -222,6 +241,43 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         return amountStakedAVAX + address(this).balance;
     }
 
+    /**
+     * @notice Initiate execution of staking for all pending AVAX.
+     * @return uint256 The amount of AVAX that was staked.
+     * @dev This function takes all pending AVAX and attempts to allocate it to validators.
+     * The funds are then transferred to the MPC system for cross-chain transport and staking.
+     * Note that this function is publicly available, meaning anyone can pay gas to initiate the
+     * staking operation and we don't require any special permissions.
+     * It would be sensible for our team to also call this at a regular interval.
+     */
+    function initiateStake() public whenNotPaused nonReentrant returns (uint256) {
+        if (amountPendingAVAX == 0) {
+            return 0;
+        }
+
+        (string[] memory ids, uint256[] memory amounts, uint256 remaining) = validatorManager.selectValidatorsForStake(
+            amountPendingAVAX
+        );
+
+        if (ids.length == 0 || amounts.length == 0) revert NoAvailableValidators();
+
+        uint256 totalToStake = amountPendingAVAX - remaining;
+
+        // Transfer stAVAX from our contract to the MPC wallet and record it as staked.
+        payable(mpcWalletAddress).transfer(totalToStake);
+        amountStakedAVAX += totalToStake;
+
+        // Our pending AVAX is now whatever we couldn't allocate.
+        amountPendingAVAX = remaining;
+
+        // TODO: Use a single batch staking event
+        for (uint256 i = 0; i < ids.length; i++) {
+            emit StakeEvent(amounts[i], ids[i]);
+        }
+
+        return totalToStake;
+    }
+
     // -------------------------------------------------------------------------
     //  Payable functions
     // -------------------------------------------------------------------------
@@ -241,7 +297,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
-        _stake(remaining);
+
+        // Take the remaining amount and stash it to be staked at a later time.
+        // Note that we explcitly do not subsequently use this pending amount to fill unstake requests.
+        // This intentionally removes the ability to instantly stake and unstake, which makes the
+        // arb opportunity around trying to collect rebase value significantly riskier/impractical.
+        amountPendingAVAX += remaining;
     }
 
     /**
@@ -262,8 +323,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Rebalance liquidity pool
 
-        // Restake excess
-        _stake(remaining);
+        // Allocation excess for restaking.
+        amountPendingAVAX += remaining;
     }
 
     /**
@@ -341,26 +402,15 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         return request.amountClaimed == request.amountRequested;
     }
 
-    function _stake(uint256 amount) internal {
-        if (amount <= 0) {
-            return;
-        }
-        // Count the AVAX that we're staking as protocol controlled.
-        amountStakedAVAX += amount;
-
-        // TODO
-        // Send to the MPC wallet
-        payable(0).transfer(amount);
-
-        // TODO: Send AVAX to MPC wallet to be staked.
-        emit StakeEvent(amount);
-    }
-
     // -------------------------------------------------------------------------
     //  Admin functions
     // -------------------------------------------------------------------------
 
     function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
         protocolFeePercentage = _protocolFeePercentage;
+    }
+
+    function setMPCWalletAddress(address _mpcWalletAddress) external onlyAdmin {
+        mpcWalletAddress = _mpcWalletAddress;
     }
 }

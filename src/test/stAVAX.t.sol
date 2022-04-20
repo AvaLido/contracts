@@ -4,12 +4,9 @@ pragma solidity 0.8.10;
 // import "ds-test/src/test.sol";
 import "ds-test/test.sol";
 import "./cheats.sol";
+import "./helpers.sol";
 import "./console.sol";
 import "../stAVAX.sol";
-
-address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-address constant USER1_ADDRESS = 0x0000000000000000000000000000000000000001;
-address constant USER2_ADDRESS = 0x0000000000000000000000000000000000000002;
 
 contract TestToken is stAVAX {
     uint256 public totalControlled = 0;
@@ -31,7 +28,7 @@ contract TestToken is stAVAX {
     }
 }
 
-contract stAVAXTest is DSTest {
+contract stAVAXTest is DSTest, Helpers {
     TestToken stavax;
 
     function setUp() public {
