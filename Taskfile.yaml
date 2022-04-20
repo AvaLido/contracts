@@ -18,4 +18,4 @@ tasks:
 
   deploy-default:
     cmds:
-      - ./scripts/deploy.sh
+      - ./scripts/deploy-local.sh
