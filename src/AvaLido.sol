@@ -66,18 +66,14 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error InsufficientBalance();
 
     // Events
-    event DepositEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
-    event WithdrawRequestSubmittedEvent(address indexed _from, uint256 indexed _amount, uint256 timestamp);
+    event DepositEvent(address indexed _from, uint256 _amount, uint256 timestamp);
+    event WithdrawRequestSubmittedEvent(address indexed _from, uint256 _amount, uint256 timestamp);
     event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
-    event ClaimEvent(address indexed _from, uint256 indexed _claimAmount, bool finalClaim);
+    event ClaimEvent(address indexed _from, uint256 _claimAmount, bool indexed finalClaim);
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract
-    event StakeEvent(uint256 indexed amount);
-
-    // WithdrawRequestFilled
-    // WithdrawalRequestClaimed
-    // WithdrawalRequestCompleted
+    event StakeEvent(uint256 indexed amount, string indexed validator);
 
     // States variables
 
@@ -353,7 +349,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         payable(0).transfer(amount);
 
         // TODO: Send AVAX to MPC wallet to be staked.
-        emit StakeEvent(amount);
+        emit StakeEvent(amount, "TODO");
     }
 
     // -------------------------------------------------------------------------
