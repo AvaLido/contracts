@@ -2,26 +2,28 @@
 pragma solidity 0.8.10;
 
 import "ds-test/test.sol";
+// import "ds-test/src/test.sol";
 import "../AvaLido.sol";
+import "../ValidatorManager.sol";
+
 import "./console.sol";
 import "./cheats.sol";
+import "./helpers.sol";
 
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 
-address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-address constant USER1_ADDRESS = 0x0000000000000000000000000000000000000001;
-address constant USER2_ADDRESS = 0x0000000000000000000000000000000000000002;
-
-contract AvaLidoTest is DSTest {
+contract AvaLidoTest is DSTest, Helpers {
     event StakeEvent(uint256 amount);
 
     AvaLido lido;
 
-    address feeAddressAuthor = 0x0000000000000000000000000000000000000001;
-    address feeAddressLido = 0x0000000000000000000000000000000000000002;
+    address feeAddressAuthor = 0x1000000000000000000000000000000000000001;
+    address feeAddressLido = 0x1000000000000000000000000000000000000002;
+    address validatorManagerAddress = 0x1000000000000000000000000000000000000003;
+    address mpcWalletAddress = 0x1000000000000000000000000000000000000004;
 
     function setUp() public {
-        lido = new AvaLido(feeAddressLido, feeAddressAuthor);
+        lido = new AvaLido(feeAddressLido, feeAddressAuthor, validatorManagerAddress, mpcWalletAddress);
     }
 
     receive() external payable {}
@@ -50,6 +52,47 @@ contract AvaLidoTest is DSTest {
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
         lido.deposit{value: x}();
         assertEq(lido.balanceOf(TEST_ADDRESS), x);
+    }
+
+    // Initiate staking
+
+    function testInitiateStakeZero() public {
+        uint256 staked = lido.initiateStake();
+        assertEq(staked, 0);
+    }
+
+    function testInitiateStakeNoValidators() public {
+        lido.deposit{value: 1 ether}();
+
+        string[] memory idResult = new string[](0);
+        uint256[] memory amountResult = new uint256[](0);
+
+        cheats.mockCall(
+            validatorManagerAddress,
+            abi.encodeWithSelector(ValidatorManager.selectValidatorsForStake.selector),
+            abi.encode(idResult, amountResult, 1 ether)
+        );
+
+        cheats.expectRevert(AvaLido.NoAvailableValidators.selector);
+        lido.initiateStake();
+    }
+
+    function testInitiateStakeFullAllocation() public {
+        lido.deposit{value: 1 ether}();
+
+        validatorSelectMock(validatorManagerAddress, "test-node", 1 ether, 0);
+        uint256 staked = lido.initiateStake();
+        assertEq(staked, 1 ether);
+        assertEq(address(mpcWalletAddress).balance, 1 ether);
+    }
+
+    function testInitiateStakePartialAllocation() public {
+        lido.deposit{value: 1 ether}();
+
+        validatorSelectMock(validatorManagerAddress, "test-node", 0.6 ether, 0.4 ether);
+        uint256 staked = lido.initiateStake();
+        assertEq(staked, 0.6 ether);
+        assertEq(address(mpcWalletAddress).balance, 0.6 ether);
     }
 
     // Unstake Requests
@@ -261,6 +304,20 @@ contract AvaLidoTest is DSTest {
     function testClaimSucceeds() public {
         lido.deposit{value: 1 ether}();
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
+
+        // string[] memory idResult = new string[](1);
+        // idResult[0] = "test";
+
+        // uint256[] memory amountResult = new uint256[](1);
+        // amountResult[0] = 1 ether;
+
+        // cheats.mockCall(
+        //     validatorManagerAddress,
+        //     abi.encodeWithSelector(ValidatorManager.selectValidatorsForStake.selector),
+        //     abi.encode(idResult, amountResult, 0)
+        // );
+        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.initiateStake();
         lido.receivePrincipalFromMPC{value: 0.5 ether}();
 
         assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
