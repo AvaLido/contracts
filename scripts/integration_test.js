@@ -1,5 +1,6 @@
 const { ethers } = require("ethers");
 const fs = require("fs");
+const utils = ethers.utils;
 
 // RPC
 const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:9650/ext/bc/C/rpc");
@@ -16,6 +17,35 @@ const avalido = JSON.parse(fs.readFileSync("out/AvaLido.sol/AvaLido.json"));
 const abi = avalido["abi"];
 const contract = new ethers.Contract(address, abi, deployer);
 
-// Read contract
-contract.name().then((data) => console.log(data));
-contract.symbol().then((data) => console.log(data));
+// Read
+// contract.name().then((data) => console.log(data));
+// contract.symbol().then((data) => console.log(data));
+
+// Deposit
+async function deposit() {
+  // Read balance
+  let balance = await contract.balanceOf(deployer.address);
+  console.log(utils.formatEther(balance));
+
+  // Make new deposit
+  const options = { value: utils.parseEther("10") };
+  let deposit = await contract.deposit(options);
+  console.log(deposit);
+
+  // Read back balance again
+  balance = await contract.balanceOf(deployer.address);
+  console.log(utils.formatEther(balance));
+
+  // Withdraw
+  try {
+    let withdrawal = await contract.requestWithdrawal(balance);
+    console.log(withdrawal);
+  } catch (e) {
+    console.log(e);
+  }
+
+  // Read back balance again
+  balance = await contract.balanceOf(deployer.address);
+  console.log(utils.formatEther(balance));
+}
+deposit();
