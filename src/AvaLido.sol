@@ -312,6 +312,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * are filled are re-staked.
      */
     function receivePrincipalFromMPC() external payable {
+        if (amountStakedAVAX == 0 || amountStakedAVAX < msg.value) revert InvalidStakeAmount();
+
         // We received this from an unstake, so remove from our count.
         // Anything restaked will be counted again on the way out.
         // Note: This avoids double counting, as the total count includes AVAX held by
