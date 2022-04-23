@@ -27,7 +27,7 @@ const contract = new ethers.Contract(address, avalido["abi"], deployer);
 async function setUpValidator() {
   const manager_address = await contract.validatorManager();
   const validator_contract = new ethers.Contract(manager_address, validator_manager["abi"], deployer);
-  let result = await validator_contract.selectValidatorsForStake(utils.parseEther("10").toString());
+  let result = await validator_contract.selectValidatorsForStake(utils.parseEther("1000").toString());
 }
 
 beforeAll(() => {
@@ -56,3 +56,41 @@ test("Request a withdrawal", async () => {
   const end_balance = await contract.balanceOf(deployer.address);
   expect(end_balance.toString()).toBe(start_balance.sub(withdrawal_amount).toString());
 });
+
+test("Randomly deposit or withdraw 100 times", async () => {
+  const start_balance = await contract.balanceOf(deployer.address);
+
+  let deposits_cumulative = utils.parseEther("0");
+  let withdrawals_cumulative = utils.parseEther("0");
+
+  for (i = 0; i < 100; i++) {
+    const balance = await contract.balanceOf(deployer.address);
+
+    let raw_amount = Math.pow(2 * Math.random() + 0.5, 10); // Roughly 0.001 to 10k eth
+    raw_amount = Math.round(raw_amount * 1000) / 1000;
+    const amount = utils.parseEther(raw_amount.toString());
+
+    // Prevent attempting to withdraw more than is deposited
+    const isWithdrawal = Math.random() < 0.5 && balance.gt(amount);
+
+    if (isWithdrawal) {
+      withdrawals_cumulative = withdrawals_cumulative.add(amount);
+      console.log(
+        "Withdrawal " + utils.formatEther(amount) + " (Cumulative " + utils.formatEther(withdrawals_cumulative) + ")"
+      );
+      const withdrawal = await contract.requestWithdrawal(amount);
+      await withdrawal.wait(); // TODO: Should wait at end rather than every step
+    } else {
+      deposits_cumulative = deposits_cumulative.add(amount);
+      console.log(
+        "Deposit " + utils.formatEther(amount) + " (Cumulative " + utils.formatEther(withdrawals_cumulative) + ")"
+      );
+      const deposit = await contract.deposit({ value: amount });
+      await deposit.wait();
+    }
+  }
+
+  const end_balance = await contract.balanceOf(deployer.address);
+  const expected_balance = start_balance.add(deposits_cumulative).sub(withdrawals_cumulative);
+  expect(end_balance.toString()).toBe(total.toString());
+}, 600_000); // TODO: Should be a more thoughtful timeout
