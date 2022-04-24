@@ -13,21 +13,26 @@ const wendy = new ethers.Wallet("a7f3a9981d794d4849f296b0406bd4ee9aa5bfa03208954
 const sammy = new ethers.Wallet("0d4c5da04cb1a1292ac933f49722a49f20e4284ab268d4cd31119ac90e91117e", provider);
 
 // Deployed contract address
-const address = process.env.AVALIDO;
-if (address == null) {
-  throw new Error("Missing AVALIDO contract address env variable");
+const avalido_address = process.env.AVALIDO;
+const oracle_address = process.env.VALIDATOR_ORACLE;
+if (avalido_address == null || oracle_address == null) {
+  throw new Error("Missing AVALIDO or VALIDATOR_ORACLE contract address env variables");
 }
 
 // Contract setup
 const avalido = JSON.parse(fs.readFileSync("out/AvaLido.sol/AvaLido.json"));
-const validator_manager = JSON.parse(fs.readFileSync("out/ValidatorManager.sol/ValidatorManager.json"));
-const contract = new ethers.Contract(address, avalido["abi"], deployer);
+const contract = new ethers.Contract(avalido_address, avalido["abi"], deployer);
+
+// Oracle contract setup
+const oracle = JSON.parse(fs.readFileSync("out/ValidatorOracle.sol/ValidatorOracle.json"));
+const oracle_contract = new ethers.Contract(oracle_address, oracle["abi"], deployer);
 
 // Validator Manager
 async function setUpValidator() {
   const manager_address = await contract.validatorManager();
+  const validator_manager = JSON.parse(fs.readFileSync("out/ValidatorManager.sol/ValidatorManager.json"));
   const validator_contract = new ethers.Contract(manager_address, validator_manager["abi"], deployer);
-  let result = await validator_contract.selectValidatorsForStake(utils.parseEther("1000").toString());
+  await validator_contract.selectValidatorsForStake(utils.parseEther("1000").toString());
 }
 
 function decodeAndRethrowError(error) {
@@ -41,8 +46,13 @@ function decodeAndRethrowError(error) {
   ];
 
   // TODO: This is bad and you should feel bad
-  const error_code = error.message.split('"data":"')[1].slice(0, 10);
+  // Attempt to parse. If we can't, this isn't one of ours, just rethrow
+  const split = error.message.split('"data":"');
+  if (split.length < 2) {
+    throw error;
+  }
 
+  const error_code = split[1].slice(0, 10);
   for (const code of codes) {
     const hash = utils.keccak256(utils.toUtf8Bytes(code));
     if (hash.startsWith(error_code)) {
@@ -52,6 +62,11 @@ function decodeAndRethrowError(error) {
   throw "Unrecognized error from contract. Check that all errors have been imported.";
 }
 
+async function makeDeposit(amount) {
+  const deposit = await contract.deposit({ value: amount });
+  await deposit.wait();
+}
+
 beforeAll(() => {
   return setUpValidator();
 });
@@ -59,11 +74,7 @@ beforeAll(() => {
 test("Make a deposit", async () => {
   const start_balance = await contract.balanceOf(deployer.address);
   const deposit_amount = utils.parseEther("10");
-
-  const options = { value: deposit_amount };
-  const deposit = await contract.deposit(options);
-  await deposit.wait();
-
+  await makeDeposit(deposit_amount);
   const end_balance = await contract.balanceOf(deployer.address);
   expect(end_balance.toString()).toBe(start_balance.add(deposit_amount).toString());
 });
@@ -83,7 +94,52 @@ test("Request a withdrawal", async () => {
   }
 });
 
+test("Claim a withdrawal request", async () => {
+  try {
+    const start_staked = await contract.amountStakedAVAX();
+
+    // Add a fake validator to stake with
+    // TODO: Test will fail when we start respecting stake end times. If you're reading this, add a test for it!
+    const stake_amount = utils.parseEther("1000").toString();
+    const validator = await oracle_contract._TEMP_addValidator(0, stake_amount, 0, "integration");
+    await validator.wait();
+
+    // Amount deposited from previous unit test
+    // TODO: These should really be indepenedent tests
+    const deposit_amount = utils.parseEther("10");
+
+    // Initiate stake with outstanding AVAX
+    const stake = await contract.initiateStake();
+    await stake.wait();
+
+    let staked = await contract.amountStakedAVAX();
+    expect(staked.toString()).toBe(start_staked.add(deposit_amount).toString()); // Stake increased
+
+    // Fake receiving AVAX back from MPC
+    const receive = await contract.receivePrincipalFromMPC({ value: deposit_amount });
+    await receive.wait();
+
+    // Claim most recent withdrawal request
+    const last_request = (await contract.unstakeRequestCount(deployer.address)) - 1;
+
+    // TODO: Occasionally fails here on incorrect unstake request – might need more wait()
+    const requester = (await contract.unstakeRequests(last_request))["requester"];
+    expect(deployer.address).toBe(requester);
+
+    const claim = await contract.claim(last_request, deposit_amount);
+    await claim.wait();
+
+    staked = await contract.amountStakedAVAX();
+    expect(staked.toString()).toBe(start_staked.toString()); // Stake restored
+  } catch (error) {
+    decodeAndRethrowError(error);
+  }
+}, 600_000); // TODO: Should be a more thoughtful timeout
+
 test("Randomly deposit or withdraw 100 times", async () => {
+  // TODO: ⚠️ TEMPORARILY DISABLED UNTIL CLAIMING INTEGRATED
+  return;
+
   try {
     const start_balance = await contract.balanceOf(deployer.address);
 

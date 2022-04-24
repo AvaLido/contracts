@@ -42,14 +42,6 @@ import "./ValidatorManager.sol";
 
 import "./test/console.sol";
 
-struct UnstakeRequest {
-    address requester; // The user who requested the unstake.
-    uint64 requestedAt; // The block.timestamp when the unstake request was made.
-    uint256 amountRequested; // The amount of stAVAX requested to be unstaked.
-    uint256 amountFilled; // The amount of free'd AVAX that has been allocated to this request.
-    uint256 amountClaimed; // The amount of AVAX that has been claimed by the requester.
-}
-
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
@@ -92,7 +84,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Tracks the amount of AVAX being staked.
     // Also includes AVAX pending staking or unstaking.
-    uint256 private amountStakedAVAX = 0;
+    uint256 public amountStakedAVAX = 0;
 
     // Track the amount of AVAX in the contract which is waiting to be staked.
     // When the stake is triggered, this amount will be sent to the MPC system.
