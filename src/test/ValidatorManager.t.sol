@@ -58,7 +58,7 @@ contract ValidatorManagerTest is DSTest, Helpers {
 
     function testSelectUnderThreshold() public {
         // one validator with lots of capacity
-        oracle._setValidators(nValidatorsWithInitialAndStake(1, 500 ether, 0));
+        oracle._setValidators(nValidatorsWithInitialAndStake(1, 500 ether, 0, timeFromNow(1 years)));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = manager.selectValidatorsForStake(
             50 ether
@@ -74,7 +74,7 @@ contract ValidatorManagerTest is DSTest, Helpers {
 
     function testSelectManyValidatorsUnderThreshold() public {
         // many validators with lots of capacity
-        oracle._setValidators(nValidatorsWithInitialAndStake(1000, 500 ether, 0));
+        oracle._setValidators(nValidatorsWithInitialAndStake(1000, 500 ether, 0, timeFromNow(1 years)));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = manager.selectValidatorsForStake(
             50 ether
@@ -93,7 +93,7 @@ contract ValidatorManagerTest is DSTest, Helpers {
 
     function testSelectManyValidatorsOverThreshold() public {
         // many validators with limited of capacity
-        oracle._setValidators(nValidatorsWithInitialAndStake(1000, 5 ether, 0));
+        oracle._setValidators(nValidatorsWithInitialAndStake(1000, 5 ether, 0, timeFromNow(1 years)));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = manager.selectValidatorsForStake(
             500 ether
@@ -115,7 +115,7 @@ contract ValidatorManagerTest is DSTest, Helpers {
 
     function testSelectManyValidatorsWithRemainder() public {
         // Odd number of stake/validators to check remainder
-        oracle._setValidators(nValidatorsWithInitialAndStake(7, 10 ether, 0));
+        oracle._setValidators(nValidatorsWithInitialAndStake(7, 10 ether, 0, timeFromNow(1 years)));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = manager.selectValidatorsForStake(
             500 ether
@@ -131,7 +131,7 @@ contract ValidatorManagerTest is DSTest, Helpers {
 
     function testSelectManyValidatorsWithHighRemainder() public {
         // request of stake much higher than remaining capacity
-        oracle._setValidators(nValidatorsWithInitialAndStake(10, 0.1 ether, 0));
+        oracle._setValidators(nValidatorsWithInitialAndStake(10, 0.1 ether, 0, timeFromNow(1 years)));
 
         (, uint256[] memory amounts, uint256 remaining) = manager.selectValidatorsForStake(1000 ether);
 
