@@ -88,7 +88,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Track the amount of AVAX in the contract which is waiting to be staked.
     // When the stake is triggered, this amount will be sent to the MPC system.
-    uint256 private amountPendingAVAX = 0;
+    uint256 public amountPendingAVAX = 0;
 
     // Record the number of unstake requests per user so that we can limit them to our max.
     mapping(address => uint8) public unstakeRequestCount;
@@ -101,6 +101,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Address where we'll send AVAX to be staked.
     address private mpcWalletAddress;
+
+    // For gas efficiency, we won't emit staking events if the pending amount is below
+    // this value.
+    uint256 public minStakeBatchAmount = 10 ether;
 
     constructor(
         address lidoFeeAddress,
@@ -239,7 +243,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * It would be sensible for our team to also call this at a regular interval.
      */
     function initiateStake() public whenNotPaused nonReentrant returns (uint256) {
-        if (amountPendingAVAX == 0) {
+        if (amountPendingAVAX == 0 || amountPendingAVAX < minStakeBatchAmount) {
             return 0;
         }
 
@@ -402,5 +406,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     function setMPCWalletAddress(address _mpcWalletAddress) external onlyAdmin {
         mpcWalletAddress = _mpcWalletAddress;
+    }
+
+    function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyAdmin {
+        minStakeBatchAmount = _minStakeBatchAmount;
     }
 }

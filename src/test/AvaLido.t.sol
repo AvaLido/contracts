@@ -62,7 +62,7 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testInitiateStakeNoValidators() public {
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 10 ether}();
 
         string[] memory idResult = new string[](0);
         uint256[] memory amountResult = new uint256[](0);
@@ -70,7 +70,7 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.mockCall(
             validatorManagerAddress,
             abi.encodeWithSelector(ValidatorManager.selectValidatorsForStake.selector),
-            abi.encode(idResult, amountResult, 1 ether)
+            abi.encode(idResult, amountResult, 10 ether)
         );
 
         cheats.expectRevert(AvaLido.NoAvailableValidators.selector);
@@ -78,21 +78,29 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testInitiateStakeFullAllocation() public {
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 10 ether}();
 
-        validatorSelectMock(validatorManagerAddress, "test-node", 1 ether, 0);
+        validatorSelectMock(validatorManagerAddress, "test-node", 10 ether, 0);
         uint256 staked = lido.initiateStake();
-        assertEq(staked, 1 ether);
-        assertEq(address(mpcWalletAddress).balance, 1 ether);
+        assertEq(staked, 10 ether);
+        assertEq(address(mpcWalletAddress).balance, 10 ether);
     }
 
     function testInitiateStakePartialAllocation() public {
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 10 ether}();
 
-        validatorSelectMock(validatorManagerAddress, "test-node", 0.6 ether, 0.4 ether);
+        validatorSelectMock(validatorManagerAddress, "test-node", 9 ether, 1 ether);
         uint256 staked = lido.initiateStake();
-        assertEq(staked, 0.6 ether);
-        assertEq(address(mpcWalletAddress).balance, 0.6 ether);
+        assertEq(staked, 9 ether);
+        assertEq(address(mpcWalletAddress).balance, 9 ether);
+        assertEq(lido.amountPendingAVAX(), 1 ether);
+    }
+
+    function testInitiateStakeUnderLimit() public {
+        lido.deposit{value: 1 ether}();
+        uint256 staked = lido.initiateStake();
+        assertEq(staked, 0);
+        assertEq(lido.amountPendingAVAX(), 1 ether);
     }
 
     // Unstake Requests
@@ -114,15 +122,15 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testUnstakeRequest() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
-        assertEq(lido.balanceOf(TEST_ADDRESS), 1 ether);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 10 ether);
 
-        uint256 requestId = lido.requestWithdrawal(0.5 ether);
+        uint256 requestId = lido.requestWithdrawal(5 ether);
         assertEq(requestId, 0);
-        assertEq(lido.balanceOf(TEST_ADDRESS), 0.5 ether);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 5 ether);
 
         (
             address requester,
@@ -134,11 +142,11 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertEq(requester, TEST_ADDRESS);
         assertEq(requestAt, uint64(block.timestamp));
-        assertEq(amountRequested, 0.5 ether);
+        assertEq(amountRequested, 5 ether);
         assertEq(amountFilled, 0 ether);
         assertEq(amountClaimed, 0 ether);
 
-        uint256 requestId2 = lido.requestWithdrawal(0.1 ether);
+        uint256 requestId2 = lido.requestWithdrawal(1 ether);
         (
             address requester2,
             uint256 requestAt2,
@@ -148,18 +156,18 @@ contract AvaLidoTest is DSTest, Helpers {
         ) = lido.unstakeRequests(requestId2);
 
         assertEq(requestId2, 1);
-        assertEq(lido.balanceOf(TEST_ADDRESS), 0.4 ether);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 4 ether);
 
         assertEq(requester2, TEST_ADDRESS);
         assertEq(requestAt2, uint64(block.timestamp));
-        assertEq(amountRequested2, 0.1 ether);
+        assertEq(amountRequested2, 1 ether);
         assertEq(amountFilled2, 0 ether);
         assertEq(amountClaimed2, 0 ether);
     }
 
     function testFillUnstakeRequestSingle() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         lido.requestWithdrawal(0.5 ether);
@@ -172,8 +180,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testMultipleFillUnstakeRequestsSingleFill() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         lido.requestWithdrawal(0.5 ether);
@@ -195,8 +203,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testFillUnstakeRequestPartial() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
@@ -209,8 +217,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testFillUnstakeRequestPartialMultiple() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         lido.requestWithdrawal(0.5 ether);
@@ -224,8 +232,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testFillUnstakeRequestPartialMultipleFilled() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         lido.requestWithdrawal(0.5 ether);
@@ -244,8 +252,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testFillUnstakeRequestMultiRequestSingleFill() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         uint256 req1 = lido.requestWithdrawal(0.5 ether);
@@ -262,8 +270,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testMultipleRequestReads() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
@@ -285,7 +293,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testUnstakeRequestFillWithFuzzing(uint256 x) public {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
-        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x > lido.minStakeBatchAmount());
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         lido.deposit{value: x}();
@@ -310,8 +318,8 @@ contract AvaLidoTest is DSTest, Helpers {
     // Claiming
 
     function testClaimOwnedByOtherUser() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
@@ -324,8 +332,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testClaimTooLarge() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
@@ -336,34 +344,34 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testClaimSucceeds() public {
-        cheats.deal(TEST_ADDRESS, 1 ether);
+        cheats.deal(TEST_ADDRESS, 10 ether);
 
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         // No longer has any AVAX, but has stAVAX
         assertEq(address(TEST_ADDRESS).balance, 0);
-        assertEq(lido.balanceOf(TEST_ADDRESS), 1 ether);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 10 ether);
 
-        uint256 reqId = lido.requestWithdrawal(0.4 ether);
+        uint256 reqId = lido.requestWithdrawal(4 ether);
 
         // Some stAVAX is transferred to contract when requesting withdrawal.
-        assertEq(lido.balanceOf(TEST_ADDRESS), 0.6 ether);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 6 ether);
 
-        cheats.deal(mpcWalletAddress, 1 ether);
+        cheats.deal(mpcWalletAddress, 5 ether);
         cheats.prank(mpcWalletAddress);
-        lido.receivePrincipalFromMPC{value: 0.5 ether}();
+        lido.receivePrincipalFromMPC{value: 5 ether}();
 
         assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 1);
-        lido.claim(reqId, 0.4 ether);
+        lido.claim(reqId, 4 ether);
         assertEq(lido.unstakeRequestCount(TEST_ADDRESS), 0);
 
         // Has the AVAX they claimed back.
-        assertEq(address(TEST_ADDRESS).balance, 0.4 ether);
+        assertEq(address(TEST_ADDRESS).balance, 4 ether);
 
         // Still has remaming stAVAX
-        assertEq(lido.balanceOf(TEST_ADDRESS), 0.6 ether);
+        assertEq(lido.balanceOf(TEST_ADDRESS), 6 ether);
 
         (address requester, , uint256 amountRequested, , uint256 amountClaimed) = lido.unstakeRequests(reqId);
 
@@ -374,8 +382,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testPartialClaimSucceeds() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         uint256 reqId = lido.requestWithdrawal(1 ether);
@@ -395,8 +403,8 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testMultiplePartialClaims() public {
-        lido.deposit{value: 1 ether}();
-        validatorSelectMock(validatorManagerAddress, "test", 1 ether, 0);
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
         uint256 reqId = lido.requestWithdrawal(1 ether);
@@ -431,7 +439,7 @@ contract AvaLidoTest is DSTest, Helpers {
     function testClaimWithFuzzing(uint256 x) public {
         cheats.deal(TEST_ADDRESS, type(uint256).max);
 
-        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x > lido.minStakeBatchAmount());
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         lido.deposit{value: x}();
