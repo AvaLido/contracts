@@ -44,6 +44,7 @@ import "./test/console.sol";
 
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
+uint256 constant STAKE_PERIOD = 14 days;
 uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 
 /**
@@ -67,7 +68,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract
-    event StakeEvent(uint256 indexed amount, string indexed validator);
+    event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
 
     // State variables
 
@@ -262,9 +263,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Our pending AVAX is now whatever we couldn't allocate.
         amountPendingAVAX = remaining;
 
-        // TODO: Use a single batch staking event
+        // Add some buffer to account for delay in exporting to P-chain and MPC consensus.
+        // TODO: Make configurable?
+        uint256 startTime = block.timestamp + 30 minutes;
+        uint256 endTime = startTime + STAKE_PERIOD;
         for (uint256 i = 0; i < ids.length; i++) {
-            emit StakeEvent(amounts[i], ids[i]);
+            emit StakeEvent(amounts[i], ids[i], startTime, endTime);
         }
 
         return totalToStake;

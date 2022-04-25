@@ -13,7 +13,7 @@ import "./helpers.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 
 contract AvaLidoTest is DSTest, Helpers {
-    event StakeEvent(uint256 amount);
+    event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
 
     AvaLido lido;
 
@@ -81,6 +81,10 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 10 ether}();
 
         validatorSelectMock(validatorManagerAddress, "test-node", 10 ether, 0);
+
+        cheats.expectEmit(true, true, false, true);
+        emit StakeEvent(1 ether, "test-node", 1800, 1211400);
+
         uint256 staked = lido.initiateStake();
         assertEq(staked, 10 ether);
         assertEq(address(mpcWalletAddress).balance, 10 ether);
