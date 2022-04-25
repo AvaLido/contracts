@@ -15,3 +15,7 @@ tasks:
   call:
     cmds:
       - cast call --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc {{.CLI_ARGS}}
+
+  deploy-default:
+    cmds:
+      - ./scripts/deploy-local.sh

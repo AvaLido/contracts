@@ -37,18 +37,37 @@ Chain ID: `43112`
 You can deploy to the local network with `task deploy` like so:
 
 ```
-task deploy -- AvaLido
+task deploy -- AvaLido [ARGS]
 ```
 
-This uses the pre-funded AVAX account label "Contract deployer" above.
+This uses the pre-funded AVAX account label "Contract deployer" above. The contract requires these arguments to deploy:
+
+1. lidoFeeAddress - The address of the lido controlled wallet which collects revenue
+1. authorFeeAddress - The address of the hyperelliptic/rockx wallet which collects revenue
+1. validatorManagerAddress - The address of the validator manager contract to use
+1. \_mpcWalletAddress - The address of the MPC wallet to send stakes to.
+
+The validatorManagerAddress requires deploying the `ValidatorManager` contract, which in turn requires the `ValidatorOracle` contract address.
+
+If you don't care about these args and just want some defaults for development, you can use:
+
+```
+task deploy-default
+```
 
 ### Interaction
 
 Use `cast` to call contract functions directly. Examples:
 
-* Calling a method: `cast call <address> "deposit()" --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc`
-* Sending AVAX to a `payable` method: `cast send --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc --from <address> --private-key <key> --value 1 <address> "deposit()"`
+- Calling a method: `cast call <address> "deposit()" --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc`
+- Sending AVAX to a `payable` method: `cast send --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc --from <address> --private-key <key> --value 1 <address> "deposit()"`
 
 You can also use the `task` command, which has the RPC URL pre-set: `task call -- <address> "deposit()"`
 
 To pass arguments to a function, you'll need to split them out: `task call -- <address> "deposit(uint256)" 1`
+
+### Testing
+
+Unit tests are run with `forge test`. Integration tests are run using [Jest](https://jestjs.io/docs/getting-started_) with `jest integration`
+
+Integration tests expect that the `$AVALIDO` environment variable has been set to the deployed contract address. Deploying via `. ./scripts/deploy-local.sh` will set this automagically.
