@@ -53,9 +53,9 @@ abstract contract Helpers {
         return result;
     }
 
-    function mixOfBigAndSmallValidators() public pure returns (Validator[] memory) {
-        Validator[] memory smallValidators = nValidatorsWithInitialAndStake(7, 0.1 ether, 0, timeFromNow(1 years));
-        Validator[] memory bigValidators = nValidatorsWithInitialAndStake(7, 100 ether, 0, timeFromNow(1 years));
+    function mixOfBigAndSmallValidators() public view returns (Validator[] memory) {
+        Validator[] memory smallValidators = nValidatorsWithInitialAndStake(7, 0.1 ether, 0, timeFromNow(30 days));
+        Validator[] memory bigValidators = nValidatorsWithInitialAndStake(7, 100 ether, 0, timeFromNow(30 days));
 
         Validator[] memory validators = new Validator[](smallValidators.length + bigValidators.length);
 

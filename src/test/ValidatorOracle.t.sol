@@ -23,10 +23,16 @@ contract ValidatorOracleTest is DSTest, Helpers {
     }
 
     function testGetByCapacity() public {
-        oracle._TEMP_setValidators(nValidatorsWithInitialAndStake(2, 1 ether, 0));
+        oracle._TEMP_setValidators(nValidatorsWithInitialAndStake(2, 1 ether, 0, timeFromNow(30 days)));
 
         assertEq(oracle.getAvailableValidatorsWithCapacity(1 ether).length, 2); // Smaller
         assertEq(oracle.getAvailableValidatorsWithCapacity(4 ether).length, 2); // Exact
         assertEq(oracle.getAvailableValidatorsWithCapacity(10 ether).length, 0); // Too big
+    }
+
+    function testGetByCapacityWithinEndTime() public {
+        oracle._TEMP_setValidators(nValidatorsWithInitialAndStake(2, 1 ether, 0, timeFromNow(10 days)));
+
+        assertEq(oracle.getAvailableValidatorsWithCapacity(1 ether).length, 0);
     }
 }

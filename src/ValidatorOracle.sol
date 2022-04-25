@@ -18,6 +18,8 @@ contract ValidatorOracle is BaseValidatorOracle, AccessControlEnumerable {
     Validator[] validators;
     mapping(string => bool) validatorAllowlist;
 
+    uint256 minimumRequiredStakeTimeRemaining = 15 days;
+
     constructor() {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -66,20 +68,34 @@ contract ValidatorOracle is BaseValidatorOracle, AccessControlEnumerable {
         // TODO: Can we re-think a way to filter this without needing to iterate twice?
         // We can't do it client-side because it happens at stake-time, and we do not want
         // clients to control where the stake goes.
+        // Possible idea - store indicies of validators in a bitmask? Would be limited to N validators
+        // where N < 256.
         uint256 count = 0;
         for (uint256 index = 0; index < validators.length; index++) {
-            if (calculateFreeSpace(validators[index]) >= amount) {
-                count++;
+            if (calculateFreeSpace(validators[index]) < amount) {
+                continue;
             }
+            if (stakeTimeRemaining(validators[index]) < minimumRequiredStakeTimeRemaining) {
+                continue;
+            }
+            count++;
         }
 
         Validator[] memory result = new Validator[](count);
         for (uint256 index = 0; index < validators.length; index++) {
-            if (calculateFreeSpace(validators[index]) >= amount) {
-                result[index] = validators[index];
+            if (calculateFreeSpace(validators[index]) < amount) {
+                continue;
             }
+            if (stakeTimeRemaining(validators[index]) < minimumRequiredStakeTimeRemaining) {
+                continue;
+            }
+            result[index] = validators[index];
         }
         return result;
+    }
+
+    function stakeTimeRemaining(Validator memory validator) public view returns (uint256) {
+        return validator.stakeEndTime - block.timestamp;
     }
 
     function isInAllowlist(string memory validatorId) public view returns (bool) {
