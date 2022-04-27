@@ -102,6 +102,15 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Address where we'll send AVAX to be staked.
     address private mpcWalletAddress;
 
+    // Roles
+    bytes32 internal constant ROLE_PAUSE_MANAGER = keccak256("ROLE_PAUSE_MANAGER");
+    bytes32 internal constant ROLE_FEE_MANAGER = keccak256("ROLE_FEE_MANAGER");
+    bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER");
+    bytes32 internal constant ROLE_VALIDATOR_MANAGER = keccak256("ROLE_VALIDATOR_MANAGER");
+    bytes32 internal constant ROLE_MPC_MANAGER = keccak256("ROLE_MPC_MANAGER");
+    bytes32 internal constant ROLE_TREASURY_MANAGER = keccak256("ROLE_TREASURY_MANAGER");
+    bytes32 internal constant ROLE_DEVELOPER = keccak256("ROLE_DEVELOPER");
+
     constructor(
         address lidoFeeAddress,
         address authorFeeAddress,
@@ -130,6 +139,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     modifier onlyAdmin() {
         // TODO: Define proper RBAC. For now just use deployer as admin.
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin");
+        _;
+    }
+
+    // Allow function calls only from member with specific role
+    modifier auth(bytes32 role) {
+        require(hasRole(role, msg.sender), "Unauthorized role for this function.");
         _;
     }
 
@@ -396,11 +411,18 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     //  Admin functions
     // -------------------------------------------------------------------------
 
-    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
+    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external auth(ROLE_FEE_MANAGER) {
         protocolFeePercentage = _protocolFeePercentage;
     }
 
-    function setMPCWalletAddress(address _mpcWalletAddress) external onlyAdmin {
+    function setMPCWalletAddress(address _mpcWalletAddress) external auth(ROLE_MPC_MANAGER) {
         mpcWalletAddress = _mpcWalletAddress;
+    }
+
+    /**
+    * @notice Stop routine operations, allowed to call only by ROLE_PAUSE_MANAGER
+    */
+    function pause() external auth(ROLE_PAUSE_MANAGER) {
+        _pause();
     }
 }
