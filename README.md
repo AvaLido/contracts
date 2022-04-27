@@ -71,3 +71,5 @@ To pass arguments to a function, you'll need to split them out: `task call -- <a
 Unit tests are run with `forge test`. Integration tests are run using [Jest](https://jestjs.io/docs/getting-started_) with `jest integration`
 
 Integration tests expect that the `$AVALIDO` environment variable has been set to the deployed contract address. Deploying via `. ./scripts/deploy-local.sh` will set this automagically.
+
+To test for well-known vulnerabilities with the [Slither static analyzer](https://github.com/crytic/slither), run `slither .` in the main directory.
