@@ -83,7 +83,7 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectMock(validatorManagerAddress, "test-node", 10 ether, 0);
 
         cheats.expectEmit(true, true, false, true);
-        emit StakeEvent(1 ether, "test-node", 1800, 1211400);
+        emit StakeEvent(10 ether, "test-node", 1800, 1211400);
 
         uint256 staked = lido.initiateStake();
         assertEq(staked, 10 ether);
