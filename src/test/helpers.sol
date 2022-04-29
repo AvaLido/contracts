@@ -2,7 +2,6 @@
 pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import "ds-test/test.sol";
 
 import "../ValidatorManager.sol";
 
@@ -32,6 +31,10 @@ abstract contract Helpers {
         );
     }
 
+    function timeFromNow(uint256 time) public view returns (uint64) {
+        return uint64(block.timestamp + time);
+    }
+
     // TODO: Some left-padding or similar to match real-world node IDs would be nice.
     function nodeId(uint256 num) public pure returns (string memory) {
         return string(abi.encodePacked("NodeID-", Strings.toString(num)));
@@ -40,18 +43,19 @@ abstract contract Helpers {
     function nValidatorsWithInitialAndStake(
         uint256 n,
         uint256 stake,
-        uint256 full
+        uint256 full,
+        uint64 endTime
     ) public pure returns (Validator[] memory) {
         Validator[] memory result = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
-            result[i] = Validator(0, stake, full, nodeId(i));
+            result[i] = Validator(endTime, stake, full, nodeId(i));
         }
         return result;
     }
 
-    function mixOfBigAndSmallValidators() public pure returns (Validator[] memory) {
-        Validator[] memory smallValidators = nValidatorsWithInitialAndStake(7, 0.1 ether, 0);
-        Validator[] memory bigValidators = nValidatorsWithInitialAndStake(7, 100 ether, 0);
+    function mixOfBigAndSmallValidators() public view returns (Validator[] memory) {
+        Validator[] memory smallValidators = nValidatorsWithInitialAndStake(7, 0.1 ether, 0, timeFromNow(30 days));
+        Validator[] memory bigValidators = nValidatorsWithInitialAndStake(7, 100 ether, 0, timeFromNow(30 days));
 
         Validator[] memory validators = new Validator[](smallValidators.length + bigValidators.length);
 
