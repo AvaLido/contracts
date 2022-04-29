@@ -16,8 +16,9 @@ To see any `forge` assertion failure details or console logs, run `forge test` w
 1. Make sure you have `go` installed (`brew install go`).
 1. Install the `Taskfile` binary with `brew install go-task/tap/go-task` (or [see alternatives](https://taskfile.dev/#/installation))
 1. Download an `avalanchego` binary (or build from source) https://github.com/ava-labs/avalanchego/releases.
-1. Extract the binary, and place the `build` folder it in the `network` directory.
-1. Run `go run network/main.go` to run a local Avalanche network.
+1. Extract the binary, and place the `build` folder in the `network` directory.
+1. `cd` into the `network` directory and run `go mod download`.
+1. From within the `network` directory run `go run main.go` or from the `contracts` directory run `go run network/main.go` to run a local Avalanche network.
 
 The local network has a few pre-funded accounts to make development easiser:
 
