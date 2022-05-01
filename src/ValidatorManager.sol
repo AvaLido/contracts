@@ -65,7 +65,7 @@ contract ValidatorManager {
         if (amount <= smallStakeThreshold) {
             uint256 i = uint256(keccak256(abi.encodePacked(block.timestamp))) % validators.length;
             string[] memory vals = new string[](1);
-            vals[0] = validators[i].id;
+            vals[0] = validators[i].nodeId;
             uint256[] memory amounts = new uint256[](1);
             amounts[0] = amount;
             return (vals, amounts, 0);
@@ -125,7 +125,7 @@ contract ValidatorManager {
         // across transactions)
         string[] memory validatorIds = new string[](validators.length);
         for (uint256 i = 0; i < validators.length; i++) {
-            validatorIds[i] = validators[i].id;
+            validatorIds[i] = validators[i].nodeId;
         }
 
         return (validatorIds, resultAmounts, remainingUnstaked);
