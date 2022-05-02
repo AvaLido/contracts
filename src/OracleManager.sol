@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-import "./interfaces/IValidatorOracle.sol";
+import "./interfaces/IOracle.sol";
 import "./Types.sol";
 
 /**
@@ -20,32 +20,28 @@ import "./Types.sol";
  */
 
 contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
+    IOracle Oracle;
+
     // Errors
     error InvalidAddress();
     error InvalidQuorum();
-    error InvalidValidatorId();
     error OracleMemberNotFound();
-    error TooFewOracleMembers();
-    error TooManyOracleMembers();
+    //error TooFewOracleMembers();
 
     // Events
-	event OracleMemberAdded(address member);
+    event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
     event OracleQuorumChanged(uint256 QUORUM_THRESHOLD);
-    event OracleReportSent(uint256 epochId, bytes32 hashedData);
+    event OracleReportSent(uint256 indexed epochId, bytes32 indexed hashedData);
 
     // State variables
-    string[] public whitelistedValidators = ["1", "2", "3"]; // whitelisted Validator node ids. TODO: instantiate with a merkle tree? or read from a validator manager contract/AvaLido contract?
-    address[] public oracleMembers = [0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC, 0xf195179eEaE3c8CAB499b5181721e5C57e4769b2]; // whitelisted addresses running our oracle daemon. TODO: instantiate with a merkle tree?
-    address public AVALIDO; // address of the deployed Avalido contract
-    uint256 public QUORUM_THRESHOLD; // the number of matching oracle reports required to submit information to the Oracle
-    uint256 public constant MAX_MEMBERS = 3; // Maximum number of whitelisted oracle daemons. TODO: decide max; can we change it?
+    string[] public whitelistedValidators; // whitelisted Validator node ids. TODO: instantiate with a merkle tree? or read from a validator manager contract/AvaLido contract?
+    address[] public oracleMembers; // whitelisted addresses running our oracle daemon. TODO: instantiate with a merkle tree?
     uint256 internal constant MEMBER_NOT_FOUND = type(uint256).max; // index when oracle member does not exist in whitelist
-    bool public isReported; // whether data has been pushed to the Oracle for the current reporting period
 
     // Mappings
     mapping(uint256 => mapping(bytes32 => uint256)) internal reportHashesByEpochId; // epochId => (hashOfOracleData => countofThisHash)
-    mapping (uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
+    mapping(uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
     // when quorum is received for an epoch we can delete it from the mapping oracleMemberReports and set a mapping that the report is sent for this epoch?
 
     // Roles
@@ -55,22 +51,23 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     //  Intilialization
     // -------------------------------------------------------------------------
 
-    // /**
-    // * @notice Initialize OracleManager contract, allowed to call only once
-    // * @param _quorum inital quorum threshold
-    // */
-    // function initialize(
-    //     string[3] calldata _whitelistedValidators,
-    //     uint256 _quorum
-    // ) external {
-    //     // TODO: set up so it can be initialized only once
-    //     // TODO: any checks needed on the validator list?
-    //     if (_quorum == 0 || _quorum > MAX_MEMBERS) revert InvalidQuorum();
+    /**
+     * @notice Initialize OracleManager contract, allowed to call only once
+     * @param _whitelistedValidators Whitelist of validators we can stake with.
+     * @param _oracleMembers Whitelisted oracle member addresses.
+     */
+    function initialize(
+        address _roleOracleManager,
+        string[] memory _whitelistedValidators,
+        address[] memory _oracleMembers
+    ) external {
+        // TODO: set up so it can be initialized only once
+        // TODO: any checks needed on the validator list?
 
-    //     //_setupRole(ROLE_ORACLE_MANAGER, msg.sender); // TODO: pass actual addresses for roles, not msg.sender
-    //     whitelistedValidators = _whitelistedValidators;
-    //     QUORUM_THRESHOLD = _quorum;
-    // }
+        _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager); // TODO: pass actual addresses for roles, not msg.sender
+        whitelistedValidators = _whitelistedValidators;
+        oracleMembers = _oracleMembers;
+    }
 
     // -------------------------------------------------------------------------
     //  Modifiers
@@ -89,38 +86,36 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Called by daemons running our oracle service 
+     * @notice Called by daemons running our oracle service
      * @param _epochId The id of the reporting epoch.
      * @param _reportData Array of Validators.
      */
-     // TODO: change _report back to Validator[]
+    // TODO: change _report back to Validator[]
     function receiveMemberReport(uint256 _epochId, string calldata _reportData) external whenNotPaused {
         uint256 index = _getOracleMemberId(msg.sender);
-        if (index == MEMBER_NOT_FOUND) revert OracleMemberNotFound();
-
-        // TODO: what if all validators have voted and no quorum has been reached? PANIC
 
         // 1. check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
         // TODO: if (epochIsReported) return;
 
         // 2. check if the oracle member has already reported for the period; if yes, return, if no, log
-        if (reportedOraclesByEpochId[_epochId][msg.sender]) {
+        if (_hasOracleReported(_epochId, msg.sender)) {
             return;
-        } else {
-            reportedOraclesByEpochId[_epochId][msg.sender] = true;
         }
+
+        reportedOraclesByEpochId[_epochId][msg.sender] = true;
 
         // 3. Hash the incoming data: _report
         bytes32 hashedReportData = _hashReportData(_reportData);
 
-        // 4. Calculate if the hash achieves quorum
-        bool quorumReached = _calculateQuorum(_epochId, hashedReportData);
-
         // 5. store the hashed data count in reportHashesByEpochId
         _storeHashedDataCount(_epochId, hashedReportData);
 
+        // 6. Calculate if the hash achieves quorum
+        bool quorumReached = _calculateQuorum(_epochId, hashedReportData);
+
         // 6. If quorum is achieved, commit the report to Oracle.sol
         if (quorumReached) {
+            Oracle.receiveFinalizedReport(_epochId, hashedReportData);
             emit OracleReportSent(_epochId, hashedReportData);
         }
     }
@@ -130,10 +125,10 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // -------------------------------------------------------------------------
 
     /**
-    * @notice Return oracle address index in the member array
-    * @param _member oracle member address
-    * @return member index
-    */
+     * @notice Return oracle address index in the member array
+     * @param _member oracle member address
+     * @return member index
+     */
     function _getOracleMemberId(address _member) internal view returns (uint256) {
         uint256 arrayLength = oracleMembers.length;
         for (uint256 i = 0; i < arrayLength; ++i) {
@@ -141,7 +136,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
                 return i;
             }
         }
-        return MEMBER_NOT_FOUND;
+        revert OracleMemberNotFound();
     }
 
     /**
@@ -159,7 +154,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _reportData An array of Validators.
      * @return hashedData The bytes32 hash of the data.
      */
-     // TODO: change _reportData back to Validator[]
+    // TODO: change _reportData back to Validator[]
     function _hashReportData(string calldata _reportData) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(_reportData));
     }
@@ -191,41 +186,33 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _hashedData The keccak256 encoded hash of the incoming oracle member's report.
      * @return quorumReached True/false.
      */
-    function _calculateQuorum(uint256 _epochId, bytes32 _hashedData) internal pure returns (bool) {
-        // count = [eraId][dataHash]
+    function _calculateQuorum(uint256 _epochId, bytes32 _hashedData) internal view returns (bool) {
+        uint256 currentHashCount = _retrieveHashedDataCount(_epochId, _hashedData);
+        uint256 quorumThreshold = _calculateQuorumThreshold();
+        return currentHashCount >= quorumThreshold;
     }
 
-    // /**
-    //  * @notice .
-    //  * @param .
-    //  * @param .
-    //  * @return quorumThreshold.
-    //  */
-    // function _calculateQuorumThreshold(address[] calldata _oracleMembers) internal view returns (uint256) {
-    //     // n = number of oracles
-    //     // threshold = (n / 2)
-    // }
-
-    // /**
-    //  * @notice Called when oracle members are added or removed from the whitelist to adjust the quorum threshold accordingly.
-    //  * @param .
-    //  */
-    // function _setQuorumThreshold(address[] calldata _oracleMembers) internal () {
-    //     // TODO: have an external function that calls this, restricted by the oracle manager role?
-    // }
+    /**
+     * @notice Calculates the current quorum threshold based on the number of oracle members.
+     * @dev In Solidity all division rounds down to the nearest integer, so using n / 2 works whether
+     * the length of the oracle members list is even or odd - quorum is always (n / 2) + 1.
+     * @return quorumThreshold The current quorum threshold.
+     */
+    function _calculateQuorumThreshold() internal view returns (uint256) {
+        uint256 length = oracleMembers.length;
+        return (length / 2) + 1;
+    }
 
     // -------------------------------------------------------------------------
     //  Role-based functions
     // -------------------------------------------------------------------------
 
     /**
-    * @notice Add `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
-    * @param _oracleMember proposed member address
-    */
-    function addOracleMember(address _oracleMember) external {
-        // TODO: add auth
+     * @notice Add `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
+     * @param _oracleMember proposed oracle member address.
+     */
+    function addOracleMember(address _oracleMember) external auth(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
-        if (oracleMembers.length + 1 > MAX_MEMBERS) revert TooManyOracleMembers();
         // TODO: revert if oracle member already exists in whitelist
 
         oracleMembers.push(_oracleMember);
@@ -233,16 +220,14 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     }
 
     /**
-    * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
-    * @param _oracleMember proposed member address
-    */
-    function removeOracleMember(address _oracleMember) external {
-        // TODO: add auth
+     * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
+     * @param _oracleMember proposed oracle member address.
+     */
+    function removeOracleMember(address _oracleMember) external auth(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
-        if (oracleMembers.length - 1 > QUORUM_THRESHOLD) revert TooFewOracleMembers();
+        // TODO: add checks for having too few oracle members. What should the minimum be?
 
         uint256 index = _getOracleMemberId(_oracleMember);
-        if (index == MEMBER_NOT_FOUND) revert OracleMemberNotFound();
 
         uint256 last = oracleMembers.length - 1;
         if (index != last) oracleMembers[index] = oracleMembers[last];
@@ -254,4 +239,5 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
 
     // function resume
 
+    // function changeRoleOracleManager
 }
