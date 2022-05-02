@@ -15,14 +15,18 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager = new OracleManager();
     }
 
+	// -------------------------------------------------------------------------
+    //  Report functionality
+    // -------------------------------------------------------------------------
+
+	// -------------------------------------------------------------------------
+    //  Oracle management and auth
+    // -------------------------------------------------------------------------
+
     function testAddOracleMember() public {
-		//assertEq(oracleManager.QUORUM_THRESHOLD(), 2);
 		oracleManager.addOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
 		assertEq(oracleManager.oracleMembers(2), 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
     }
 
-	function testAddOracleMember() public {
-		oracleManager.addOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
-		assertEq(oracleManager.oracleMembers(2), 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
-    }
+	// TODO: test that authed functions cannot be accessed by other addresses
 }

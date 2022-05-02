@@ -31,28 +31,23 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // Events
 	event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
-    event OracleQuorumChanged(uint8 QUORUM_THRESHOLD);
-    // event OracleReportSent(uint256 reportingPeriod, string nodeId, ValidatorReportData reportData);
+    event OracleQuorumChanged(uint256 QUORUM_THRESHOLD);
+    event OracleReportSent(uint256 epochId, bytes32 hashedData);
 
     // State variables
     string[] public whitelistedValidators = ["1", "2", "3"]; // whitelisted Validator node ids. TODO: instantiate with a merkle tree? or read from a validator manager contract/AvaLido contract?
     address[] public oracleMembers = [0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC, 0xf195179eEaE3c8CAB499b5181721e5C57e4769b2]; // whitelisted addresses running our oracle daemon. TODO: instantiate with a merkle tree?
     address public AVALIDO; // address of the deployed Avalido contract
-    uint8 public QUORUM_THRESHOLD = 2; // the number of matching oracle reports required to submit information to the Oracle
+    uint256 public QUORUM_THRESHOLD; // the number of matching oracle reports required to submit information to the Oracle
     uint256 public constant MAX_MEMBERS = 3; // Maximum number of whitelisted oracle daemons. TODO: decide max; can we change it?
     uint256 internal constant MEMBER_NOT_FOUND = type(uint256).max; // index when oracle member does not exist in whitelist
     bool public isReported; // whether data has been pushed to the Oracle for the current reporting period
 
     // Mappings
-    //mapping (aliceAddress => mapping (bobAddress => uint256)) approvals; // aliceAddress approves bobAddress to spend uint256
-    mapping(address => string => ValidatorReportData[]) internal oracleMemberReports; // for each whitelisted validator we store each oracle member's OracleData report
-    mapping (address => bool) internal receivedReports; // tracks if an oracle member has reported for the current reporting period
-    // mapping (eraId => hashOfOracleData => countofThisHash)
-    // when quorum is received for an epoch we can delete it from the mapping
-    // separate mapping of whether a daemon has already reported for an era
-    // mapping(epoch => daemonAddress => bool)
-    hasReported = mapping[epoch][address]
-    
+    mapping(uint256 => mapping(bytes32 => uint256)) internal reportHashesByEpochId; // epochId => (hashOfOracleData => countofThisHash)
+    mapping (uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
+    // when quorum is received for an epoch we can delete it from the mapping oracleMemberReports and set a mapping that the report is sent for this epoch?
+
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER"); // TODO: more granular roles for managing members, changing quorum, etc.
 
@@ -66,7 +61,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // */
     // function initialize(
     //     string[3] calldata _whitelistedValidators,
-    //     uint8 _quorum
+    //     uint256 _quorum
     // ) external {
     //     // TODO: set up so it can be initialized only once
     //     // TODO: any checks needed on the validator list?
@@ -95,43 +90,43 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
 
     /**
      * @notice Called by daemons running our oracle service 
-     * @param _report Array of reports
+     * @param _epochId The id of the reporting epoch.
+     * @param _reportData Array of Validators.
      */
-     // TODO: add eraId to the params
-    function receiveMemberReport(ValidatorReportData[] calldata _report) external whenNotPaused {
+     // TODO: change _report back to Validator[]
+    function receiveMemberReport(uint256 _epochId, string calldata _reportData) external whenNotPaused {
         uint256 index = _getOracleMemberId(msg.sender);
         if (index == MEMBER_NOT_FOUND) revert OracleMemberNotFound();
 
-        // TODO: what to do if report isn't for current reporting period?
-        // TODO: check that msg.sender matches ValidatorReportData.oracleMember
         // TODO: what if all validators have voted and no quorum has been reached? PANIC
 
         // 1. check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
-        // if (isReported) return;
+        // TODO: if (epochIsReported) return;
 
-        // 2. check if the oracle member has already reported for the period; if yes, return
-        if (receivedReports[msg.sender]) return;
-
-        // 3. otherwise store the report
-        uint256 arrayLength = _report.length;
-        // for each node in the oracle's report...
-        for (uint256 i = 0; i < arrayLength; ++i) {
-            ValidatorReportData memory nodeReport = _report[i];
-            string memory nodeId = nodeReport.nodeId;
-            // ...push the ValidatorReportData to the correct nodeId in the oracleMemberReports mapping
-            oracleMemberReports[nodeId].push(nodeReport);
-            // ...and log that the oracle member has reported for this period
-            receivedReports[msg.sender] = true;
+        // 2. check if the oracle member has already reported for the period; if yes, return, if no, log
+        if (reportedOraclesByEpochId[_epochId][msg.sender]) {
+            return;
+        } else {
+            reportedOraclesByEpochId[_epochId][msg.sender] = true;
         }
 
-        // 4. calculate if quorum has now been reached and we can send the report to the Oracle
-        // _calculateQuorum();
+        // 3. Hash the incoming data: _report
+        bytes32 hashedReportData = _hashReportData(_reportData);
 
-        // TODO: should we log an event for every oracle member's report for each reporting period?
+        // 4. Calculate if the hash achieves quorum
+        bool quorumReached = _calculateQuorum(_epochId, hashedReportData);
+
+        // 5. store the hashed data count in reportHashesByEpochId
+        _storeHashedDataCount(_epochId, hashedReportData);
+
+        // 6. If quorum is achieved, commit the report to Oracle.sol
+        if (quorumReached) {
+            emit OracleReportSent(_epochId, hashedReportData);
+        }
     }
 
     // -------------------------------------------------------------------------
-    //  Internal functions
+    //  Internal functions/Utils
     // -------------------------------------------------------------------------
 
     /**
@@ -149,56 +144,75 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         return MEMBER_NOT_FOUND;
     }
 
-    // /**
-    // * @notice Return Validator node id index in the whitelist array
-    // * @param _nodeId member address
-    // * @return member index
-    // */
-    // function _getValidatorMemberId(string calldata _nodeId) internal view returns (uint256) {
-    //     uint256 arrayLength = whitelistedValidators.length;
-    //     for (uint256 i = 0; i < arrayLength; ++i) {
-    //         if (whitelistedValidators[i] == _nodeId) {
-    //             return i;
-    //         }
-    //     }
-    //     return MEMBER_NOT_FOUND;
-    // }
+    /**
+     * @notice Find out whether an oracle member has submitted a report for a specific reporting period.
+     * @param _epochId The id of the reporting epoch.
+     * @param _oracleMember The address of the oracle member.
+     * @return hasReported True or false.
+     */
+    function _hasOracleReported(uint256 _epochId, address _oracleMember) internal returns (bool) {
+        return reportedOraclesByEpochId[_epochId][_oracleMember];
+    }
 
     /**
-     * @notice Retrieves oracle member reports for a specific Validator node id.
-     * @param _nodeId The Validator to retrive reports for.
-     * @return reports Array of ValidatorReportData reports.
+     * @notice Hashes the report data from an oracle member.
+     * @param _reportData An array of Validators.
+     * @return hashedData The bytes32 hash of the data.
      */
-    function _retrieveOracleMemberReports(string calldata _nodeId) internal returns (ValidatorReportData[] memory) {
-        return oracleMemberReports[_nodeId];
+     // TODO: change _reportData back to Validator[]
+    function _hashReportData(string calldata _reportData) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(_reportData));
+    }
+
+    /**
+     * @notice Retrieves the tally of a particular data hash for a particular reporting epoch.
+     * @param _epochId The id of the reporting epoch.
+     * @param _hashedData The keccak256 encoded hash of oracle members' reports.
+     * @return count How many times the data hash has been recorded for the epoch.
+     */
+    function _retrieveHashedDataCount(uint256 _epochId, bytes32 _hashedData) internal view returns (uint256) {
+        return reportHashesByEpochId[_epochId][_hashedData];
+    }
+
+    /**
+     * @notice If quorum isn't reached when receiving a report, we increment the counter of this particular data hash for this epoch.
+     * @param _epochId The id of the reporting epoch.
+     * @param _hashedData The keccak256 encoded hash of the incoming oracle member's report.
+     */
+    function _storeHashedDataCount(uint256 _epochId, bytes32 _hashedData) internal {
+        uint256 currentHashCount = _retrieveHashedDataCount(_epochId, _hashedData);
+        uint256 newHashCount = currentHashCount + 1;
+        reportHashesByEpochId[_epochId][_hashedData] = newHashCount;
+    }
+
+    /**
+     * @notice Run each time a new oracle member report is received to calculate whether quorum has been reached for a reporting epoch.
+     * @param _epochId The id of the reporting epoch.
+     * @param _hashedData The keccak256 encoded hash of the incoming oracle member's report.
+     * @return quorumReached True/false.
+     */
+    function _calculateQuorum(uint256 _epochId, bytes32 _hashedData) internal pure returns (bool) {
+        // count = [eraId][dataHash]
     }
 
     // /**
-    //  * @notice Calculates whether quorum has been reached for a Validator node.
-    //  * @param _nodeId The Validator to calculate quorum for.
-    //  * @return quorum True if quorum is reached; false if not.
+    //  * @notice .
+    //  * @param .
+    //  * @param .
+    //  * @return quorumThreshold.
     //  */
-    // function _calculateQuorumForValidator(string calldata _nodeId) internal returns (bool) {
-    //     // uint256 index = _getValidatorMemberId(_nodeId);
-    //     if (index == MEMBER_NOT_FOUND) revert InvalidValidatorId();
-
-    //     ValidatorReportData[] memory reportsForValidator = _retrieveOracleMemberReports(_nodeId);
-    //     uint256 arrayLength = reportsForValidator.length;
-    //     uint8 quorumCount = 0;
-
-    //     // If not enough reports for quorum to be reached yet, return false
-    //     if (arrayLength < QUORUM_THRESHOLD) return false;
-
-    //     // If enough reports, iterate through and see if quorum has been reached
-    //     // for (uint i = 0; i < arrayLength; i++) {
-
-    //     // }
+    // function _calculateQuorumThreshold(address[] calldata _oracleMembers) internal view returns (uint256) {
+    //     // n = number of oracles
+    //     // threshold = (n / 2)
     // }
 
-    /**
-    * @notice Delete interim data for current reporting period
-    */
-    // function _clearReporting() internal {}
+    // /**
+    //  * @notice Called when oracle members are added or removed from the whitelist to adjust the quorum threshold accordingly.
+    //  * @param .
+    //  */
+    // function _setQuorumThreshold(address[] calldata _oracleMembers) internal () {
+    //     // TODO: have an external function that calls this, restricted by the oracle manager role?
+    // }
 
     // -------------------------------------------------------------------------
     //  Role-based functions
@@ -234,9 +248,6 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         if (index != last) oracleMembers[index] = oracleMembers[last];
         oracleMembers.pop();
         emit OracleMemberRemoved(_oracleMember);
-
-        // delete the data for the last eraId, let remained oracles report it again
-        //_clearReporting();
     }
 
     // function pause
