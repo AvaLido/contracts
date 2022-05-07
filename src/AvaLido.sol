@@ -202,7 +202,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         unstakeRequests[requestIndex] = request;
 
         // Burn stAVAX and send AVAX to the user.
-        burn(address(this), amount);
+        _burnShares(address(this), amount);
         payable(msg.sender).transfer(amount);
 
         // Emit claim event.
@@ -289,7 +289,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         // Mint stAVAX for user
-        mint(msg.sender, amount);
+        _mintShares(msg.sender, amount);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);

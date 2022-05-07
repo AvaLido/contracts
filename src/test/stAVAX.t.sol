@@ -20,11 +20,11 @@ contract TestToken is stAVAX {
     }
 
     function proxyMint(address recipient, uint256 amount) public {
-        super.mint(recipient, amount);
+        super._mintShares(recipient, amount);
     }
 
     function proxyBurn(address owner, uint256 amount) public {
-        super.burn(owner, amount);
+        super._burnShares(owner, amount);
     }
 }
 

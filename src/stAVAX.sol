@@ -12,7 +12,6 @@ import "./test/console.sol";
  * @dev ERC-20 implementation of a rebasing token 1:1 pegged to AVAX.
  * This contract is abstract, and must be implemented by something which
  * knows the total amount of controlled AVAX.
- * TODO: Transfers, approvals, events.
  */
 abstract contract stAVAX is ERC20, ReentrancyGuard {
     uint256 private totalShares = 0;
@@ -43,7 +42,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
      * This is simply the act of increasing the total supply and allocating shares
      * to the given address.
      */
-    function mint(address recipient, uint256 amount) internal {
+    function _mintShares(address recipient, uint256 amount) internal {
         if (recipient == address(0)) revert CannotMintToZeroAddress();
 
         totalShares += amount;
@@ -53,15 +52,10 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     /**
      * @dev Burn tokens from a given address.
      */
-    function burn(address owner, uint256 amount) internal {
+    function _burnShares(address owner, uint256 amount) internal {
         if (shares[owner] < amount) revert InsufficientSTAVAXBalance();
         totalShares -= amount;
         shares[owner] -= amount;
-    }
-
-    // TODO: Temporarily set to allow all.
-    function allowance(address owner, address spender) public view override returns (uint256) {
-        return type(uint256).max;
     }
 
     /**
