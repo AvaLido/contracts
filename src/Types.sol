@@ -16,7 +16,7 @@ struct Validator {
     uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
     uint256 primaryStakeAmount; // The intial stake amount the validator was instantiated with.
     uint256 delegatedAmount; // The amount of AVAX delegated to the validator.
-    string nodeId; // The id of the validator node.
+    string id; // The id of the validator node.
 }
 
 struct ValidatorData {
