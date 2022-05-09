@@ -243,7 +243,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * staking operation and we don't require any special permissions.
      * It would be sensible for our team to also call this at a regular interval.
      */
-    function initiateStake() public whenNotPaused nonReentrant returns (uint256) {
+    function initiateStake() external whenNotPaused nonReentrant returns (uint256) {
         if (amountPendingAVAX == 0 || amountPendingAVAX < minStakeBatchAmount) {
             return 0;
         }
@@ -334,7 +334,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function receiveRewardsFromMPC() external payable {
         if (msg.value == 0) return;
 
-        uint256 protocolFee = (msg.value / 100) * protocolFeePercentage;
+        uint256 protocolFee = (msg.value * protocolFeePercentage) / 100;
         payable(protocolFeeSplitter).transfer(protocolFee);
 
         // Question: Also use this to fill unstake requests?
@@ -367,7 +367,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
             if (remaining == 0) break;
 
-            if (unstakeRequests[i].amountFilled == unstakeRequests[i].amountRequested) {
+            if (isFilled(unstakeRequests[i])) {
                 // This shouldn't happen, but revert if it does for clearer testing
                 revert("Invalid state - filled request in queue");
             }
@@ -393,11 +393,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     }
 
     function isFilled(UnstakeRequest memory request) private pure returns (bool) {
-        return request.amountFilled == request.amountRequested;
+        return request.amountFilled >= request.amountRequested;
     }
 
     function isFullyClaimed(UnstakeRequest memory request) private pure returns (bool) {
-        return request.amountClaimed == request.amountRequested;
+        return request.amountClaimed >= request.amountRequested;
     }
 
     // -------------------------------------------------------------------------
@@ -405,10 +405,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // -------------------------------------------------------------------------
 
     function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
+        require(_protocolFeePercentage <= 100);
         protocolFeePercentage = _protocolFeePercentage;
     }
 
     function setMPCWalletAddress(address _mpcWalletAddress) external onlyAdmin {
+        require(_mpcWalletAddress != address(0), "Cannot set to 0 address");
         mpcWalletAddress = _mpcWalletAddress;
     }
 

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
+interface Empty {}
+
 struct UnstakeRequest {
     address requester; // The user who requested the unstake.
     uint64 requestedAt; // The block.timestamp when the unstake request was made.
