@@ -17,7 +17,11 @@ contract OracleManagerTest is DSTest, Helpers {
 
     address ORACLE_MANAGER_CONTRACT_ADDRESS;
     address roleOracleManager = 0xf195179eEaE3c8CAB499b5181721e5C57e4769b2; // Wendy the whale gets to manage the oracle 🐳
-    string[] whitelistedValidators = ["NodeId-123", "NodeId-456", "NodeId-789"];
+    string[] whitelistedValidators = [
+        "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
+        "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu",
+        "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN"
+    ];
     address[] oracleMembers = [
         0x03C1196617387899390d3a98fdBdfD407121BB67,
         0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413bf,
@@ -26,13 +30,14 @@ contract OracleManagerTest is DSTest, Helpers {
     uint256 epochId = 123456789;
     string testDataOne = "yeet";
     string testDataTwo = "yEeT";
+    string fakeNodeId = whitelistedValidators[0];
 
     function setUp() public {
-        oracleManager = new OracleManager();
+        oracleManager = new OracleManager(roleOracleManager, whitelistedValidators, oracleMembers);
         ORACLE_MANAGER_CONTRACT_ADDRESS = address(oracleManager);
-        oracleManager.initialize(roleOracleManager, whitelistedValidators, oracleMembers);
-        oracle = new Oracle();
-        oracle.initialize(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        oracle = new Oracle(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        cheats.prank(roleOracleManager);
+        oracleManager.setOracleAddress(address(oracle));
     }
 
     // -------------------------------------------------------------------------
@@ -42,7 +47,7 @@ contract OracleManagerTest is DSTest, Helpers {
     function testReceiveMemberReportWithoutQuorum() public {
         cheats.startPrank(oracleMembers[0]);
         oracleManager.receiveMemberReport(epochId, testDataOne);
-        // TODO: test storage being written?
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encodePacked(testDataOne))), 1);
         cheats.stopPrank();
     }
 
@@ -51,6 +56,8 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.receiveMemberReport(epochId, testDataOne);
         oracleManager.receiveMemberReport(epochId, testDataOne);
         oracleManager.receiveMemberReport(epochId, testDataTwo);
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encodePacked(testDataOne))), 2);
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encodePacked(testDataTwo))), 1);
 
         // TODO: figure out the expectEmit or expectCall stuff so we can actually know the Oracle has been called
         //cheats.expectEmit(true, true, false, true); // how the f does this work
@@ -63,7 +70,10 @@ contract OracleManagerTest is DSTest, Helpers {
         //         keccak256(abi.encodePacked(testDataOne))
         //     )
         // );
-        oracleManager.receiveMemberReport(epochId, testDataOne);
+
+        // Temporary check til we figure out the above - call the Oracle to see the data is there
+        bytes32 hashedDataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
+        assertEq(keccak256(abi.encodePacked(testDataOne)), hashedDataFromContract);
 
         cheats.stopPrank();
     }

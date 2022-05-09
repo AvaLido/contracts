@@ -7,6 +7,8 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
+import "./test/console.sol";
+
 import "./interfaces/IOracle.sol";
 import "./Types.sol";
 
@@ -47,26 +49,28 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER"); // TODO: more granular roles for managing members, changing quorum, etc.
 
+    constructor(
+        address _roleOracleManager, // Role that can change whitelist of oracles.
+        string[] memory _whitelistedValidators, //Whitelist of validators we can stake with.
+        address[] memory _oracleMembers // Whitelisted oracle member addresses.
+    ) {
+        // TODO: any checks needed on the validator list?
+
+        _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager);
+        whitelistedValidators = _whitelistedValidators;
+        oracleMembers = _oracleMembers;
+    }
+
     // -------------------------------------------------------------------------
-    //  Intilialization
+    //  Initialization
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Initialize OracleManager contract, allowed to call only once
-     * @param _whitelistedValidators Whitelist of validators we can stake with.
-     * @param _oracleMembers Whitelisted oracle member addresses.
+     * @notice Set the Oracle contract address that receives finalized reports.
+     * @param _oracleAddress Oracle address
      */
-    function initialize(
-        address _roleOracleManager,
-        string[] memory _whitelistedValidators,
-        address[] memory _oracleMembers
-    ) external {
-        // TODO: set up so it can be initialized only once
-        // TODO: any checks needed on the validator list?
-
-        _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager); // TODO: pass actual addresses for roles, not msg.sender
-        whitelistedValidators = _whitelistedValidators;
-        oracleMembers = _oracleMembers;
+    function setOracleAddress(address _oracleAddress) external auth(ROLE_ORACLE_MANAGER) {
+        Oracle = IOracle(_oracleAddress);
     }
 
     // -------------------------------------------------------------------------
@@ -91,16 +95,20 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _reportData Array of Validators.
      */
     // TODO: change _report back to Validator[]
-    function receiveMemberReport(uint256 _epochId, string calldata _reportData) external whenNotPaused {
+    function receiveMemberReport(uint256 _epochId, string calldata _reportData)
+        external
+        whenNotPaused
+        returns (string memory)
+    {
         uint256 index = _getOracleMemberId(msg.sender);
 
         // 1. check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
         // TODO: if (epochIsReported) return;
 
         // 2. check if the oracle member has already reported for the period; if yes, return, if no, log
-        if (_hasOracleReported(_epochId, msg.sender)) {
-            return;
-        }
+        // if (_hasOracleReported(_epochId, msg.sender)) {
+        //     return; // remove string
+        // }
 
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
 
@@ -115,9 +123,13 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
 
         // 6. If quorum is achieved, commit the report to Oracle.sol
         if (quorumReached) {
+            console.log("Quorum reached");
             Oracle.receiveFinalizedReport(_epochId, hashedReportData);
+            console.log("Report sent to Oracle");
             emit OracleReportSent(_epochId, hashedReportData);
         }
+
+        return _reportData;
     }
 
     // -------------------------------------------------------------------------
@@ -165,7 +177,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _hashedData The keccak256 encoded hash of oracle members' reports.
      * @return count How many times the data hash has been recorded for the epoch.
      */
-    function _retrieveHashedDataCount(uint256 _epochId, bytes32 _hashedData) internal view returns (uint256) {
+    function retrieveHashedDataCount(uint256 _epochId, bytes32 _hashedData) public view returns (uint256) {
         return reportHashesByEpochId[_epochId][_hashedData];
     }
 
@@ -175,9 +187,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _hashedData The keccak256 encoded hash of the incoming oracle member's report.
      */
     function _storeHashedDataCount(uint256 _epochId, bytes32 _hashedData) internal {
-        uint256 currentHashCount = _retrieveHashedDataCount(_epochId, _hashedData);
-        uint256 newHashCount = currentHashCount + 1;
-        reportHashesByEpochId[_epochId][_hashedData] = newHashCount;
+        reportHashesByEpochId[_epochId][_hashedData]++;
     }
 
     /**
@@ -187,7 +197,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @return quorumReached True/false.
      */
     function _calculateQuorum(uint256 _epochId, bytes32 _hashedData) internal view returns (bool) {
-        uint256 currentHashCount = _retrieveHashedDataCount(_epochId, _hashedData);
+        uint256 currentHashCount = retrieveHashedDataCount(_epochId, _hashedData);
         uint256 quorumThreshold = _calculateQuorumThreshold();
         return currentHashCount >= quorumThreshold;
     }

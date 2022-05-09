@@ -18,3 +18,9 @@ struct Validator {
     uint256 delegatedAmount; // The amount of AVAX delegated to the validator.
     string nodeId; // The id of the validator node.
 }
+
+struct ValidatorData {
+    string nodeId; // The id of the validator node.
+    uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
+    uint256 freeSpace; // The amount of AVAX free on the given node.
+}

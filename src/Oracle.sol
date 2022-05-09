@@ -34,18 +34,7 @@ contract Oracle is AccessControlEnumerable {
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER");
 
-    // -------------------------------------------------------------------------
-    //  Intilialization
-    // -------------------------------------------------------------------------
-
-    /**
-     * @notice Initialize Oracle contract, allowed to call only once
-     * @param _oracleManagerContract Address of the OracleManager contract
-     */
-    function initialize(address _oracleManagerContract) external {
-        // TODO: set up so it can be initialized only once
-
-        //_setupRole(ROLE_ORACLE_MANAGER, msg.sender); // TODO: pass actual addresses for roles, not msg.sender
+    constructor(address _oracleManagerContract) {
         ORACLE_MANAGER_CONTRACT = _oracleManagerContract;
     }
 
