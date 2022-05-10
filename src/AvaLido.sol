@@ -196,6 +196,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         if (request.requester != msg.sender) revert NotAuthorized();
         if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
+        if (amount > address(this).balance) revert InsufficientBalance();
 
         // Partial claim, update amounts.
         request.amountClaimed += amount;
