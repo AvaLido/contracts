@@ -65,6 +65,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     event WithdrawRequestSubmittedEvent(address indexed _from, uint256 _amount, uint256 timestamp);
     event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
     event ClaimEvent(address indexed _from, uint256 _claimAmount, bool indexed finalClaim);
+    event RewardsCollectedEvent(uint256 amount);
+    event ProtocolFeeEvent(uint256 amount);
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract
@@ -319,9 +321,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Fill unstake requests
         uint256 remaining = fillUnstakeRequests(msg.value);
 
-        // Rebalance liquidity pool
-
-        // Allocation excess for restaking.
+        // Allocate excess for restaking.
         amountPendingAVAX += remaining;
     }
 
@@ -336,12 +336,16 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         uint256 protocolFee = (msg.value * protocolFeePercentage) / 100;
         payable(protocolFeeSplitter).transfer(protocolFee);
+        emit ProtocolFeeEvent(protocolFee);
 
-        // Question: Also use this to fill unstake requests?
+        uint256 afterFee = msg.value - protocolFee;
+        emit RewardsCollectedEvent(afterFee);
 
-        // TODO
-        // Calculate stAVAX rebase
-        // Emit events
+        // Fill unstake requests
+        uint256 remaining = fillUnstakeRequests(afterFee);
+
+        // Allocate excess for restaking.
+        amountPendingAVAX += remaining;
     }
 
     // -------------------------------------------------------------------------
