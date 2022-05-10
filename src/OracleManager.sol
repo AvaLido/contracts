@@ -27,6 +27,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // Errors
     error InvalidAddress();
     error InvalidQuorum();
+    error OracleAlreadyReported();
     error OracleMemberNotFound();
     //error TooFewOracleMembers();
 
@@ -34,7 +35,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
     event OracleQuorumChanged(uint256 QUORUM_THRESHOLD);
-    event OracleReportSent(uint256 indexed epochId, string indexed data);
+    event OracleReportSent(uint256 indexed epochId);
 
     // State variables
     string[] public whitelistedValidators; // whitelisted Validator node ids. TODO: instantiate with a merkle tree? or read from a validator manager contract/AvaLido contract?
@@ -79,23 +80,16 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     /**
      * @notice Called by daemons running our oracle service
      * @param _epochId The id of the reporting epoch.
-     * @param _reportData Array of Validators.
+     * @param _reportData Array of ValidatorData structs.
      */
-    // TODO: change _report back to Validator[]
-    function receiveMemberReport(uint256 _epochId, string calldata _reportData)
-        external
-        whenNotPaused
-        returns (string memory)
-    {
+    function receiveMemberReport(uint256 _epochId, ValidatorData[] calldata _reportData) external whenNotPaused {
         _getOracleMemberId(msg.sender);
 
         // 1. check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
         // TODO: if (epochIsReported) return;
 
-        // 2. check if the oracle member has already reported for the period; if yes, return, if no, log
-        // if (_hasOracleReported(_epochId, msg.sender)) {
-        //     return; // remove string
-        // }
+        // 2. check if the oracle member has already reported for the period; reverts if true
+        _hasOracleReported(_epochId, msg.sender);
 
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
 
@@ -113,10 +107,8 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
             console.log("Quorum reached");
             Oracle.receiveFinalizedReport(_epochId, _reportData);
             console.log("Report sent to Oracle");
-            emit OracleReportSent(_epochId, _reportData);
+            emit OracleReportSent(_epochId);
         }
-
-        return _reportData;
     }
 
     // -------------------------------------------------------------------------
@@ -142,20 +134,20 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Find out whether an oracle member has submitted a report for a specific reporting period.
      * @param _epochId The id of the reporting epoch.
      * @param _oracleMember The address of the oracle member.
-     * @return hasReported True or false.
      */
-    function _hasOracleReported(uint256 _epochId, address _oracleMember) internal view returns (bool) {
-        return reportedOraclesByEpochId[_epochId][_oracleMember];
+    function _hasOracleReported(uint256 _epochId, address _oracleMember) internal view {
+        if (reportedOraclesByEpochId[_epochId][_oracleMember]) {
+            revert OracleAlreadyReported();
+        }
     }
 
     /**
      * @notice Hashes the report data from an oracle member.
-     * @param _reportData An array of Validators.
+     * @param _reportData An array of ValidatorData structs.
      * @return hashedData The bytes32 hash of the data.
      */
-    // TODO: change _reportData back to Validator[]
-    function _hashReportData(string calldata _reportData) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_reportData));
+    function _hashReportData(ValidatorData[] calldata _reportData) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_reportData));
     }
 
     /**

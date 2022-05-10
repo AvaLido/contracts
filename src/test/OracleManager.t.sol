@@ -29,9 +29,8 @@ contract OracleManagerTest is DSTest, Helpers {
         0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018
     ];
     uint256 epochId = 123456789;
-    string testDataOne = "yeet";
-    string testDataTwo = "yEeT";
     string fakeNodeId = whitelistedValidators[0];
+    string fakeNodeIdTwo = whitelistedValidators[1];
 
     function setUp() public {
         oracleManager = new OracleManager(roleOracleManager, whitelistedValidators, oracleMembers);
@@ -47,18 +46,29 @@ contract OracleManagerTest is DSTest, Helpers {
 
     function testReceiveMemberReportWithoutQuorum() public {
         cheats.startPrank(oracleMembers[0]);
-        oracleManager.receiveMemberReport(epochId, testDataOne);
-        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encodePacked(testDataOne))), 1);
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        oracleManager.receiveMemberReport(epochId, reportData);
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportData))), 1);
         cheats.stopPrank();
     }
 
     function testReceiveMemberReportWithQuorum() public {
+        ValidatorData[] memory reportDataOne = new ValidatorData[](1);
+        reportDataOne[0].nodeId = fakeNodeId;
+        ValidatorData[] memory reportDataTwo = new ValidatorData[](1);
+        reportDataTwo[0].nodeId = fakeNodeIdTwo;
         cheats.startPrank(oracleMembers[0]);
-        oracleManager.receiveMemberReport(epochId, testDataOne);
-        oracleManager.receiveMemberReport(epochId, testDataOne);
-        oracleManager.receiveMemberReport(epochId, testDataTwo);
-        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encodePacked(testDataOne))), 2);
-        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encodePacked(testDataTwo))), 1);
+        oracleManager.receiveMemberReport(epochId, reportDataOne);
+        cheats.stopPrank();
+        cheats.startPrank(oracleMembers[1]);
+        oracleManager.receiveMemberReport(epochId, reportDataOne);
+        cheats.stopPrank();
+        cheats.startPrank(oracleMembers[2]);
+        oracleManager.receiveMemberReport(epochId, reportDataTwo);
+        cheats.stopPrank();
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportDataOne))), 2);
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportDataTwo))), 1);
 
         // TODO: figure out the expectEmit or expectCall stuff so we can actually know the Oracle has been called
         //cheats.expectEmit(true, true, false, true); // how the f does this work
@@ -73,17 +83,25 @@ contract OracleManagerTest is DSTest, Helpers {
         // );
 
         // Temporary check til we figure out the above - call the Oracle to see the data is there
-        string memory dataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
-        assertEq(testDataOne, dataFromContract);
+        ValidatorData[] memory dataFromContract = oracle.getAllValidatorDataByEpochId(epochId);
+        assertEq(keccak256(abi.encode(reportDataOne)), keccak256(abi.encode(dataFromContract)));
+    }
 
+    function testOracleCannotReportTwice() public {
+        cheats.startPrank(oracleMembers[0]);
+        ValidatorData[] memory reportDataOne = new ValidatorData[](1);
+        reportDataOne[0].nodeId = fakeNodeId;
+        oracleManager.receiveMemberReport(epochId, reportDataOne);
+        cheats.expectRevert(OracleManager.OracleAlreadyReported.selector);
+        oracleManager.receiveMemberReport(epochId, reportDataOne);
         cheats.stopPrank();
     }
 
-    // function testOracleCannotReportTwice
-
     function testUnauthorizedReceiveMemberReport() public {
         cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
-        oracleManager.receiveMemberReport(epochId, testDataOne);
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        oracleManager.receiveMemberReport(epochId, reportData);
     }
 
     // function testCannotReceiveReportWhenPaused

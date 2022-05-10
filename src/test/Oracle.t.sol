@@ -26,7 +26,6 @@ contract OracleTest is DSTest, Helpers {
     ];
     address ORACLE_MANAGER_ADDRESS;
     uint256 epochId = 123456789;
-    string testData = "yeet";
     string fakeNodeId = whitelistedValidators[0];
 
     function setUp() public {
@@ -47,9 +46,11 @@ contract OracleTest is DSTest, Helpers {
 
     function testReceiveFinalizedReport() public {
         cheats.prank(ORACLE_MANAGER_ADDRESS);
-        oracle.receiveFinalizedReport(epochId, testData);
-        string memory dataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
-        assertEq(testData, dataFromContract);
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        oracle.receiveFinalizedReport(epochId, reportData);
+        ValidatorData[] memory dataFromContract = oracle.getAllValidatorDataByEpochId(epochId);
+        assertEq(keccak256(abi.encode(reportData)), keccak256(abi.encode(dataFromContract)));
     }
 
     // -------------------------------------------------------------------------
@@ -58,6 +59,8 @@ contract OracleTest is DSTest, Helpers {
 
     function testUnauthorizedReceiveFinalizedReport() public {
         cheats.expectRevert(Oracle.OnlyOracleManager.selector);
-        oracle.receiveFinalizedReport(epochId, testData);
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        oracle.receiveFinalizedReport(epochId, reportData);
     }
 }
