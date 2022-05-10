@@ -22,8 +22,9 @@ contract Oracle is AccessControlEnumerable {
     error OnlyOracleManager();
 
     // Events
-    event OracleReportReceived(uint256 epochId);
     event OracleManagerAddressChanged(address newOracleManagerAddress);
+    event OracleReportReceived(uint256 epochId);
+    // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     // State variables
     address public ORACLE_MANAGER_CONTRACT;
@@ -34,7 +35,8 @@ contract Oracle is AccessControlEnumerable {
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER");
 
-    constructor(address _oracleManagerContract) {
+    constructor(address _roleOracleManager, address _oracleManagerContract) {
+        _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager);
         ORACLE_MANAGER_CONTRACT = _oracleManagerContract;
     }
 
@@ -76,10 +78,6 @@ contract Oracle is AccessControlEnumerable {
     }
 
     // -------------------------------------------------------------------------
-    //  Internal functions/Utils
-    // -------------------------------------------------------------------------
-
-    // -------------------------------------------------------------------------
     //  Role-based functions
     // -------------------------------------------------------------------------
 
@@ -94,4 +92,6 @@ contract Oracle is AccessControlEnumerable {
 
         emit OracleManagerAddressChanged(_newOracleManagerAddress);
     }
+
+    // TODO: function changeRoleOracleManager() {}
 }

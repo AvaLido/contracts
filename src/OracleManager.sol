@@ -39,8 +39,8 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     event OracleAddressChanged(address oracleAddress);
     event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
-    event OracleQuorumChanged(uint256 QUORUM_THRESHOLD);
     event OracleReportSent(uint256 epochId);
+    // event RoleOracleManagerChanged(address newRoleOracleManager);
     event WhitelistedValidatorAdded(string nodeId);
     event WhitelistedValidatorRemoved(string nodeId);
 
@@ -293,5 +293,5 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         _unpause();
     }
 
-    // function changeRoleOracleManager
+    // TODO: function changeRoleOracleManager() {}
 }
