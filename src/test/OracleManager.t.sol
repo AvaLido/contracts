@@ -14,7 +14,7 @@ contract OracleManagerTest is DSTest, Helpers {
     OracleManager oracleManager;
     Oracle oracle;
 
-    event OracleReportSent(uint256 indexed epochId, bytes32 indexed hashedData);
+    event OracleReportSent(uint256 epochId);
 
     address ORACLE_MANAGER_CONTRACT_ADDRESS;
     address roleOracleManager = 0xf195179eEaE3c8CAB499b5181721e5C57e4769b2; // Wendy the whale gets to manage the oracle 🐳
@@ -31,6 +31,7 @@ contract OracleManagerTest is DSTest, Helpers {
     uint256 epochId = 123456789;
     string fakeNodeId = whitelistedValidators[0];
     string fakeNodeIdTwo = whitelistedValidators[1];
+    string unwhitelistedValidator = "NodeId-fakeymcfakerson";
 
     function setUp() public {
         oracleManager = new OracleManager(roleOracleManager, whitelistedValidators, oracleMembers);
@@ -54,37 +55,36 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testReceiveMemberReportWithQuorum() public {
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportSent(epochId);
+
         ValidatorData[] memory reportDataOne = new ValidatorData[](1);
         reportDataOne[0].nodeId = fakeNodeId;
         ValidatorData[] memory reportDataTwo = new ValidatorData[](1);
         reportDataTwo[0].nodeId = fakeNodeIdTwo;
+
         cheats.startPrank(oracleMembers[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
         cheats.stopPrank();
         cheats.startPrank(oracleMembers[1]);
-        oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
-        cheats.startPrank(oracleMembers[2]);
         oracleManager.receiveMemberReport(epochId, reportDataTwo);
         cheats.stopPrank();
-        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportDataOne))), 2);
-        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportDataTwo))), 1);
+        cheats.startPrank(oracleMembers[2]);
+        oracleManager.receiveMemberReport(epochId, reportDataOne);
+        cheats.stopPrank();
+    }
 
-        // TODO: figure out the expectEmit or expectCall stuff so we can actually know the Oracle has been called
-        //cheats.expectEmit(true, true, false, true); // how the f does this work
-        //emit OracleReportSent(epochId, keccak256(abi.encodePacked(testDataOne)));
-        // cheats.expectCall(
-        //     address(oracle),
-        //     abi.encodeWithSelector(
-        //         oracle.receiveFinalizedReport.selector,
-        //         epochId,
-        //         keccak256(abi.encodePacked(testDataOne))
-        //     )
-        // );
+    // function testCannotReportForFinalizedEpoch() public {}
 
-        // Temporary check til we figure out the above - call the Oracle to see the data is there
-        ValidatorData[] memory dataFromContract = oracle.getAllValidatorDataByEpochId(epochId);
-        assertEq(keccak256(abi.encode(reportDataOne)), keccak256(abi.encode(dataFromContract)));
+    function testReceiveReportWithUnwhitelistedValidator() public {
+        cheats.startPrank(oracleMembers[0]);
+        ValidatorData[] memory reportDataOne = new ValidatorData[](3);
+        reportDataOne[0].nodeId = fakeNodeId;
+        reportDataOne[1].nodeId = unwhitelistedValidator;
+        reportDataOne[2].nodeId = fakeNodeIdTwo;
+        cheats.expectRevert(OracleManager.ValidatorNodeIdNotFound.selector);
+        oracleManager.receiveMemberReport(epochId, reportDataOne);
+        cheats.stopPrank();
     }
 
     function testOracleCannotReportTwice() public {
@@ -104,9 +104,16 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.receiveMemberReport(epochId, reportData);
     }
 
-    // function testCannotReceiveReportWhenPaused
-
-    // function testCannotReportForFinalizedEpoch
+    function testCannotReceiveReportWhenPaused() public {
+        cheats.prank(roleOracleManager);
+        oracleManager.pause();
+        cheats.startPrank(oracleMembers[0]);
+        ValidatorData[] memory reportDataOne = new ValidatorData[](1);
+        reportDataOne[0].nodeId = fakeNodeId;
+        cheats.expectRevert("Pausable: paused");
+        oracleManager.receiveMemberReport(epochId, reportDataOne);
+        cheats.stopPrank();
+    }
 
     // -------------------------------------------------------------------------
     //  Oracle management and auth
@@ -125,6 +132,13 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.addOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
     }
 
+    function testCannotAddOracleMemberWhenPaused() public {
+        cheats.startPrank(roleOracleManager);
+        oracleManager.pause();
+        cheats.expectRevert("Pausable: paused");
+        oracleManager.addOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
+    }
+
     // TODO: fix test. It reverts with OracleMemberNotFound but for some reason test doesn't pass?
     // function testRemoveOracleMember() public {
     //     cheats.prank(roleOracleManager);
@@ -140,5 +154,18 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.addOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
     }
 
+    function testCannotRemoveOracleMemberWhenPaused() public {
+        cheats.startPrank(roleOracleManager);
+        oracleManager.pause();
+        cheats.expectRevert("Pausable: paused");
+        oracleManager.removeOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
+    }
+
     // function testOracleMemberNotFound
+
+    // function testSetOracleAddress() public {}
+
+    // function testUnauthorizedSetOracleAddress() public {}
+
+    // function testCannotSetOracleAddressWhenPaused()
 }
