@@ -6,7 +6,7 @@ export ORACLE_WHITELIST=["0x03C1196617387899390d3a98fdBdfD407121BB67","0x6C58f6E
 
 # These exports used by integration test scripts.
 export ORACLE_MANAGER=$(task deploy -- OracleManager --constructor-args $ROLE_ORACLE_MANAGER $VALIDATOR_WHITELIST $ORACLE_WHITELIST | grep -i "deployed" | cut -d " " -f 3)
-export ORACLE==$(task deploy -- Oracle --constructor-args $ORACLE_MANAGER | grep -i "deployed" | cut -d " " -f 3)
+export ORACLE=$(task deploy -- Oracle --constructor-args $ROLE_ORACLE_MANAGER $ORACLE_MANAGER | grep -i "deployed" | cut -d " " -f 3)
 export VALIDATOR_ORACLE=$(task deploy -- ValidatorOracle | grep -i "deployed" | cut -d " " -f 3)
 export VALIDATOR_MANAGER=$(task deploy -- ValidatorManager --constructor-args $VALIDATOR_ORACLE | grep -i "deployed" | cut -d " " -f 3)
 export AVALIDO=$(task deploy -- AvaLido --constructor-args "0x2000000000000000000000000000000000000001" "0x2000000000000000000000000000000000000002" $VALIDATOR_MANAGER "0x3000000000000000000000000000000000000001" | grep -i "deployed" | cut -d " " -f 3)

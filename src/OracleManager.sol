@@ -77,7 +77,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Set the Oracle contract address that receives finalized reports.
      * @param _oracleAddress Oracle address
      */
-    function setOracleAddress(address _oracleAddress) external whenNotPaused onlyRole(ROLE_ORACLE_MANAGER) {
+    function setOracleAddress(address _oracleAddress) external onlyRole(ROLE_ORACLE_MANAGER) {
         Oracle = IOracle(_oracleAddress);
         emit OracleAddressChanged(_oracleAddress);
     }
@@ -93,7 +93,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      */
     function receiveMemberReport(uint256 _epochId, ValidatorData[] calldata _reportData) external whenNotPaused {
         // 1. Check if the reporting oracle is on our whitelist
-        if (getOracleMemberIndex(msg.sender) == INDEX_NOT_FOUND) revert OracleMemberNotFound();
+        if (_getOracleMemberIndex(msg.sender) == INDEX_NOT_FOUND) revert OracleMemberNotFound();
 
         // 2. Check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
         if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
@@ -134,7 +134,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _member oracle member address
      * @return index index
      */
-    function getOracleMemberIndex(address _member) internal view returns (uint256) {
+    function _getOracleMemberIndex(address _member) internal view returns (uint256) {
         for (uint256 i = 0; i < oracleMembers.length; ++i) {
             if (oracleMembers[i] == _member) {
                 return i;
@@ -235,9 +235,9 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Add `_oracleMember` to the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
      * @param _oracleMember proposed oracle member address.
      */
-    function addOracleMember(address _oracleMember) external whenNotPaused onlyRole(ROLE_ORACLE_MANAGER) {
+    function addOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
-        if (getOracleMemberIndex(_oracleMember) != INDEX_NOT_FOUND) revert OracleMemberExists();
+        if (_getOracleMemberIndex(_oracleMember) != INDEX_NOT_FOUND) revert OracleMemberExists();
 
         oracleMembers.push(_oracleMember);
         emit OracleMemberAdded(_oracleMember);
@@ -247,11 +247,11 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
      * @param _oracleMember proposed oracle member address.
      */
-    function removeOracleMember(address _oracleMember) external whenNotPaused onlyRole(ROLE_ORACLE_MANAGER) {
+    function removeOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
         // TODO: add checks for having too few oracle members. What should the minimum be?
 
-        uint256 index = getOracleMemberIndex(_oracleMember);
+        uint256 index = _getOracleMemberIndex(_oracleMember);
         if (index == INDEX_NOT_FOUND) revert OracleMemberNotFound();
 
         uint256 last = oracleMembers.length - 1;
@@ -264,7 +264,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Add `_nodeId` to the validator whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
      * @param _nodeId proposed validator node id.
      */
-    function addWhitelistedValidator(string calldata _nodeId) external whenNotPaused onlyRole(ROLE_ORACLE_MANAGER) {
+    function addWhitelistedValidator(string calldata _nodeId) external onlyRole(ROLE_ORACLE_MANAGER) {
         if (_getWhitelistedValidatorIndex(_nodeId) != INDEX_NOT_FOUND) revert ValidatorAlreadyWhitelisted();
 
         whitelistedValidators.push(_nodeId);
@@ -275,7 +275,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Remove `_nodeId` from the validator whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
      * @param _nodeId proposed validator node id.
      */
-    function removeWhitelistedValidator(string calldata _nodeId) external whenNotPaused onlyRole(ROLE_ORACLE_MANAGER) {
+    function removeWhitelistedValidator(string calldata _nodeId) external onlyRole(ROLE_ORACLE_MANAGER) {
         uint256 index = _getWhitelistedValidatorIndex(_nodeId);
         if (index == INDEX_NOT_FOUND) revert ValidatorNodeIdNotFound();
 

@@ -160,13 +160,6 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.addOracleMember(anotherAddressForTesting);
     }
 
-    function testCannotAddOracleMemberWhenPaused() public {
-        cheats.startPrank(roleOracleManager);
-        oracleManager.pause();
-        cheats.expectRevert("Pausable: paused");
-        oracleManager.addOracleMember(anotherAddressForTesting);
-    }
-
     function testCannotAddOracleMemberAgain() public {
         cheats.startPrank(roleOracleManager);
         cheats.expectRevert(OracleManager.OracleMemberExists.selector);
@@ -185,13 +178,6 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.expectRevert(
             "AccessControl: account 0xb4c79dab8f259c7aee6e5b2aa729821864227e84 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
         );
-        oracleManager.removeOracleMember(anotherAddressForTesting);
-    }
-
-    function testCannotRemoveOracleMemberWhenPaused() public {
-        cheats.startPrank(roleOracleManager);
-        oracleManager.pause();
-        cheats.expectRevert("Pausable: paused");
         oracleManager.removeOracleMember(anotherAddressForTesting);
     }
 
@@ -221,13 +207,6 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.addWhitelistedValidator(newWhitelistedValidator);
     }
 
-    function testCannotAddWhitelistedValidatorWhenPaused() public {
-        cheats.startPrank(roleOracleManager);
-        oracleManager.pause();
-        cheats.expectRevert("Pausable: paused");
-        oracleManager.addWhitelistedValidator(newWhitelistedValidator);
-    }
-
     function testCannotAddWhitelistedValidatorAgain() public {
         cheats.startPrank(roleOracleManager);
         cheats.expectRevert(OracleManager.ValidatorAlreadyWhitelisted.selector);
@@ -246,13 +225,6 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.expectRevert(
             "AccessControl: account 0xb4c79dab8f259c7aee6e5b2aa729821864227e84 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
         );
-        oracleManager.removeWhitelistedValidator(whitelistedValidators[0]);
-    }
-
-    function testCannotRemoveWhitelistedValidatorWhenPaused() public {
-        cheats.startPrank(roleOracleManager);
-        oracleManager.pause();
-        cheats.expectRevert("Pausable: paused");
         oracleManager.removeWhitelistedValidator(whitelistedValidators[0]);
     }
 
@@ -278,13 +250,6 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.expectRevert(
             "AccessControl: account 0xb4c79dab8f259c7aee6e5b2aa729821864227e84 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
         );
-        oracleManager.setOracleAddress(anotherAddressForTesting);
-    }
-
-    function testCannotSetOracleAddressWhenPaused() public {
-        cheats.startPrank(roleOracleManager);
-        oracleManager.pause();
-        cheats.expectRevert("Pausable: paused");
         oracleManager.setOracleAddress(anotherAddressForTesting);
     }
 
