@@ -14,6 +14,8 @@ import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 
 contract AvaLidoTest is DSTest, Helpers {
     event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
+    event RewardsCollectedEvent(uint256 amount);
+    event ProtocolFeeEvent(uint256 amount);
 
     AvaLido lido;
 
@@ -473,7 +475,19 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testRewardReceived() public {
+        assertEq(lido.protocolControlledAVAX(), 0);
+        assertEq(lido.amountPendingAVAX(), 0);
+
+        cheats.expectEmit(false, false, false, true);
+        emit ProtocolFeeEvent(0.1 ether);
+
+        cheats.expectEmit(false, false, false, true);
+        emit RewardsCollectedEvent(0.9 ether);
+
         lido.receiveRewardsFromMPC{value: 1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 0.9 ether);
+        assertEq(lido.amountPendingAVAX(), 0.9 ether);
 
         assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
 
@@ -484,5 +498,23 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertEq(address(feeAddressAuthor).balance, 0.02 ether);
         assertEq(address(feeAddressLido).balance, 0.08 ether);
+    }
+
+    function testRewardsReceivedFillUnstakeRequests() public {
+        lido.deposit{value: 10 ether}();
+        validatorSelectMock(validatorManagerAddress, "test", 10 ether, 0);
+
+        lido.initiateStake();
+
+        uint256 requestId = lido.requestWithdrawal(5 ether);
+
+        lido.receiveRewardsFromMPC{value: 1 ether}();
+
+        // 0.1 taken as fee, 0.9 should be used to fill requests.
+        (, , uint256 amountRequested, uint256 amountFilled, uint256 amountClaimed) = lido.unstakeRequests(requestId);
+
+        assertEq(amountRequested, 5 ether);
+        assertEq(amountFilled, 0.9 ether);
+        assertEq(amountClaimed, 0 ether);
     }
 }
