@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
+interface Empty {}
+
 struct UnstakeRequest {
     address requester; // The user who requested the unstake.
     uint64 requestedAt; // The block.timestamp when the unstake request was made.
@@ -11,8 +13,15 @@ struct UnstakeRequest {
 }
 
 struct Validator {
-    uint64 stakeEndTime;
-    uint256 primaryStakeAmount;
-    uint256 delegatedAmount;
-    string id;
+    uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
+    uint256 primaryStakeAmount; // The intial stake amount the validator was instantiated with.
+    uint256 delegatedAmount; // The amount of AVAX delegated to the validator.
+    string id; // The id of the validator node.
+}
+
+// Note: temporary struct until we remove the above struct in the next PR
+struct ValidatorData {
+    string nodeId; // The id of the validator node.
+    uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
+    uint256 freeSpace; // The amount of AVAX free on the given node.
 }
