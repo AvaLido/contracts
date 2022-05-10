@@ -13,8 +13,15 @@ struct UnstakeRequest {
 }
 
 struct Validator {
-    uint64 stakeEndTime;
-    uint256 primaryStakeAmount;
-    uint256 delegatedAmount;
-    string id;
+    uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
+    uint256 primaryStakeAmount; // The intial stake amount the validator was instantiated with.
+    uint256 delegatedAmount; // The amount of AVAX delegated to the validator.
+    string id; // The id of the validator node.
+}
+
+// Note: temporary struct until we remove the above struct in the next PR
+struct ValidatorData {
+    string nodeId; // The id of the validator node.
+    uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
+    uint256 freeSpace; // The amount of AVAX free on the given node.
 }
