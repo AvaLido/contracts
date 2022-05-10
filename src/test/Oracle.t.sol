@@ -46,12 +46,10 @@ contract OracleTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testReceiveFinalizedReport() public {
-        bytes32 hashedData = keccak256(abi.encode(testData));
         cheats.prank(ORACLE_MANAGER_ADDRESS);
-        oracle.receiveFinalizedReport(epochId, hashedData);
-        console.log("Data sent, now to read");
-        bytes32 hashedDataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
-        assertEq(hashedData, hashedDataFromContract);
+        oracle.receiveFinalizedReport(epochId, testData);
+        string memory dataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
+        assertEq(testData, dataFromContract);
     }
 
     // -------------------------------------------------------------------------
@@ -59,8 +57,7 @@ contract OracleTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testUnauthorizedReceiveFinalizedReport() public {
-        bytes32 hashedData = keccak256(abi.encode(testData));
         cheats.expectRevert(Oracle.OnlyOracleManager.selector);
-        oracle.receiveFinalizedReport(epochId, hashedData);
+        oracle.receiveFinalizedReport(epochId, testData);
     }
 }

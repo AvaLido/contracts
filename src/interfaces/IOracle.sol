@@ -5,5 +5,5 @@ pragma solidity 0.8.10;
 import "../Types.sol";
 
 interface IOracle {
-    function receiveFinalizedReport(uint256 _epochId, bytes32 _hashedReportData) external;
+    function receiveFinalizedReport(uint256 _epochId, string memory _reportData) external;
 }

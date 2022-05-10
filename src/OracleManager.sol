@@ -34,12 +34,11 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
     event OracleQuorumChanged(uint256 QUORUM_THRESHOLD);
-    event OracleReportSent(uint256 indexed epochId, bytes32 indexed hashedData);
+    event OracleReportSent(uint256 indexed epochId, string indexed data);
 
     // State variables
     string[] public whitelistedValidators; // whitelisted Validator node ids. TODO: instantiate with a merkle tree? or read from a validator manager contract/AvaLido contract?
     address[] public oracleMembers; // whitelisted addresses running our oracle daemon. TODO: instantiate with a merkle tree?
-    uint256 internal constant MEMBER_NOT_FOUND = type(uint256).max; // index when oracle member does not exist in whitelist
 
     // Mappings
     mapping(uint256 => mapping(bytes32 => uint256)) internal reportHashesByEpochId; // epochId => (hashOfOracleData => countofThisHash)
@@ -69,20 +68,8 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Set the Oracle contract address that receives finalized reports.
      * @param _oracleAddress Oracle address
      */
-    function setOracleAddress(address _oracleAddress) external auth(ROLE_ORACLE_MANAGER) {
+    function setOracleAddress(address _oracleAddress) external onlyRole(ROLE_ORACLE_MANAGER) {
         Oracle = IOracle(_oracleAddress);
-    }
-
-    // -------------------------------------------------------------------------
-    //  Modifiers
-    // -------------------------------------------------------------------------
-
-    /**
-     * @notice Allows function calls only from address with specific role.
-     */
-    modifier auth(bytes32 role) {
-        require(hasRole(role, msg.sender), "Unauthorized role for this function.");
-        _;
     }
 
     // -------------------------------------------------------------------------
@@ -100,7 +87,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         whenNotPaused
         returns (string memory)
     {
-        uint256 index = _getOracleMemberId(msg.sender);
+        _getOracleMemberId(msg.sender);
 
         // 1. check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
         // TODO: if (epochIsReported) return;
@@ -124,9 +111,9 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         // 6. If quorum is achieved, commit the report to Oracle.sol
         if (quorumReached) {
             console.log("Quorum reached");
-            Oracle.receiveFinalizedReport(_epochId, hashedReportData);
+            Oracle.receiveFinalizedReport(_epochId, _reportData);
             console.log("Report sent to Oracle");
-            emit OracleReportSent(_epochId, hashedReportData);
+            emit OracleReportSent(_epochId, _reportData);
         }
 
         return _reportData;
@@ -157,7 +144,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _oracleMember The address of the oracle member.
      * @return hasReported True or false.
      */
-    function _hasOracleReported(uint256 _epochId, address _oracleMember) internal returns (bool) {
+    function _hasOracleReported(uint256 _epochId, address _oracleMember) internal view returns (bool) {
         return reportedOraclesByEpochId[_epochId][_oracleMember];
     }
 
@@ -167,7 +154,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @return hashedData The bytes32 hash of the data.
      */
     // TODO: change _reportData back to Validator[]
-    function _hashReportData(string calldata _reportData) internal view returns (bytes32) {
+    function _hashReportData(string calldata _reportData) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_reportData));
     }
 
@@ -221,7 +208,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Add `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
      * @param _oracleMember proposed oracle member address.
      */
-    function addOracleMember(address _oracleMember) external auth(ROLE_ORACLE_MANAGER) {
+    function addOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
         // TODO: revert if oracle member already exists in whitelist
 
@@ -233,7 +220,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
      * @param _oracleMember proposed oracle member address.
      */
-    function removeOracleMember(address _oracleMember) external auth(ROLE_ORACLE_MANAGER) {
+    function removeOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
         // TODO: add checks for having too few oracle members. What should the minimum be?
 

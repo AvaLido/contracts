@@ -8,6 +8,7 @@ import "./helpers.sol";
 import "./console.sol";
 import "../OracleManager.sol";
 import "../Oracle.sol";
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 
 contract OracleManagerTest is DSTest, Helpers {
     OracleManager oracleManager;
@@ -72,8 +73,8 @@ contract OracleManagerTest is DSTest, Helpers {
         // );
 
         // Temporary check til we figure out the above - call the Oracle to see the data is there
-        bytes32 hashedDataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
-        assertEq(keccak256(abi.encodePacked(testDataOne)), hashedDataFromContract);
+        string memory dataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
+        assertEq(testDataOne, dataFromContract);
 
         cheats.stopPrank();
     }
@@ -100,7 +101,9 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testUnauthorizedAddOracleMember() public {
-        cheats.expectRevert("Unauthorized role for this function.");
+        cheats.expectRevert(
+            "AccessControl: account 0xb4c79dab8f259c7aee6e5b2aa729821864227e84 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
+        );
         oracleManager.addOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
     }
 
@@ -113,7 +116,9 @@ contract OracleManagerTest is DSTest, Helpers {
     // }
 
     function testUnauthorizedRemoveOracleMember() public {
-        cheats.expectRevert("Unauthorized role for this function.");
+        cheats.expectRevert(
+            "AccessControl: account 0xb4c79dab8f259c7aee6e5b2aa729821864227e84 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
+        );
         oracleManager.addOracleMember(0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2);
     }
 

@@ -19,6 +19,7 @@ struct Validator {
     string id; // The id of the validator node.
 }
 
+// Note: temporary struct until we remove the above struct in the next PR
 struct ValidatorData {
     string nodeId; // The id of the validator node.
     uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
