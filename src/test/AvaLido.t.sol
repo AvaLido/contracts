@@ -475,6 +475,9 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testRewardReceived() public {
+        assertEq(lido.protocolControlledAVAX(), 0);
+        assertEq(lido.amountPendingAVAX(), 0);
+
         cheats.expectEmit(false, false, false, true);
         emit ProtocolFeeEvent(0.1 ether);
 
@@ -482,6 +485,9 @@ contract AvaLidoTest is DSTest, Helpers {
         emit RewardsCollectedEvent(0.9 ether);
 
         lido.receiveRewardsFromMPC{value: 1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 0.9 ether);
+        assertEq(lido.amountPendingAVAX(), 0.9 ether);
 
         assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
 
