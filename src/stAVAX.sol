@@ -85,7 +85,11 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
      * calling from a nonReentrant function.
      * @param sharesAmount The number of shares to send.
      */
-    function _transferShares(address sender, address recipient, Shares256 sharesAmount) internal {
+    function _transferShares(
+        address sender,
+        address recipient,
+        Shares256 sharesAmount
+    ) internal {
         if (sender == address(0) || recipient == address(0)) revert CannotSendToZeroAddress();
 
         uint256 currentSenderShares = shares[sender];
@@ -140,6 +144,6 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     }
 
     function getSharesByAmount(uint256 amount) public view returns (Shares256) {
-      return getSharesByAmount(amount, false);
+        return getSharesByAmount(amount, false);
     }
 }

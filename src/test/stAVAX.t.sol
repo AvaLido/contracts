@@ -31,9 +31,9 @@ contract TestToken is stAVAX {
     }
 
     function withdraw(address owner, uint256 amount) public {
-      Shares256 shares = super.getSharesByAmount(amount);
-      _burnShares(owner, shares);
-      totalControlled -= amount;
+        Shares256 shares = super.getSharesByAmount(amount);
+        _burnShares(owner, shares);
+        totalControlled -= amount;
     }
 }
 
