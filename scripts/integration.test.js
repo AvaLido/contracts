@@ -27,13 +27,7 @@ const contract = new ethers.Contract(avalido_address, avalido["abi"], deployer);
 const oracle = JSON.parse(fs.readFileSync("out/ValidatorOracle.sol/ValidatorOracle.json"));
 const oracle_contract = new ethers.Contract(oracle_address, oracle["abi"], deployer);
 
-// Validator Manager
-async function setUpValidator() {
-  const manager_address = await contract.validatorManager();
-  const validator_manager = JSON.parse(fs.readFileSync("out/ValidatorManager.sol/ValidatorManager.json"));
-  const validator_contract = new ethers.Contract(manager_address, validator_manager["abi"], deployer);
-  await validator_contract.selectValidatorsForStake(utils.parseEther("1000").toString());
-}
+const YEAR_3000 = 33_000_000_000; // Not much has changed but they live underwater
 
 function decodeAndRethrowError(error) {
   const codes = [
@@ -43,6 +37,9 @@ function decodeAndRethrowError(error) {
     "ClaimTooLarge()",
     "InsufficientBalance()",
     "NoAvailableValidators()",
+    "CannotMintToZeroAddress()",
+    "CannotSendToZeroAddress()",
+    "InsufficientSTAVAXBalance()",
   ];
 
   // TODO: This is bad and you should feel bad
@@ -59,7 +56,10 @@ function decodeAndRethrowError(error) {
       throw "Error from contract: " + code;
     }
   }
-  throw "Unrecognized error from contract. Check that all errors have been imported.";
+
+  // If we don't match, it might be an unrecognized error from contract.
+  // Double check that all errors have been imported above.
+  throw error;
 }
 
 async function makeDeposit(amount) {
@@ -101,7 +101,7 @@ test("Claim a withdrawal request", async () => {
     // Add a fake validator to stake with
     // TODO: Test will fail when we start respecting stake end times. If you're reading this, add a test for it!
     const stake_amount = utils.parseEther("1000").toString();
-    const validator = await oracle_contract._TEMP_addValidator(0, stake_amount, 0, "integration");
+    const validator = await oracle_contract._TEMP_addValidator(YEAR_3000, stake_amount, 0, "integration");
     await validator.wait();
 
     // Amount deposited from previous unit test
