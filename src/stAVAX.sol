@@ -20,6 +20,9 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     error CannotSendToZeroAddress();
     error InsufficientSTAVAXBalance();
 
+    // Explicit type representing shares, to add safety when moving between shares and tokens.
+    type Shares256 is uint256;
+
     constructor() ERC20("Staked AVAX", "stAVAX") {}
 
     mapping(address => uint256) private shares;
@@ -34,37 +37,45 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     }
 
     function balanceOf(address account) public view override returns (uint256) {
-        return getBalanceByShares(shares[account]);
+        Shares256 sharesAmount = Shares256.wrap(shares[account]);
+        uint256 balance = getBalanceByShares(sharesAmount);
+        return balance;
     }
 
     /**
-     * @dev Mint tokens to a given address.
+     * @dev Mint shares to a given address.
      * This is simply the act of increasing the total supply and allocating shares
      * to the given address.
      */
-    function _mintShares(address recipient, uint256 amount) internal {
+    function _mintShares(address recipient, Shares256 sharesAmount) internal {
+        uint256 rawSharesAmount = Shares256.unwrap(sharesAmount);
+
         if (recipient == address(0)) revert CannotMintToZeroAddress();
 
-        totalShares += amount;
-        shares[recipient] += amount;
+        totalShares += rawSharesAmount;
+        shares[recipient] += rawSharesAmount;
     }
 
     /**
-     * @dev Burn tokens from a given address.
+     * @dev Burn shares from a given address.
      */
-    function _burnShares(address owner, uint256 amount) internal {
-        if (shares[owner] < amount) revert InsufficientSTAVAXBalance();
-        totalShares -= amount;
-        shares[owner] -= amount;
+    function _burnShares(address owner, Shares256 sharesAmount) internal {
+        uint256 rawSharesAmount = Shares256.unwrap(sharesAmount);
+
+        if (shares[owner] < rawSharesAmount) revert InsufficientSTAVAXBalance();
+
+        totalShares -= rawSharesAmount;
+        shares[owner] -= rawSharesAmount;
     }
 
     /**
      * @notice Transfer your stAVAX to another account.
      * @param recipient The address of the recipient.
-     * @param amount The amount of stAVAX to send.
+     * @param amount The amount of stAVAX to send, denominated in tokens, not shares.
      */
     function transfer(address recipient, uint256 amount) public override nonReentrant returns (bool) {
-        _transferShares(msg.sender, recipient, amount);
+        Shares256 sharesAmount = getSharesByAmount(amount);
+        _transferShares(msg.sender, recipient, sharesAmount);
         return true;
     }
 
@@ -72,19 +83,18 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
      * @dev Transfer shares in the allocation from one address to another.
      * Note that you should use `transfer` instead if possible. Only use this when
      * calling from a nonReentrant function.
+     * @param sharesAmount The number of shares to send.
      */
-    function _transferShares(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) internal {
+    function _transferShares(address sender, address recipient, Shares256 sharesAmount) internal {
         if (sender == address(0) || recipient == address(0)) revert CannotSendToZeroAddress();
 
         uint256 currentSenderShares = shares[sender];
-        if (amount > currentSenderShares) revert InsufficientSTAVAXBalance();
+        uint256 rawSharesAmount = Shares256.unwrap(sharesAmount);
 
-        shares[sender] = currentSenderShares -= amount;
-        shares[recipient] = shares[recipient] += amount;
+        if (rawSharesAmount > currentSenderShares) revert InsufficientSTAVAXBalance();
+
+        shares[sender] = currentSenderShares -= rawSharesAmount;
+        shares[recipient] = shares[recipient] += rawSharesAmount;
     }
 
     /**
@@ -100,22 +110,36 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
      * @param sharesAmount number of shares
      * @return amount of AVAX represented by shares
      */
-    function getBalanceByShares(uint256 sharesAmount) private view returns (uint256) {
-        if (totalShares == 0 || sharesAmount == 0) {
+    function getBalanceByShares(Shares256 sharesAmount) private view returns (uint256) {
+        uint256 rawSharesAmount = Shares256.unwrap(sharesAmount);
+        if (totalShares == 0 || rawSharesAmount == 0) {
             return 0;
         }
-        return (sharesAmount * protocolControlledAVAX()) / totalShares;
+        return (rawSharesAmount * protocolControlledAVAX()) / totalShares;
     }
 
     /**
      * @dev Computes the total amount of shares represented by a number of AVAX.
      * @param amount amount of AVAX
+     * @param excludeAmount excludes amount from protocolControlledAVAX, for the case where deposit happens before mint
      * @return number of shares represented by AVAX
      */
-    function getSharesByAmount(uint256 amount) public view returns (uint256) {
+    function getSharesByAmount(uint256 amount, bool excludeAmount) public view returns (Shares256) {
         if (totalShares == 0 || amount == 0) {
-            return 0;
+            return Shares256.wrap(0);
         }
-        return (amount * totalShares) / protocolControlledAVAX();
+
+        uint256 rawSharesAmount;
+        if (excludeAmount) {
+            rawSharesAmount = (amount * totalShares) / (protocolControlledAVAX() - amount);
+        } else {
+            rawSharesAmount = (amount * totalShares) / protocolControlledAVAX();
+        }
+
+        return Shares256.wrap(rawSharesAmount);
+    }
+
+    function getSharesByAmount(uint256 amount) public view returns (Shares256) {
+      return getSharesByAmount(amount, false);
     }
 }

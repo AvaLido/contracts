@@ -395,6 +395,7 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(requestId, 0);
 
         cheats.deal(ZERO_ADDRESS, type(uint256).max);
+
         cheats.prank(ZERO_ADDRESS);
         lido.receivePrincipalFromMPC{value: x}();
 
