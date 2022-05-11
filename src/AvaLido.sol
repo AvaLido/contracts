@@ -65,6 +65,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     event WithdrawRequestSubmittedEvent(address indexed _from, uint256 _amount, uint256 timestamp);
     event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
     event ClaimEvent(address indexed _from, uint256 _claimAmount, bool indexed finalClaim);
+    event RewardsCollectedEvent(uint256 amount);
+    event ProtocolFeeEvent(uint256 amount);
 
     // Emitted to signal the MPC system to stake AVAX.
     // TODO: Move to mpc manager contract
@@ -243,7 +245,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * staking operation and we don't require any special permissions.
      * It would be sensible for our team to also call this at a regular interval.
      */
-    function initiateStake() public whenNotPaused nonReentrant returns (uint256) {
+    function initiateStake() external whenNotPaused nonReentrant returns (uint256) {
         if (amountPendingAVAX == 0 || amountPendingAVAX < minStakeBatchAmount) {
             return 0;
         }
@@ -319,9 +321,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Fill unstake requests
         uint256 remaining = fillUnstakeRequests(msg.value);
 
-        // Rebalance liquidity pool
-
-        // Allocation excess for restaking.
+        // Allocate excess for restaking.
         amountPendingAVAX += remaining;
     }
 
@@ -334,14 +334,18 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function receiveRewardsFromMPC() external payable {
         if (msg.value == 0) return;
 
-        uint256 protocolFee = (msg.value / 100) * protocolFeePercentage;
+        uint256 protocolFee = (msg.value * protocolFeePercentage) / 100;
         payable(protocolFeeSplitter).transfer(protocolFee);
+        emit ProtocolFeeEvent(protocolFee);
 
-        // Question: Also use this to fill unstake requests?
+        uint256 afterFee = msg.value - protocolFee;
+        emit RewardsCollectedEvent(afterFee);
 
-        // TODO
-        // Calculate stAVAX rebase
-        // Emit events
+        // Fill unstake requests
+        uint256 remaining = fillUnstakeRequests(afterFee);
+
+        // Allocate excess for restaking.
+        amountPendingAVAX += remaining;
     }
 
     // -------------------------------------------------------------------------
@@ -367,7 +371,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
             if (remaining == 0) break;
 
-            if (unstakeRequests[i].amountFilled == unstakeRequests[i].amountRequested) {
+            if (isFilled(unstakeRequests[i])) {
                 // This shouldn't happen, but revert if it does for clearer testing
                 revert("Invalid state - filled request in queue");
             }
@@ -393,11 +397,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     }
 
     function isFilled(UnstakeRequest memory request) private pure returns (bool) {
-        return request.amountFilled == request.amountRequested;
+        return request.amountFilled >= request.amountRequested;
     }
 
     function isFullyClaimed(UnstakeRequest memory request) private pure returns (bool) {
-        return request.amountClaimed == request.amountRequested;
+        return request.amountClaimed >= request.amountRequested;
     }
 
     // -------------------------------------------------------------------------
@@ -405,10 +409,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // -------------------------------------------------------------------------
 
     function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
+        require(_protocolFeePercentage <= 100);
         protocolFeePercentage = _protocolFeePercentage;
     }
 
     function setMPCWalletAddress(address _mpcWalletAddress) external onlyAdmin {
+        require(_mpcWalletAddress != address(0), "Cannot set to 0 address");
         mpcWalletAddress = _mpcWalletAddress;
     }
 
