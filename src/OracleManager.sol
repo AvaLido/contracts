@@ -328,7 +328,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _nodeId proposed validator node id.
      */
     function addWhitelistedValidator(string calldata _nodeId) external onlyRole(ROLE_ORACLE_MANAGER) {
-        if (_getWhitelistedValidatorIndex(_nodeId) != INDEX_NOT_FOUND) revert ValidatorAlreadyWhitelisted();
+        if (_getValidatorInWhitelistMapping(_nodeId)) revert ValidatorAlreadyWhitelisted();
 
         // Add the validator to our whitelist array
         whitelistedValidatorsArray.push(_nodeId);
