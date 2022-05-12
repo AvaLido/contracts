@@ -132,9 +132,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         if (reportedOraclesByEpochId[_epochId][msg.sender]) revert OracleAlreadyReported();
 
         // 4. Check that the data only includes whitelisted validators
-        // TODO: directly use bool inline
-        bool reportContainsOnlyWhitelistedValidators = _reportContainsOnlyWhitelistedValidators(_reportData);
-        if (!reportContainsOnlyWhitelistedValidators) revert ValidatorNodeIdNotFound();
+        if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
 
         // 5. Log that the oracle has reported for this epoch
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
@@ -381,4 +379,26 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     }
 
     // TODO: function changeRoleOracleManager() {}
+
+    // -------------------------------------------------------------------------
+    //  Temporary functions - PLEASE REMOVE
+    // -------------------------------------------------------------------------
+
+    function temporaryFinalizeReport(uint256 _epochId, ValidatorData[] calldata _reportData) external {
+        if (oracleContractAddress == address(0)) revert OracleContractAddressNotSet();
+
+        if (!_getOracleInWhitelistMapping(msg.sender)) revert OracleMemberNotFound();
+
+        if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
+
+        if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
+
+        bytes32 hashedReportData = _hashReportData(_reportData);
+
+        _storeHashedDataCount(_epochId, hashedReportData);
+
+        finalizedReportsByEpochId[_epochId] = true;
+        Oracle.receiveFinalizedReport(_epochId, _reportData);
+        emit OracleReportSent(_epochId);
+    }
 }

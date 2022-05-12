@@ -296,4 +296,26 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     // TODO: write and test changing ROLE_ORACLE_MANAGER
+
+    // -------------------------------------------------------------------------
+    //  TEMPORARY FUNCTION TEST - REMOVE WHEN FUNCTION IS REMOVED
+    // -------------------------------------------------------------------------
+
+    function testTemporaryFinalizeReport() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
+        ValidatorData[] memory reportData = new ValidatorData[](2);
+        reportData[0].nodeId = fakeNodeId;
+        reportData[0].stakeEndTime = 123456789;
+        reportData[0].freeSpace = 800000;
+        reportData[1].nodeId = fakeNodeIdTwo;
+        reportData[1].stakeEndTime = 123456789;
+        reportData[1].freeSpace = 500000;
+
+        cheats.prank(ORACLE_MEMBERS[0]);
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportSent(epochId);
+        oracleManager.temporaryFinalizeReport(epochId, reportData);
+    }
 }
