@@ -13,27 +13,27 @@ contract OracleTest is DSTest, Helpers {
     Oracle oracle;
     OracleManager oracleManager;
 
-    address roleOracleManager = 0xf195179eEaE3c8CAB499b5181721e5C57e4769b2; // Wendy the whale gets to manage the oracle 🐳
-    string[] whitelistedValidators = [
-        "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
-        "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu",
-        "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN"
-    ];
-    address[] oracleMembers = [
-        0x03C1196617387899390d3a98fdBdfD407121BB67,
-        0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413bf,
-        0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018
+    event OracleManagerAddressChanged(address newOracleManagerAddress);
+    event OracleReportReceived(uint256 epochId);
+    // event RoleOracleManagerChanged(address newRoleOracleManager);
+
+    string[] WHITELISTED_VALIDATORS = [WHITELISTED_VALIDATOR_1, WHITELISTED_VALIDATOR_2, WHITELISTED_VALIDATOR_3];
+    address[] ORACLE_MEMBERS = [
+        WHITELISTED_ORACLE_1,
+        WHITELISTED_ORACLE_2,
+        WHITELISTED_ORACLE_3,
+        WHITELISTED_ORACLE_4,
+        WHITELISTED_ORACLE_5
     ];
     address ORACLE_MANAGER_ADDRESS;
     uint256 epochId = 123456789;
-    string testData = "yeet";
-    string fakeNodeId = whitelistedValidators[0];
+    string fakeNodeId = WHITELISTED_VALIDATORS[0];
 
     function setUp() public {
-        oracleManager = new OracleManager(roleOracleManager, whitelistedValidators, oracleMembers);
+        oracleManager = new OracleManager(ROLE_ORACLE_MANAGER, WHITELISTED_VALIDATORS, ORACLE_MEMBERS);
         ORACLE_MANAGER_ADDRESS = address(oracleManager);
-        oracle = new Oracle(ORACLE_MANAGER_ADDRESS);
-        cheats.prank(roleOracleManager);
+        oracle = new Oracle(ROLE_ORACLE_MANAGER, ORACLE_MANAGER_ADDRESS);
+        cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(address(oracle));
     }
 
@@ -46,18 +46,42 @@ contract OracleTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testReceiveFinalizedReport() public {
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportReceived(epochId);
         cheats.prank(ORACLE_MANAGER_ADDRESS);
-        oracle.receiveFinalizedReport(epochId, testData);
-        string memory dataFromContract = oracle.getValidatorDataByEpochId(epochId, fakeNodeId);
-        assertEq(testData, dataFromContract);
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        oracle.receiveFinalizedReport(epochId, reportData);
+        ValidatorData[] memory dataFromContract = oracle.getAllValidatorDataByEpochId(epochId);
+        assertEq(keccak256(abi.encode(reportData)), keccak256(abi.encode(dataFromContract)));
     }
-
-    // -------------------------------------------------------------------------
-    //  Auth
-    // -------------------------------------------------------------------------
 
     function testUnauthorizedReceiveFinalizedReport() public {
         cheats.expectRevert(Oracle.OnlyOracleManager.selector);
-        oracle.receiveFinalizedReport(epochId, testData);
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        oracle.receiveFinalizedReport(epochId, reportData);
     }
+
+    // -------------------------------------------------------------------------
+    //  Management
+    // -------------------------------------------------------------------------
+
+    function testChangeOracleManagerAddress() public {
+        address newManagerAddress = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
+        cheats.expectEmit(false, false, false, true);
+        emit OracleManagerAddressChanged(newManagerAddress);
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracle.changeOracleManagerAddress(newManagerAddress);
+    }
+
+    function testUnauthorizedChangeOracleManagerAddress() public {
+        address newManagerAddress = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
+        cheats.expectRevert(
+            "AccessControl: account 0xb4c79dab8f259c7aee6e5b2aa729821864227e84 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
+        );
+        oracle.changeOracleManagerAddress(newManagerAddress);
+    }
+
+    // TODO: write and test changing ROLE_ORACLE_MANAGER
 }
