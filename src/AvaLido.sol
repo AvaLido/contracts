@@ -164,7 +164,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Transfer stAVAX from user to our contract.
         // We use the internal call to avoid double-reentrancy issues.
-        _transferShares(msg.sender, address(this), amount);
+        Shares256 sharesAmount = getSharesByAmount(amount);
+        _transferShares(msg.sender, address(this), sharesAmount);
 
         // Create the request and store in our queue.
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));
@@ -198,13 +199,15 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         if (request.requester != msg.sender) revert NotAuthorized();
         if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
+        if (amount > address(this).balance) revert InsufficientBalance();
 
         // Partial claim, update amounts.
         request.amountClaimed += amount;
         unstakeRequests[requestIndex] = request;
 
         // Burn stAVAX and send AVAX to the user.
-        burn(address(this), amount);
+        Shares256 shares = getSharesByAmount(amount);
+        _burnShares(address(this), shares);
         payable(msg.sender).transfer(amount);
 
         // Emit claim event.
@@ -291,7 +294,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         // Mint stAVAX for user
-        mint(msg.sender, amount);
+        Shares256 shares = _getDepositSharesByAmount(amount);
+        _mintShares(msg.sender, shares);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
