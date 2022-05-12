@@ -18,7 +18,9 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
 
     error CannotMintToZeroAddress();
     error CannotSendToZeroAddress();
+    error CannotApproveZeroAddress();
     error InsufficientSTAVAXBalance();
+    error InsufficientSTAVAXAllowance();
 
     // Explicit type representing shares, to add safety when moving between shares and tokens.
     type Shares256 is uint256;
@@ -26,6 +28,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     constructor() ERC20("Staked AVAX", "stAVAX") {}
 
     mapping(address => uint256) private shares;
+    mapping(address => mapping(address => uint256)) private allowances;
 
     /**
      * @notice The total supply of stAVAX tokens
@@ -48,9 +51,9 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
      * to the given address.
      */
     function _mintShares(address recipient, Shares256 sharesAmount) internal {
-        uint256 rawSharesAmount = Shares256.unwrap(sharesAmount);
-
         if (recipient == address(0)) revert CannotMintToZeroAddress();
+
+        uint256 rawSharesAmount = Shares256.unwrap(sharesAmount);
 
         totalShares += rawSharesAmount;
         shares[recipient] += rawSharesAmount;
@@ -69,14 +72,87 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     }
 
     /**
-     * @notice Transfer your stAVAX to another account.
-     * @param recipient The address of the recipient.
+     * @dev See {IERC20-transfer}.
+     */
+    function transfer(address to, uint256 amount) public virtual override returns (bool) {
+        address owner = msg.sender;
+        _transfer(owner, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-allowance}.
+     */
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return allowances[owner][spender];
+    }
+
+    /**
+     * @dev See {IERC20-approve}.
+     */
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        address owner = msg.sender;
+        _approve(owner, spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-transferFrom}.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        address spender = msg.sender;
+        _spendAllowance(from, spender, amount);
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Transfer your stAVAX to another account.
+     * Emits a {Transfer} event.
      * @param amount The amount of stAVAX to send, denominated in tokens, not shares.
      */
-    function transfer(address recipient, uint256 amount) public override nonReentrant returns (bool) {
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override {
         Shares256 sharesAmount = getSharesByAmount(amount);
-        _transferShares(msg.sender, recipient, sharesAmount);
-        return true;
+        _transferShares(from, to, sharesAmount);
+        emit Transfer(from, to, amount);
+    }
+
+    /**
+     * @dev Sets `amount` in stAVAX, converted to shares, as the allowance of `spender` over `owner`'s tokens.
+     * Emits an {Approval} event.
+     */
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal override {
+        if (owner == address(0) || spender == address(0)) revert CannotApproveZeroAddress();
+        Shares256 sharesAmount = getSharesByAmount(amount);
+        allowances[owner][spender] = Shares256.unwrap(sharesAmount); // Allowance in shares
+        emit Approval(owner, spender, amount); // Event in stAVAX
+    }
+
+    /**
+     * @dev Updates `owner`'s allowance for `spender` based on spent `amount`.
+     */
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal override {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            if (currentAllowance < amount) revert InsufficientSTAVAXAllowance();
+            _approve(owner, spender, currentAllowance - amount);
+        }
     }
 
     /**

@@ -156,4 +156,55 @@ contract stAVAXTest is DSTest, Helpers {
         assertEq(stavax.balanceOf(USER1_ADDRESS), 1 ether);
         assertEq(stavax.balanceOf(USER2_ADDRESS), 1 ether);
     }
+
+    function testTransferMultipleDeposits() public {
+        stavax.deposit{value: 0.5 ether}(USER1_ADDRESS);
+        stavax.deposit{value: 0.5 ether}(USER1_ADDRESS);
+        stavax.deposit{value: 0.5 ether}(USER1_ADDRESS);
+        stavax.deposit{value: 0.5 ether}(USER1_ADDRESS);
+
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 2 ether);
+
+        cheats.prank(USER1_ADDRESS);
+        bool result = stavax.transfer(USER2_ADDRESS, 1 ether);
+        assertTrue(result);
+
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 1 ether);
+        assertEq(stavax.balanceOf(USER2_ADDRESS), 1 ether);
+
+        cheats.prank(USER1_ADDRESS);
+        result = stavax.transfer(USER2_ADDRESS, 1 ether);
+        assertTrue(result);
+
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 0 ether);
+        assertEq(stavax.balanceOf(USER2_ADDRESS), 2 ether);
+    }
+
+    function testTransferUnapproved() public {
+        stavax.deposit{value: 1 ether}(USER1_ADDRESS);
+
+        cheats.expectRevert(stAVAX.InsufficientSTAVAXAllowance.selector);
+        stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 1 ether);
+    }
+
+    function testTransferApproved() public {
+        stavax.deposit{value: 1 ether}(USER1_ADDRESS);
+
+        cheats.prank(USER1_ADDRESS);
+        stavax.approve(USER2_ADDRESS, 1 ether);
+
+        cheats.prank(USER2_ADDRESS);
+        stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 1 ether);
+    }
+
+    function testTransferApprovedInsufficent() public {
+        stavax.deposit{value: 1 ether}(USER1_ADDRESS);
+
+        cheats.prank(USER1_ADDRESS);
+        stavax.approve(USER2_ADDRESS, 1 ether);
+
+        cheats.prank(USER2_ADDRESS);
+        cheats.expectRevert(stAVAX.InsufficientSTAVAXAllowance.selector);
+        stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 10 ether);
+    }
 }
