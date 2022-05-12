@@ -25,25 +25,38 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     IOracle Oracle;
 
     // Errors
+    error EpochAlreadyFinalized();
     error InvalidAddress();
     error InvalidQuorum();
+    error OracleAlreadyReported();
+    error OracleMemberExists();
     error OracleMemberNotFound();
     //error TooFewOracleMembers();
+    error ValidatorAlreadyWhitelisted();
+    error ValidatorNodeIdNotFound();
 
     // Events
+    event OracleAddressChanged(address oracleAddress);
     event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
-    event OracleQuorumChanged(uint256 QUORUM_THRESHOLD);
-    event OracleReportSent(uint256 indexed epochId, string indexed data);
+    event OracleReportSent(uint256 epochId);
+    // event RoleOracleManagerChanged(address newRoleOracleManager);
+    event WhitelistedValidatorAdded(string nodeId);
+    event WhitelistedValidatorRemoved(string nodeId);
 
     // State variables
-    string[] public whitelistedValidators; // whitelisted Validator node ids. TODO: instantiate with a merkle tree? or read from a validator manager contract/AvaLido contract?
-    address[] public oracleMembers; // whitelisted addresses running our oracle daemon. TODO: instantiate with a merkle tree?
+    string[] public whitelistedValidatorsArray; // whitelisted Validator node ids.
+    address[] public whitelistedOraclesArray; // whitelisted addresses running our oracle daemon.
+
+    uint256 internal constant INDEX_NOT_FOUND = type(uint256).max; // index when item is missing from array
 
     // Mappings
+    mapping(string => bool) public whitelistedValidatorsMapping; // nodeId => true if whitelisted
+    mapping(address => bool) public whitelistedOraclesMapping; // address => true if whitelisted
     mapping(uint256 => mapping(bytes32 => uint256)) internal reportHashesByEpochId; // epochId => (hashOfOracleData => countofThisHash)
     mapping(uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
-    // when quorum is received for an epoch we can delete it from the mapping oracleMemberReports and set a mapping that the report is sent for this epoch?
+    mapping(uint256 => bool) internal finalizedReportsByEpochId; // epochId => true/false
+    // TODO: when quorum is received for an epoch we can delete it from the mapping oracleMemberReports
 
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER"); // TODO: more granular roles for managing members, changing quorum, etc.
@@ -51,13 +64,17 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     constructor(
         address _roleOracleManager, // Role that can change whitelist of oracles.
         string[] memory _whitelistedValidators, //Whitelist of validators we can stake with.
-        address[] memory _oracleMembers // Whitelisted oracle member addresses.
+        address[] memory _whitelistedOracleMembers // Whitelisted oracle member addresses.
     ) {
-        // TODO: any checks needed on the validator list?
-
         _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager);
-        whitelistedValidators = _whitelistedValidators;
-        oracleMembers = _oracleMembers;
+
+        // Set whitelist arrays
+        whitelistedOraclesArray = _whitelistedOracleMembers;
+        whitelistedValidatorsArray = _whitelistedValidators;
+
+        // Set whitelist mappings
+        _addWhitelistedOraclesToMapping(_whitelistedOracleMembers);
+        _addWhitelistedValidatorsToMapping(_whitelistedValidators);
     }
 
     // -------------------------------------------------------------------------
@@ -70,6 +87,19 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      */
     function setOracleAddress(address _oracleAddress) external onlyRole(ROLE_ORACLE_MANAGER) {
         Oracle = IOracle(_oracleAddress);
+        emit OracleAddressChanged(_oracleAddress);
+    }
+
+    function _addWhitelistedOraclesToMapping(address[] memory _whitelistedOracleMembers) internal {
+        for (uint256 i = 0; i < _whitelistedOracleMembers.length; i++) {
+            whitelistedOraclesMapping[_whitelistedOracleMembers[i]] = true;
+        }
+    }
+
+    function _addWhitelistedValidatorsToMapping(string[] memory _whitelistedValidators) internal {
+        for (uint256 i = 0; i < _whitelistedValidators.length; i++) {
+            whitelistedValidatorsMapping[_whitelistedValidators[i]] = true;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -79,83 +109,90 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     /**
      * @notice Called by daemons running our oracle service
      * @param _epochId The id of the reporting epoch.
-     * @param _reportData Array of Validators.
+     * @param _reportData Array of ValidatorData structs.
      */
-    // TODO: change _report back to Validator[]
-    function receiveMemberReport(uint256 _epochId, string calldata _reportData)
-        external
-        whenNotPaused
-        returns (string memory)
-    {
-        _getOracleMemberId(msg.sender);
+    function receiveMemberReport(uint256 _epochId, ValidatorData[] calldata _reportData) external whenNotPaused {
+        // 1. Check if the reporting oracle is on our whitelist
+        if (!_getOracleInWhitelistMapping(msg.sender)) revert OracleMemberNotFound();
 
-        // 1. check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
-        // TODO: if (epochIsReported) return;
+        // 2. Check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
+        if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
 
-        // 2. check if the oracle member has already reported for the period; if yes, return, if no, log
-        // if (_hasOracleReported(_epochId, msg.sender)) {
-        //     return; // remove string
-        // }
+        // 3. Check if the oracle member has already reported for the period; reverts if true
+        if (reportedOraclesByEpochId[_epochId][msg.sender]) revert OracleAlreadyReported();
 
+        // 4. Check that the data only includes whitelisted validators
+        // TODO: directly use bool inline
+        bool reportContainsOnlyWhitelistedValidators = _reportContainsOnlyWhitelistedValidators(_reportData);
+        if (!reportContainsOnlyWhitelistedValidators) revert ValidatorNodeIdNotFound();
+
+        // 5. Log that the oracle has reported for this epoch
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
 
-        // 3. Hash the incoming data: _report
+        // 6. Hash the incoming data: _report
         bytes32 hashedReportData = _hashReportData(_reportData);
 
-        // 5. store the hashed data count in reportHashesByEpochId
+        // 7. Store the hashed data count in reportHashesByEpochId
         _storeHashedDataCount(_epochId, hashedReportData);
 
-        // 6. Calculate if the hash achieves quorum
+        // 8. Calculate if the hash achieves quorum
         bool quorumReached = _calculateQuorum(_epochId, hashedReportData);
 
-        // 6. If quorum is achieved, commit the report to Oracle.sol
+        // 9. If quorum is achieved, commit the report to Oracle.sol and log the epoch as finalized
         if (quorumReached) {
-            console.log("Quorum reached");
+            finalizedReportsByEpochId[_epochId] = true;
             Oracle.receiveFinalizedReport(_epochId, _reportData);
-            console.log("Report sent to Oracle");
-            emit OracleReportSent(_epochId, _reportData);
+            emit OracleReportSent(_epochId);
         }
-
-        return _reportData;
     }
 
     // -------------------------------------------------------------------------
-    //  Internal functions/Utils
+    //  Utils
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Return oracle address index in the member array
-     * @param _member oracle member address
-     * @return member index
+     * @notice Return whether oracle member address exists in the whitelist
+     * @param _oracleMember oracle member address
+     * @return bool True or false
      */
-    function _getOracleMemberId(address _member) internal view returns (uint256) {
-        uint256 arrayLength = oracleMembers.length;
-        for (uint256 i = 0; i < arrayLength; ++i) {
-            if (oracleMembers[i] == _member) {
-                return i;
+    function _getOracleInWhitelistMapping(address _oracleMember) internal view returns (bool) {
+        return whitelistedOraclesMapping[_oracleMember];
+    }
+
+    /**
+     * @notice Return whether validator node id exists in the whitelist
+     * @param _nodeId validator node id
+     * @return bool True or false
+     */
+    function _getValidatorInWhitelistMapping(string memory _nodeId) internal view returns (bool) {
+        return whitelistedValidatorsMapping[_nodeId];
+    }
+
+    /**
+     * @notice Checks if all the reported validator node ids exist in our whitelisted validators mapping
+     * @param _reportData Array of ValidatorData structs
+     * @return bool True or false
+     */
+    function _reportContainsOnlyWhitelistedValidators(ValidatorData[] calldata _reportData)
+        internal
+        view
+        returns (bool)
+    {
+        for (uint256 i = 0; i < _reportData.length; i++) {
+            if (!whitelistedValidatorsMapping[_reportData[i].nodeId]) {
+                return false;
             }
         }
-        revert OracleMemberNotFound();
-    }
-
-    /**
-     * @notice Find out whether an oracle member has submitted a report for a specific reporting period.
-     * @param _epochId The id of the reporting epoch.
-     * @param _oracleMember The address of the oracle member.
-     * @return hasReported True or false.
-     */
-    function _hasOracleReported(uint256 _epochId, address _oracleMember) internal view returns (bool) {
-        return reportedOraclesByEpochId[_epochId][_oracleMember];
+        return true;
     }
 
     /**
      * @notice Hashes the report data from an oracle member.
-     * @param _reportData An array of Validators.
+     * @param _reportData An array of ValidatorData structs.
      * @return hashedData The bytes32 hash of the data.
      */
-    // TODO: change _reportData back to Validator[]
-    function _hashReportData(string calldata _reportData) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_reportData));
+    function _hashReportData(ValidatorData[] calldata _reportData) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_reportData));
     }
 
     /**
@@ -196,45 +233,142 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @return quorumThreshold The current quorum threshold.
      */
     function _calculateQuorumThreshold() internal view returns (uint256) {
-        uint256 length = oracleMembers.length;
+        uint256 length = whitelistedOraclesArray.length;
         return (length / 2) + 1;
     }
 
+    /**
+     * @notice Returns array of whitelisted oracle addresses.
+     * @return whitelistedOracles Array of oracles.
+     */
+    function getWhitelistedOracles() public view returns (address[] memory) {
+        return whitelistedOraclesArray;
+    }
+
+    /**
+     * @notice Returns array of whitelisted validator node ids.
+     * @return whitelistedValidators Array of node ids.
+     */
+    function getWhitelistedValidators() public view returns (string[] memory) {
+        return whitelistedValidatorsArray;
+    }
+
     // -------------------------------------------------------------------------
-    //  Role-based functions
+    //  Whitelist management functions
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Add `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
+     * @notice Return oracle member index in the whitelist array
+     * @param _oracleMember oracle member address
+     * @return index index
+     */
+    function _getOracleMemberIndex(address _oracleMember) internal view returns (uint256) {
+        for (uint256 i = 0; i < whitelistedOraclesArray.length; ++i) {
+            if (whitelistedOraclesArray[i] == _oracleMember) {
+                return i;
+            }
+        }
+        return INDEX_NOT_FOUND;
+    }
+
+    /**
+     * @notice Add `_oracleMember` to the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
      * @param _oracleMember proposed oracle member address.
      */
     function addOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
-        // TODO: revert if oracle member already exists in whitelist
+        if (_getOracleInWhitelistMapping(_oracleMember)) revert OracleMemberExists();
 
-        oracleMembers.push(_oracleMember);
+        // Add the oracle to our whitelist array
+        whitelistedOraclesArray.push(_oracleMember);
+
+        // Add the oracle to the whitelist mapping
+        whitelistedOraclesMapping[_oracleMember] = true;
+
         emit OracleMemberAdded(_oracleMember);
     }
 
     /**
-     * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to call only by ROLE_ORACLE_MANAGER
+     * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
      * @param _oracleMember proposed oracle member address.
      */
     function removeOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
         if (_oracleMember == address(0)) revert InvalidAddress();
         // TODO: add checks for having too few oracle members. What should the minimum be?
 
-        uint256 index = _getOracleMemberId(_oracleMember);
+        if (!_getOracleInWhitelistMapping(_oracleMember)) revert OracleMemberNotFound();
 
-        uint256 last = oracleMembers.length - 1;
-        if (index != last) oracleMembers[index] = oracleMembers[last];
-        oracleMembers.pop();
+        // Delete the oracle from our whitelist array
+        uint256 index = _getOracleMemberIndex(_oracleMember);
+        uint256 last = whitelistedOraclesArray.length - 1;
+        if (index != last) whitelistedOraclesArray[index] = whitelistedOraclesArray[last];
+        whitelistedOraclesArray.pop();
+
+        // Remove the oracle from the whitelist mapping
+        delete whitelistedOraclesMapping[_oracleMember];
         emit OracleMemberRemoved(_oracleMember);
     }
 
-    // function pause
+    /**
+     * @notice Return node id index in the whitelisted validator array
+     * @param _nodeId validator node id
+     * @return index index
+     */
+    function _getWhitelistedValidatorIndex(string calldata _nodeId) internal view returns (uint256) {
+        for (uint256 i = 0; i < whitelistedValidatorsArray.length; ++i) {
+            if (keccak256(abi.encodePacked(whitelistedValidatorsArray[i])) == keccak256(abi.encodePacked(_nodeId))) {
+                return i;
+            }
+        }
+        return INDEX_NOT_FOUND;
+    }
 
-    // function resume
+    /**
+     * @notice Add `_nodeId` to the validator whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
+     * @param _nodeId proposed validator node id.
+     */
+    function addWhitelistedValidator(string calldata _nodeId) external onlyRole(ROLE_ORACLE_MANAGER) {
+        if (_getValidatorInWhitelistMapping(_nodeId)) revert ValidatorAlreadyWhitelisted();
 
-    // function changeRoleOracleManager
+        // Add the validator to our whitelist array
+        whitelistedValidatorsArray.push(_nodeId);
+
+        // Add the oracle to the whitelist mapping
+        whitelistedValidatorsMapping[_nodeId] = true;
+
+        emit WhitelistedValidatorAdded(_nodeId);
+    }
+
+    /**
+     * @notice Remove `_nodeId` from the validator whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
+     * @param _nodeId proposed validator node id.
+     */
+    function removeWhitelistedValidator(string calldata _nodeId) external onlyRole(ROLE_ORACLE_MANAGER) {
+        if (!_getValidatorInWhitelistMapping(_nodeId)) revert ValidatorNodeIdNotFound();
+
+        // Delete the validator from our whitelist array
+        uint256 index = _getWhitelistedValidatorIndex(_nodeId);
+        uint256 last = whitelistedValidatorsArray.length - 1;
+        if (index != last) whitelistedValidatorsArray[index] = whitelistedValidatorsArray[last];
+        whitelistedValidatorsArray.pop();
+
+        // Remove the validator from the whitelist mapping
+        delete whitelistedValidatorsMapping[_nodeId];
+
+        emit WhitelistedValidatorRemoved(_nodeId);
+    }
+
+    // -------------------------------------------------------------------------
+    //  Contract management functions
+    // -------------------------------------------------------------------------
+
+    function pause() external onlyRole(ROLE_ORACLE_MANAGER) {
+        _pause();
+    }
+
+    function resume() external onlyRole(ROLE_ORACLE_MANAGER) {
+        _unpause();
+    }
+
+    // TODO: function changeRoleOracleManager() {}
 }

@@ -22,19 +22,21 @@ contract Oracle is AccessControlEnumerable {
     error OnlyOracleManager();
 
     // Events
-    event OracleReportReceived(uint256 epochId, string data);
     event OracleManagerAddressChanged(address newOracleManagerAddress);
+    event OracleReportReceived(uint256 epochId);
+    // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     // State variables
     address public ORACLE_MANAGER_CONTRACT;
 
     // Mappings
-    mapping(uint256 => string) internal reportsByEpochId; // epochId => hashOfOracleData
+    mapping(uint256 => ValidatorData[]) internal reportsByEpochId; // epochId => array of ValidatorData[] structs
 
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER");
 
-    constructor(address _oracleManagerContract) {
+    constructor(address _roleOracleManager, address _oracleManagerContract) {
+        _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager);
         ORACLE_MANAGER_CONTRACT = _oracleManagerContract;
     }
 
@@ -57,30 +59,23 @@ contract Oracle is AccessControlEnumerable {
     /**
      * @notice Called by OracleManager contract to store finalized report data.
      * @param _epochId The id of the reporting epoch.
-     * @param _reportData The Validators[] data.
+     * @param _reportData Array ValidatorData[] structs.
      */
-    function receiveFinalizedReport(uint256 _epochId, string calldata _reportData) external onlyOracleManager {
-        reportsByEpochId[_epochId] = _reportData;
-        emit OracleReportReceived(_epochId, _reportData);
+    function receiveFinalizedReport(uint256 _epochId, ValidatorData[] calldata _reportData) external onlyOracleManager {
+        for (uint256 i = 0; i < _reportData.length; i++) {
+            reportsByEpochId[_epochId].push(_reportData[i]);
+        }
+        emit OracleReportReceived(_epochId);
     }
 
     /**
-     * @notice Called by AvaLido to retrieve finalized data for a validator for a specific reporting epoch.
+     * @notice Called by AvaLido to retrieve finalized data for all validators for a specific reporting epoch.
      * @param _epochId The id of the reporting epoch.
-     * @param _nodeId The id of the validator node.
      * @return validatorData A struct of Validator data.
      */
-    // TODO: change return back to Validator
-    function getValidatorDataByEpochId(uint256 _epochId, string calldata _nodeId) public view returns (string memory) {
-        console.log("In getValidatorDataByEpochId");
-        // TODO: process data and find Validator struct in array
-        // TODO: unhash data
+    function getAllValidatorDataByEpochId(uint256 _epochId) public view returns (ValidatorData[] memory) {
         return reportsByEpochId[_epochId];
     }
-
-    // -------------------------------------------------------------------------
-    //  Internal functions/Utils
-    // -------------------------------------------------------------------------
 
     // -------------------------------------------------------------------------
     //  Role-based functions
@@ -97,4 +92,6 @@ contract Oracle is AccessControlEnumerable {
 
         emit OracleManagerAddressChanged(_newOracleManagerAddress);
     }
+
+    // TODO: function changeRoleOracleManager() {}
 }

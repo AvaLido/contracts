@@ -28,6 +28,8 @@ The local network has a few pre-funded accounts to make development easier:
 - 🔮 `Oracle 1` - `0x03C1196617387899390d3a98fdBdfD407121BB67` PK `a54a5d692d239287e8358f27caee92ab5756c0276a6db0a062709cd86451a855`
 - 🔮 `Oracle 2` - `0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413bf` PK `86a5e025e16a96e2706d72fd6115f2ee9ae1c5dfc4c53894b70b19e6fc73b838`
 - 🔮 `Oracle 3` - `0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018` PK `d876abc4ef78972fc733651bfc79676d9a6722626f9980e2db249c22ed57dbb2`
+- 🔮 `Oracle 4` - `0xE339767906891bEE026285803DA8d8F2f346842C` PK `6353637e9d5cdc0cbc921dadfcc8877d54c0a05b434a1d568423cb918d582eac`
+- 🔮 `Oracle 5` - `0x0309a747a34befD1625b5dcae0B00625FAa30460` PK `c847f461acdd47f2f0bf08b7480d68f940c97bbc6c0a5a03e0cbefae4d9a7592`
 
 The network stores state in the `node-N` directories in the `network` folder. This means you can kill and restart the network without losing state. You should be able to use Metamask like normal to test out the network.
 
