@@ -294,12 +294,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         // Mint stAVAX for user
-        Shares256 shares = getSharesByAmount(amount, true);
-        if (Shares256.unwrap(shares) == 0) {
-            // `totalShares` is 0: this is the first ever deposit. Assume that shares correspond to AVAX 1-to-1.
-            shares = Shares256.wrap(amount);
-        }
-
+        Shares256 shares = _getDepositSharesByAmount(amount);
         _mintShares(msg.sender, shares);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);

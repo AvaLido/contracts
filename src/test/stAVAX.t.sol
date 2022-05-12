@@ -21,13 +21,13 @@ contract TestToken is stAVAX {
 
     function deposit(address sender) public payable {
         uint256 amount = msg.value;
-        Shares256 shares = getSharesByAmount(amount);
+        totalControlled += amount;
+        Shares256 shares = _getDepositSharesByAmount(amount);
         if (Shares256.unwrap(shares) == 0) {
             // `totalShares` is 0: this is the first ever deposit. Assume that shares correspond to AVAX 1-to-1.
             shares = Shares256.wrap(amount);
         }
         _mintShares(sender, shares);
-        totalControlled += amount;
     }
 
     function withdraw(address owner, uint256 amount) public {
