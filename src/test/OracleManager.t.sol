@@ -43,8 +43,27 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager = new OracleManager(ROLE_ORACLE_MANAGER, WHITELISTED_VALIDATORS, ORACLE_MEMBERS);
         ORACLE_MANAGER_CONTRACT_ADDRESS = address(oracleManager);
         oracle = new Oracle(ROLE_ORACLE_MANAGER, ORACLE_MANAGER_CONTRACT_ADDRESS);
+    }
+
+    // -------------------------------------------------------------------------
+    //  Initialization
+    // -------------------------------------------------------------------------
+
+    function testOracleContractAddressNotSet() public {
+        cheats.startPrank(ORACLE_MEMBERS[0]);
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        cheats.expectRevert(OracleManager.OracleContractAddressNotSet.selector);
+        oracleManager.receiveMemberReport(epochId, reportData);
+        cheats.stopPrank();
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(address(oracle));
+        address oracleAddressFromContract = oracleManager.getOracleAddress();
+        console.log("oracleAddressFromContract", oracleAddressFromContract);
+        console.log("oracleAddressFromDeploy", address(oracle));
+        cheats.prank(ORACLE_MEMBERS[0]);
+        oracleManager.receiveMemberReport(epochId, reportData);
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportData))), 1);
     }
 
     // -------------------------------------------------------------------------
@@ -52,15 +71,20 @@ contract OracleManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testReceiveMemberReportWithoutQuorum() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         cheats.startPrank(ORACLE_MEMBERS[0]);
         ValidatorData[] memory reportData = new ValidatorData[](1);
         reportData[0].nodeId = fakeNodeId;
         oracleManager.receiveMemberReport(epochId, reportData);
-        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportData))), 1);
         cheats.stopPrank();
     }
 
     function testReceiveMemberReportWithQuorum() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         cheats.expectEmit(false, false, false, true);
         emit OracleReportSent(epochId);
 
@@ -87,6 +111,9 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotReportForFinalizedEpoch() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         ValidatorData[] memory reportDataOne = new ValidatorData[](1);
         reportDataOne[0].nodeId = fakeNodeId;
         ValidatorData[] memory reportDataTwo = new ValidatorData[](1);
@@ -108,6 +135,9 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotReportWithUnwhitelistedValidator() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         cheats.startPrank(ORACLE_MEMBERS[0]);
         ValidatorData[] memory reportDataOne = new ValidatorData[](3);
         reportDataOne[0].nodeId = fakeNodeId;
@@ -119,6 +149,9 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testOracleCannotReportTwice() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         cheats.startPrank(ORACLE_MEMBERS[0]);
         ValidatorData[] memory reportDataOne = new ValidatorData[](1);
         reportDataOne[0].nodeId = fakeNodeId;
@@ -129,6 +162,9 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testUnauthorizedReceiveMemberReport() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
         ValidatorData[] memory reportData = new ValidatorData[](1);
         reportData[0].nodeId = fakeNodeId;
