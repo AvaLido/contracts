@@ -37,10 +37,10 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 
+import "./Types.sol";
 import "./stAVAX.sol";
-import "./Oracle.sol";
-
-import "./interfaces/IOracle.sol";
+import "./interfaces/IValidatorSelector.sol";
+import "./test/console.sol";
 
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
@@ -52,8 +52,6 @@ uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
  * @author Hyperelliptic Labs and RockX
  */
 contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
-    IOracle Oracle;
-
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();
@@ -109,16 +107,19 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // this value.
     uint256 public minStakeBatchAmount = 10 ether;
 
+    // Selector used to find validators to stake on.
+    IValidatorSelector public validatorSelector;
+
     constructor(
         address lidoFeeAddress,
         address authorFeeAddress,
-        address oracleAddress,
+        address validatorSelectorAddress,
         address _mpcWalletAddress
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-
-        Oracle = IOracle(oracleAddress);
         mpcWalletAddress = _mpcWalletAddress;
+
+        validatorSelector = IValidatorSelector(validatorSelectorAddress);
 
         address[] memory paymentAddresses = new address[](2);
         paymentAddresses[0] = lidoFeeAddress;
@@ -164,8 +165,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Transfer stAVAX from user to our contract.
         // We use the internal call to avoid double-reentrancy issues.
-        Shares256 sharesAmount = getSharesByAmount(amount);
-        _transferShares(msg.sender, address(this), sharesAmount);
+        _transferShares(msg.sender, address(this), amount);
 
         // Create the request and store in our queue.
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));
@@ -199,15 +199,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         if (request.requester != msg.sender) revert NotAuthorized();
         if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
-        if (amount > address(this).balance) revert InsufficientBalance();
 
         // Partial claim, update amounts.
         request.amountClaimed += amount;
         unstakeRequests[requestIndex] = request;
 
         // Burn stAVAX and send AVAX to the user.
-        Shares256 shares = getSharesByAmount(amount);
-        _burnShares(address(this), shares);
+        burn(address(this), amount);
         payable(msg.sender).transfer(amount);
 
         // Emit claim event.
@@ -249,16 +247,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * It would be sensible for our team to also call this at a regular interval.
      */
     function initiateStake() external whenNotPaused nonReentrant returns (uint256) {
-        // TODO: get proper epoch id
-        uint256 epochId = 123; // TEMPORARY
-
         if (amountPendingAVAX == 0 || amountPendingAVAX < minStakeBatchAmount) {
             return 0;
         }
 
-        (string[] memory ids, uint256[] memory amounts, uint256 remaining) = Oracle.selectValidatorsForStake(
-            amountPendingAVAX,
-            epochId
+        (string[] memory ids, uint256[] memory amounts, uint256 remaining) = validatorSelector.selectValidatorsForStake(
+            amountPendingAVAX
         );
 
         if (ids.length == 0 || amounts.length == 0) revert NoAvailableValidators();
@@ -298,8 +292,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         // Mint stAVAX for user
-        Shares256 shares = _getDepositSharesByAmount(amount);
-        _mintShares(msg.sender, shares);
+        mint(msg.sender, amount);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);

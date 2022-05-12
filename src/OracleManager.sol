@@ -114,9 +114,9 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     /**
      * @notice Called by daemons running our oracle service
      * @param _epochId The id of the reporting epoch.
-     * @param _reportData Array of ValidatorData structs.
+     * @param _reportData Array of Validator structs.
      */
-    function receiveMemberReport(uint256 _epochId, ValidatorData[] calldata _reportData) external whenNotPaused {
+    function receiveMemberReport(uint256 _epochId, Validator[] calldata _reportData) external whenNotPaused {
         // 0. Check if Oracle deployed contract address is set
         if (oracleContractAddress == address(0)) revert OracleContractAddressNotSet();
 
@@ -176,14 +176,10 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
 
     /**
      * @notice Checks if all the reported validator node ids exist in our whitelisted validators mapping
-     * @param _reportData Array of ValidatorData structs
+     * @param _reportData Array of Validator structs
      * @return bool True or false
      */
-    function _reportContainsOnlyWhitelistedValidators(ValidatorData[] calldata _reportData)
-        internal
-        view
-        returns (bool)
-    {
+    function _reportContainsOnlyWhitelistedValidators(Validator[] calldata _reportData) internal view returns (bool) {
         for (uint256 i = 0; i < _reportData.length; i++) {
             if (!whitelistedValidatorsMapping[_reportData[i].nodeId]) {
                 return false;
@@ -194,10 +190,10 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
 
     /**
      * @notice Hashes the report data from an oracle member.
-     * @param _reportData An array of ValidatorData structs.
+     * @param _reportData An array of Validator structs.
      * @return hashedData The bytes32 hash of the data.
      */
-    function _hashReportData(ValidatorData[] calldata _reportData) internal pure returns (bytes32) {
+    function _hashReportData(Validator[] calldata _reportData) internal pure returns (bytes32) {
         return keccak256(abi.encode(_reportData));
     }
 
@@ -382,7 +378,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     //  Temporary functions - PLEASE REMOVE
     // -------------------------------------------------------------------------
 
-    function temporaryFinalizeReport(uint256 _epochId, ValidatorData[] calldata _reportData) external {
+    function temporaryFinalizeReport(uint256 _epochId, Validator[] calldata _reportData) external {
         if (oracleContractAddress == address(0)) revert OracleContractAddressNotSet();
 
         if (!_getOracleInWhitelistMapping(msg.sender)) revert OracleMemberNotFound();
