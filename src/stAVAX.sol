@@ -128,22 +128,33 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
      * @param excludeAmount excludes amount from protocolControlledAVAX, for the case where deposit happens before mint
      * @return number of shares represented by AVAX
      */
-    function getSharesByAmount(uint256 amount, bool excludeAmount) public view returns (Shares256) {
-        if (totalShares == 0 || amount == 0) {
-            return Shares256.wrap(0);
-        }
+    function _getSharesByAmount(uint256 amount, bool excludeAmount) private view returns (Shares256) {
+        // `totalShares` is 0: this is the first ever deposit. Assume that shares correspond to AVAX 1-to-1.
+        if (totalShares == 0) return Shares256.wrap(amount);
+        if (amount == 0) return Shares256.wrap(0);
 
-        uint256 rawSharesAmount;
+        uint256 total = protocolControlledAVAX();
         if (excludeAmount) {
-            rawSharesAmount = (amount * totalShares) / (protocolControlledAVAX() - amount);
-        } else {
-            rawSharesAmount = (amount * totalShares) / protocolControlledAVAX();
+            total -= amount;
         }
-
-        return Shares256.wrap(rawSharesAmount);
+        return Shares256.wrap((amount * totalShares) / total);
     }
 
+    /**
+     * @dev Public-facing version of this method, to calculate the value in shares before deposit.
+     * This is the default case, for use in withdrawals, claims, and for display in the web UI.
+     * @param amount amount of AVAX
+     */
     function getSharesByAmount(uint256 amount) public view returns (Shares256) {
-        return getSharesByAmount(amount, false);
+        return _getSharesByAmount(amount, false);
+    }
+
+    /**
+     * @dev Computes the total amount of shares represented by a number of AVAX, excluding the
+     * amount itself from share calculations, on the basis that it has already been deposited.
+     * @param amount amount of AVAX
+     */
+    function _getDepositSharesByAmount(uint256 amount) internal view returns (Shares256) {
+        return _getSharesByAmount(amount, true);
     }
 }
