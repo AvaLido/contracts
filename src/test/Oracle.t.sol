@@ -46,11 +46,12 @@ contract OracleTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testReceiveFinalizedReport() public {
-        cheats.expectEmit(false, false, false, true);
-        emit OracleReportReceived(epochId);
         cheats.prank(ORACLE_MANAGER_ADDRESS);
         ValidatorData[] memory reportData = new ValidatorData[](1);
         reportData[0].nodeId = fakeNodeId;
+
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportReceived(epochId);
         oracle.receiveFinalizedReport(epochId, reportData);
         ValidatorData[] memory dataFromContract = oracle.getAllValidatorDataByEpochId(epochId);
         assertEq(keccak256(abi.encode(reportData)), keccak256(abi.encode(dataFromContract)));
@@ -69,9 +70,9 @@ contract OracleTest is DSTest, Helpers {
 
     function testChangeOracleManagerAddress() public {
         address newManagerAddress = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectEmit(false, false, false, true);
         emit OracleManagerAddressChanged(newManagerAddress);
-        cheats.prank(ROLE_ORACLE_MANAGER);
         oracle.changeOracleManagerAddress(newManagerAddress);
     }
 
