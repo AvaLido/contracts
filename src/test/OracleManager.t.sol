@@ -57,7 +57,6 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.receiveMemberReport(epochId, reportData);
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(address(oracle));
-        address oracleAddressFromContract = oracleManager.getOracleAddress();
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportData);
         assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportData))), 1);

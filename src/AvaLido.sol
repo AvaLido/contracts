@@ -38,7 +38,9 @@ import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 
 import "./stAVAX.sol";
-import "./ValidatorManager.sol";
+import "./Oracle.sol";
+
+import "./interfaces/IOracle.sol";
 
 import "./test/console.sol";
 
@@ -52,6 +54,8 @@ uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
  * @author Hyperelliptic Labs and RockX
  */
 contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
+    IOracle Oracle;
+
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();
@@ -100,8 +104,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     PaymentSplitter public protocolFeeSplitter;
     uint256 public protocolFeePercentage = 10;
 
-    ValidatorManager public validatorManager;
-
     // Address where we'll send AVAX to be staked.
     address private mpcWalletAddress;
 
@@ -112,12 +114,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     constructor(
         address lidoFeeAddress,
         address authorFeeAddress,
-        address validatorManagerAddress,
+        address oracleAddress,
         address _mpcWalletAddress
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-        validatorManager = ValidatorManager(validatorManagerAddress);
+        Oracle = IOracle(oracleAddress);
         mpcWalletAddress = _mpcWalletAddress;
 
         address[] memory paymentAddresses = new address[](2);
@@ -246,12 +248,16 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * It would be sensible for our team to also call this at a regular interval.
      */
     function initiateStake() external whenNotPaused nonReentrant returns (uint256) {
+        // TODO: get proper epoch id
+        uint256 epochId = 123; // TEMPORARY
+
         if (amountPendingAVAX == 0 || amountPendingAVAX < minStakeBatchAmount) {
             return 0;
         }
 
-        (string[] memory ids, uint256[] memory amounts, uint256 remaining) = validatorManager.selectValidatorsForStake(
-            amountPendingAVAX
+        (string[] memory ids, uint256[] memory amounts, uint256 remaining) = Oracle.selectValidatorsForStake(
+            amountPendingAVAX,
+            epochId
         );
 
         if (ids.length == 0 || amounts.length == 0) revert NoAvailableValidators();
