@@ -127,6 +127,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
 
     /**
      * @dev Sets `amount` in stAVAX, converted to shares, as the allowance of `spender` over `owner`'s tokens.
+     * Bypasses amount conversion if allowance has been set to "infinite" (max int).
      * Emits an {Approval} event.
      */
     function _approve(
@@ -135,8 +136,12 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
         uint256 amount
     ) internal override {
         if (owner == address(0) || spender == address(0)) revert CannotApproveZeroAddress();
-        Shares256 sharesAmount = getSharesByAmount(amount);
-        allowances[owner][spender] = Shares256.unwrap(sharesAmount); // Allowance in shares
+
+        if (amount == type(uint256).max) {
+            allowances[owner][spender] = type(uint256).max;
+        } else {
+            allowances[owner][spender] = Shares256.unwrap(getSharesByAmount(amount)); // Allowance in shares
+        }
         emit Approval(owner, spender, amount); // Event in stAVAX
     }
 
