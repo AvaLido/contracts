@@ -3,7 +3,8 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
-import "../ValidatorManager.sol";
+// import "../ValidatorManager.sol";
+import "../Oracle.sol";
 
 import "./cheats.sol";
 
@@ -22,7 +23,7 @@ address constant WHITELISTED_ORACLE_5 = 0x0309a747a34befD1625b5dcae0B00625FAa304
 
 abstract contract Helpers {
     function validatorSelectMock(
-        address manager,
+        address oracle,
         string memory node,
         uint256 amount,
         uint256 remaining
@@ -34,8 +35,8 @@ abstract contract Helpers {
         amountResult[0] = amount;
 
         cheats.mockCall(
-            manager,
-            abi.encodeWithSelector(ValidatorManager.selectValidatorsForStake.selector),
+            oracle,
+            abi.encodeWithSelector(Oracle.selectValidatorsForStake.selector),
             abi.encode(idResult, amountResult, remaining)
         );
     }
@@ -49,24 +50,23 @@ abstract contract Helpers {
         return string(abi.encodePacked("NodeID-", Strings.toString(num)));
     }
 
-    function nValidatorsWithInitialAndStake(
+    function nValidatorsWithFreeSpace(
         uint256 n,
-        uint256 stake,
-        uint256 full,
-        uint64 endTime
-    ) public pure returns (Validator[] memory) {
-        Validator[] memory result = new Validator[](n);
+        uint64 endTime,
+        uint256 freeSpace
+    ) public pure returns (ValidatorData[] memory) {
+        ValidatorData[] memory result = new ValidatorData[](n);
         for (uint256 i = 0; i < n; i++) {
-            result[i] = Validator(endTime, stake, full, nodeId(i));
+            result[i] = ValidatorData(nodeId(i), endTime, freeSpace);
         }
         return result;
     }
 
-    function mixOfBigAndSmallValidators() public view returns (Validator[] memory) {
-        Validator[] memory smallValidators = nValidatorsWithInitialAndStake(7, 0.1 ether, 0, timeFromNow(30 days));
-        Validator[] memory bigValidators = nValidatorsWithInitialAndStake(7, 100 ether, 0, timeFromNow(30 days));
+    function mixOfBigAndSmallValidators() public view returns (ValidatorData[] memory) {
+        ValidatorData[] memory smallValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 0.5 ether);
+        ValidatorData[] memory bigValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 100 ether);
 
-        Validator[] memory validators = new Validator[](smallValidators.length + bigValidators.length);
+        ValidatorData[] memory validators = new ValidatorData[](smallValidators.length + bigValidators.length);
 
         for (uint256 i = 0; i < smallValidators.length; i++) {
             validators[i] = smallValidators[i];
@@ -80,7 +80,7 @@ abstract contract Helpers {
 
     function stringArrayContains(string memory stringToCheck, string[] memory arrayOfStrings)
         public
-        view
+        pure
         returns (bool)
     {
         for (uint256 i = 0; i < arrayOfStrings.length; i++) {
@@ -93,7 +93,7 @@ abstract contract Helpers {
 
     function addressArrayContains(address addressToCheck, address[] memory arrayOfAddresses)
         public
-        view
+        pure
         returns (bool)
     {
         for (uint256 i = 0; i < arrayOfAddresses.length; i++) {
