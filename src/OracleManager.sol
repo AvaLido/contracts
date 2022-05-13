@@ -29,6 +29,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     error InvalidAddress();
     error InvalidQuorum();
     error OracleAlreadyReported();
+    error OracleContractAddressNotSet();
     error OracleMemberExists();
     error OracleMemberNotFound();
     //error TooFewOracleMembers();
@@ -47,6 +48,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // State variables
     string[] public whitelistedValidatorsArray; // whitelisted Validator node ids.
     address[] public whitelistedOraclesArray; // whitelisted addresses running our oracle daemon.
+    address public oracleContractAddress; // the deployed address
 
     uint256 internal constant INDEX_NOT_FOUND = type(uint256).max; // index when item is missing from array
 
@@ -55,7 +57,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     mapping(address => bool) public whitelistedOraclesMapping; // address => true if whitelisted
     mapping(uint256 => mapping(bytes32 => uint256)) internal reportHashesByEpochId; // epochId => (hashOfOracleData => countofThisHash)
     mapping(uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
-    mapping(uint256 => bool) internal finalizedReportsByEpochId; // epochId => true/false
+    mapping(uint256 => bool) public finalizedReportsByEpochId; // epochId => true/false
     // TODO: when quorum is received for an epoch we can delete it from the mapping oracleMemberReports
 
     // Roles
@@ -86,8 +88,13 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _oracleAddress Oracle address
      */
     function setOracleAddress(address _oracleAddress) external onlyRole(ROLE_ORACLE_MANAGER) {
+        oracleContractAddress = _oracleAddress;
         Oracle = IOracle(_oracleAddress);
         emit OracleAddressChanged(_oracleAddress);
+    }
+
+    function getOracleAddress() external view returns (address) {
+        return oracleContractAddress;
     }
 
     function _addWhitelistedOraclesToMapping(address[] memory _whitelistedOracleMembers) internal {
@@ -112,6 +119,9 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
      * @param _reportData Array of ValidatorData structs.
      */
     function receiveMemberReport(uint256 _epochId, ValidatorData[] calldata _reportData) external whenNotPaused {
+        // 0. Check if Oracle deployed contract address is set
+        if (oracleContractAddress == address(0)) revert OracleContractAddressNotSet();
+
         // 1. Check if the reporting oracle is on our whitelist
         if (!_getOracleInWhitelistMapping(msg.sender)) revert OracleMemberNotFound();
 
@@ -122,9 +132,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         if (reportedOraclesByEpochId[_epochId][msg.sender]) revert OracleAlreadyReported();
 
         // 4. Check that the data only includes whitelisted validators
-        // TODO: directly use bool inline
-        bool reportContainsOnlyWhitelistedValidators = _reportContainsOnlyWhitelistedValidators(_reportData);
-        if (!reportContainsOnlyWhitelistedValidators) revert ValidatorNodeIdNotFound();
+        if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
 
         // 5. Log that the oracle has reported for this epoch
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
@@ -371,4 +379,26 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     }
 
     // TODO: function changeRoleOracleManager() {}
+
+    // -------------------------------------------------------------------------
+    //  Temporary functions - PLEASE REMOVE
+    // -------------------------------------------------------------------------
+
+    function temporaryFinalizeReport(uint256 _epochId, ValidatorData[] calldata _reportData) external {
+        if (oracleContractAddress == address(0)) revert OracleContractAddressNotSet();
+
+        if (!_getOracleInWhitelistMapping(msg.sender)) revert OracleMemberNotFound();
+
+        if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
+
+        if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
+
+        bytes32 hashedReportData = _hashReportData(_reportData);
+
+        _storeHashedDataCount(_epochId, hashedReportData);
+
+        finalizedReportsByEpochId[_epochId] = true;
+        Oracle.receiveFinalizedReport(_epochId, _reportData);
+        emit OracleReportSent(_epochId);
+    }
 }

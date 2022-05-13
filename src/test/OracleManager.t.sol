@@ -43,8 +43,23 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager = new OracleManager(ROLE_ORACLE_MANAGER, WHITELISTED_VALIDATORS, ORACLE_MEMBERS);
         ORACLE_MANAGER_CONTRACT_ADDRESS = address(oracleManager);
         oracle = new Oracle(ROLE_ORACLE_MANAGER, ORACLE_MANAGER_CONTRACT_ADDRESS);
+    }
+
+    // -------------------------------------------------------------------------
+    //  Initialization
+    // -------------------------------------------------------------------------
+
+    function testOracleContractAddressNotSet() public {
+        ValidatorData[] memory reportData = new ValidatorData[](1);
+        reportData[0].nodeId = fakeNodeId;
+        cheats.prank(ORACLE_MEMBERS[0]);
+        cheats.expectRevert(OracleManager.OracleContractAddressNotSet.selector);
+        oracleManager.receiveMemberReport(epochId, reportData);
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(address(oracle));
+        cheats.prank(ORACLE_MEMBERS[0]);
+        oracleManager.receiveMemberReport(epochId, reportData);
+        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportData))), 1);
     }
 
     // -------------------------------------------------------------------------
@@ -52,76 +67,77 @@ contract OracleManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testReceiveMemberReportWithoutQuorum() public {
-        cheats.startPrank(ORACLE_MEMBERS[0]);
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
         ValidatorData[] memory reportData = new ValidatorData[](1);
         reportData[0].nodeId = fakeNodeId;
+        cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportData);
-        assertEq(oracleManager.retrieveHashedDataCount(epochId, keccak256(abi.encode(reportData))), 1);
-        cheats.stopPrank();
     }
 
     function testReceiveMemberReportWithQuorum() public {
-        cheats.expectEmit(false, false, false, true);
-        emit OracleReportSent(epochId);
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
 
         ValidatorData[] memory reportDataOne = new ValidatorData[](1);
         reportDataOne[0].nodeId = fakeNodeId;
         ValidatorData[] memory reportDataTwo = new ValidatorData[](1);
         reportDataTwo[0].nodeId = fakeNodeIdTwo;
 
-        cheats.startPrank(ORACLE_MEMBERS[0]);
+        cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
-        cheats.startPrank(ORACLE_MEMBERS[1]);
+        cheats.prank(ORACLE_MEMBERS[1]);
         oracleManager.receiveMemberReport(epochId, reportDataTwo);
-        cheats.stopPrank();
-        cheats.startPrank(ORACLE_MEMBERS[2]);
+        cheats.prank(ORACLE_MEMBERS[2]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
-        cheats.startPrank(ORACLE_MEMBERS[3]);
+        cheats.prank(ORACLE_MEMBERS[3]);
         oracleManager.receiveMemberReport(epochId, reportDataTwo);
-        cheats.stopPrank();
-        cheats.startPrank(ORACLE_MEMBERS[4]);
+        cheats.prank(ORACLE_MEMBERS[4]);
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportSent(epochId);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
     }
 
     function testCannotReportForFinalizedEpoch() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         ValidatorData[] memory reportDataOne = new ValidatorData[](1);
         reportDataOne[0].nodeId = fakeNodeId;
         ValidatorData[] memory reportDataTwo = new ValidatorData[](1);
         reportDataTwo[0].nodeId = fakeNodeIdTwo;
 
-        cheats.startPrank(ORACLE_MEMBERS[0]);
+        cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
-        cheats.startPrank(ORACLE_MEMBERS[1]);
+        cheats.prank(ORACLE_MEMBERS[1]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
-        cheats.startPrank(ORACLE_MEMBERS[2]);
+        cheats.prank(ORACLE_MEMBERS[2]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
-        cheats.startPrank(ORACLE_MEMBERS[3]);
+        cheats.prank(ORACLE_MEMBERS[3]);
         cheats.expectRevert(OracleManager.EpochAlreadyFinalized.selector);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
     }
 
     function testCannotReportWithUnwhitelistedValidator() public {
-        cheats.startPrank(ORACLE_MEMBERS[0]);
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         ValidatorData[] memory reportDataOne = new ValidatorData[](3);
         reportDataOne[0].nodeId = fakeNodeId;
         reportDataOne[1].nodeId = unwhitelistedValidator;
         reportDataOne[2].nodeId = fakeNodeIdTwo;
+        cheats.prank(ORACLE_MEMBERS[0]);
         cheats.expectRevert(OracleManager.ValidatorNodeIdNotFound.selector);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
     }
 
     function testOracleCannotReportTwice() public {
-        cheats.startPrank(ORACLE_MEMBERS[0]);
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         ValidatorData[] memory reportDataOne = new ValidatorData[](1);
         reportDataOne[0].nodeId = fakeNodeId;
+        cheats.startPrank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
         cheats.expectRevert(OracleManager.OracleAlreadyReported.selector);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -129,21 +145,23 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testUnauthorizedReceiveMemberReport() public {
-        cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
         ValidatorData[] memory reportData = new ValidatorData[](1);
         reportData[0].nodeId = fakeNodeId;
+        cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
         oracleManager.receiveMemberReport(epochId, reportData);
     }
 
     function testCannotReceiveReportWhenPaused() public {
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.pause();
-        cheats.startPrank(ORACLE_MEMBERS[0]);
         ValidatorData[] memory reportDataOne = new ValidatorData[](1);
         reportDataOne[0].nodeId = fakeNodeId;
+        cheats.prank(ORACLE_MEMBERS[0]);
         cheats.expectRevert("Pausable: paused");
         oracleManager.receiveMemberReport(epochId, reportDataOne);
-        cheats.stopPrank();
     }
 
     // -------------------------------------------------------------------------
@@ -151,9 +169,9 @@ contract OracleManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testAddOracleMember() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectEmit(false, false, false, true);
         emit OracleMemberAdded(anotherAddressForTesting);
-        cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.addOracleMember(anotherAddressForTesting);
 
         // Assert it exists in the whitelist array
@@ -171,16 +189,15 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotAddOracleMemberAgain() public {
-        cheats.startPrank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectRevert(OracleManager.OracleMemberExists.selector);
         oracleManager.addOracleMember(ORACLE_MEMBERS[0]);
-        cheats.stopPrank();
     }
 
     function testRemoveOracleMember() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectEmit(false, false, false, true);
         emit OracleMemberRemoved(ORACLE_MEMBERS[2]);
-        cheats.startPrank(ROLE_ORACLE_MANAGER);
         oracleManager.removeOracleMember(ORACLE_MEMBERS[2]);
 
         // Assert it doesn't exist in the whitelist array
@@ -198,10 +215,9 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotRemoveOracleMemberIfNotPresent() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
-        cheats.startPrank(ROLE_ORACLE_MANAGER);
         oracleManager.removeOracleMember(0xf195179eEaE3c8CAB499b5181721e5C57e4769b2);
-        cheats.stopPrank();
     }
 
     // -------------------------------------------------------------------------
@@ -209,9 +225,9 @@ contract OracleManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testAddWhitelistedValidator() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectEmit(false, false, false, true);
         emit WhitelistedValidatorAdded(newWhitelistedValidator);
-        cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.addWhitelistedValidator(newWhitelistedValidator);
 
         // Assert it exists in the whitelist array
@@ -229,16 +245,15 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotAddWhitelistedValidatorAgain() public {
-        cheats.startPrank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectRevert(OracleManager.ValidatorAlreadyWhitelisted.selector);
         oracleManager.addWhitelistedValidator(WHITELISTED_VALIDATORS[0]);
-        cheats.stopPrank();
     }
 
     function testRemoveWhitelistedValidator() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectEmit(false, false, false, true);
         emit WhitelistedValidatorRemoved(WHITELISTED_VALIDATORS[2]);
-        cheats.startPrank(ROLE_ORACLE_MANAGER);
         oracleManager.removeWhitelistedValidator(WHITELISTED_VALIDATORS[2]);
 
         // Assert it doesn't exist in the whitelist array
@@ -256,10 +271,9 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotRemoveWhitelistedValidatorIfNotPresent() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectRevert(OracleManager.ValidatorNodeIdNotFound.selector);
-        cheats.startPrank(ROLE_ORACLE_MANAGER);
         oracleManager.removeWhitelistedValidator(unwhitelistedValidator);
-        cheats.stopPrank();
     }
 
     // -------------------------------------------------------------------------
@@ -267,9 +281,9 @@ contract OracleManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testSetOracleAddress() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
         cheats.expectEmit(false, false, false, true);
         emit OracleAddressChanged(anotherAddressForTesting);
-        cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(anotherAddressForTesting);
     }
 
@@ -281,4 +295,26 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     // TODO: write and test changing ROLE_ORACLE_MANAGER
+
+    // -------------------------------------------------------------------------
+    //  TEMPORARY FUNCTION TEST - REMOVE WHEN FUNCTION IS REMOVED
+    // -------------------------------------------------------------------------
+
+    function testTemporaryFinalizeReport() public {
+        cheats.prank(ROLE_ORACLE_MANAGER);
+        oracleManager.setOracleAddress(address(oracle));
+
+        ValidatorData[] memory reportData = new ValidatorData[](2);
+        reportData[0].nodeId = fakeNodeId;
+        reportData[0].stakeEndTime = 123456789;
+        reportData[0].freeSpace = 800000;
+        reportData[1].nodeId = fakeNodeIdTwo;
+        reportData[1].stakeEndTime = 123456789;
+        reportData[1].freeSpace = 500000;
+
+        cheats.prank(ORACLE_MEMBERS[0]);
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportSent(epochId);
+        oracleManager.temporaryFinalizeReport(epochId, reportData);
+    }
 }
