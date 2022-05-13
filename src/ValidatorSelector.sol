@@ -14,11 +14,11 @@ import "./interfaces/IOracle.sol";
  * @title Lido on Avalanche Validator Selector
  * @dev This contract helps select validators from the Oracle for staking.
  */
-
 contract ValidatorSelector {
     uint256 minimumRequiredStakeTimeRemaining = 15 days;
     uint256 smallStakeThreshold = 100 ether;
 
+    // TODO: needs setter
     IOracle public oracle;
 
     constructor(IOracle _oracle) {
