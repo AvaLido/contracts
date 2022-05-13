@@ -5,8 +5,6 @@ pragma solidity 0.8.10;
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
-import "./test/console.sol";
-
 /**
  * @notice stAVAX tokens are liquid staked AVAX tokens.
  * @dev ERC-20 implementation of a rebasing token 1:1 pegged to AVAX.

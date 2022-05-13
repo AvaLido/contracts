@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-// import "ds-test/src/test.sol";
 import "ds-test/test.sol";
+import "forge-std/Test.sol";
 import "./cheats.sol";
 import "./helpers.sol";
-import "./console.sol";
 import "../stAVAX.sol";
 
 contract TestToken is stAVAX {
@@ -252,5 +251,11 @@ contract stAVAXTest is DSTest, Helpers {
         assertEq(stavax.balanceOf(USER2_ADDRESS), 200 ether);
         uint256 user2Shares = stAVAX.Shares256.unwrap(stavax.getSharesByAmount(stavax.balanceOf(USER2_ADDRESS)));
         assertEq(user2Shares, 100 ether);
+    }
+
+    function testApprovalSharesTokensOverflow() public {
+        stavax.deposit{value: 100 ether}(USER1_ADDRESS);
+        cheats.expectRevert(stdError.arithmeticError);
+        stavax.approve(USER1_ADDRESS, type(uint256).max - 100 ether);
     }
 }

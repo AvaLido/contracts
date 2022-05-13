@@ -2,11 +2,10 @@
 pragma solidity 0.8.10;
 
 import "ds-test/test.sol";
-// import "ds-test/src/test.sol";
+import "forge-std/Test.sol";
 import "../AvaLido.sol";
 import "../ValidatorManager.sol";
 
-import "./console.sol";
 import "./cheats.sol";
 import "./helpers.sol";
 
