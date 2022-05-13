@@ -207,4 +207,30 @@ contract stAVAXTest is DSTest, Helpers {
         cheats.expectRevert(stAVAX.InsufficientSTAVAXAllowance.selector);
         stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 10 ether);
     }
+
+    function testApprovalSharesTokens() public {
+        // Start with 100 ether in 1:1
+        stavax.deposit{value: 100 ether}(USER1_ADDRESS);
+
+        // Assume some rewards and value has doubled.
+        // stAVAX is now 1:2
+        stavax._setTotalControlled(200 ether);
+
+        // Approval for user2 to spend 100 tokens (50 shares)
+        cheats.prank(USER1_ADDRESS);
+        stavax.approve(USER2_ADDRESS, 100 ether);
+
+        // Attempt to transfer the 100 tokens
+        cheats.prank(USER2_ADDRESS);
+        stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 100 ether);
+
+        // Still has 100 ether (50 shares)
+        assertEq(stavax.balanceOf(USER1_ADDRESS), 100 ether);
+        uint256 user1Shares = stAVAX.Shares256.unwrap(stavax.getSharesByAmount(stavax.balanceOf(USER2_ADDRESS)));
+        assertEq(user1Shares, 50 ether);
+
+        assertEq(stavax.balanceOf(USER2_ADDRESS), 100 ether);
+        uint256 user2Shares = stAVAX.Shares256.unwrap(stavax.getSharesByAmount(stavax.balanceOf(USER2_ADDRESS)));
+        assertEq(user2Shares, 50 ether);
+    }
 }

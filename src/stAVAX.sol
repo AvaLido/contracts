@@ -142,6 +142,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
 
     /**
      * @dev Updates `owner`'s allowance for `spender` based on spent `amount`.
+     * Doesn't update allowance if it's been set to "infinite" (max int).
      */
     function _spendAllowance(
         address owner,
@@ -150,8 +151,11 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     ) internal override {
         uint256 currentAllowance = allowance(owner, spender);
         if (currentAllowance != type(uint256).max) {
-            if (currentAllowance < amount) revert InsufficientSTAVAXAllowance();
-            _approve(owner, spender, currentAllowance - amount);
+            Shares256 sharesAmount = getSharesByAmount(amount);
+            uint256 rawSharesAmount = Shares256.unwrap(sharesAmount);
+
+            if (currentAllowance < rawSharesAmount) revert InsufficientSTAVAXAllowance();
+            _approve(owner, spender, currentAllowance - rawSharesAmount);
         }
     }
 
