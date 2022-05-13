@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 /**
@@ -11,7 +12,7 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
  * This contract is abstract, and must be implemented by something which
  * knows the total amount of controlled AVAX.
  */
-abstract contract stAVAX is ERC20, ReentrancyGuard {
+abstract contract stAVAX is IERC20, IERC20Metadata, ReentrancyGuard {
     uint256 private totalShares = 0;
 
     error CannotMintToZeroAddress();
@@ -23,10 +24,29 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
     // Explicit type representing shares, to add safety when moving between shares and tokens.
     type Shares256 is uint256;
 
-    constructor() ERC20("Staked AVAX", "stAVAX") {}
-
     mapping(address => uint256) private shares;
     mapping(address => mapping(address => uint256)) private allowances;
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external pure returns (string memory) {
+        return "Staked AVAX";
+    }
+
+    /**
+     * @dev Returns the symbol of the token.
+     */
+    function symbol() external pure returns (string memory) {
+        return "stAVAX";
+    }
+
+    /**
+     * @dev Returns the decimals places of the token.
+     */
+    function decimals() external pure returns (uint8) {
+        return 18;
+    }
 
     /**
      * @notice The total supply of stAVAX tokens
@@ -117,7 +137,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
         address from,
         address to,
         uint256 amount
-    ) internal override {
+    ) internal {
         Shares256 sharesAmount = getSharesByAmount(amount);
         _transferShares(from, to, sharesAmount);
         emit Transfer(from, to, amount);
@@ -132,7 +152,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
         address owner,
         address spender,
         uint256 amount
-    ) internal override {
+    ) internal {
         if (owner == address(0) || spender == address(0)) revert CannotApproveZeroAddress();
 
         if (amount == type(uint256).max) {
@@ -151,7 +171,7 @@ abstract contract stAVAX is ERC20, ReentrancyGuard {
         address owner,
         address spender,
         uint256 amount
-    ) internal override {
+    ) internal {
         uint256 currentAllowance = allowance(owner, spender);
         if (currentAllowance != type(uint256).max) {
             Shares256 sharesAmount = getSharesByAmount(amount);
