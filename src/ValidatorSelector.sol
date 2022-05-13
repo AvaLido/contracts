@@ -5,8 +5,6 @@ pragma solidity 0.8.10;
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-import "./test/console.sol";
-
 import "./Types.sol";
 import "./interfaces/IOracle.sol";
 

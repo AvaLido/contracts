@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import "../AvaLido.sol";
 import "../interfaces/IOracle.sol";
 
-import "./cheats.sol";
 import "./helpers.sol";
 
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
@@ -114,7 +113,7 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testInitiateStakeUnderLimit() public {
-        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.deal(USER1_ADDRESS, 1 ether);
         cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 1 ether}();
         uint256 staked = lido.initiateStake();
@@ -296,8 +295,8 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testFillUnstakeRequestPartialMultipleFilled() public {
         // Deposit as user.
-        cheats.prank(USER1_ADDRESS);
         cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 10 ether}();
 
         // Check event emission for staking.

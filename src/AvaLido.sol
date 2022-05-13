@@ -40,7 +40,6 @@ import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "./Types.sol";
 import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
-import "./test/console.sol";
 
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
