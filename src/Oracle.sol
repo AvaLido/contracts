@@ -5,8 +5,6 @@ pragma solidity 0.8.10;
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-import "./test/console.sol";
-
 import "./Types.sol";
 
 /**
@@ -110,7 +108,6 @@ contract Oracle is AccessControlEnumerable {
             uint256
         )
     {
-        console.log("Epoch id: ", epochId);
         if (amount == 0) return (new string[](0), new uint256[](0), 0);
 
         ValidatorData[] memory validators = getAvailableValidatorsWithCapacity(smallStakeThreshold, epochId);

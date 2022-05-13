@@ -42,8 +42,6 @@ import "./Oracle.sol";
 
 import "./interfaces/IOracle.sol";
 
-import "./test/console.sol";
-
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint256 constant STAKE_PERIOD = 14 days;

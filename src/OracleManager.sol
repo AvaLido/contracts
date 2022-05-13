@@ -7,8 +7,6 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
-import "./test/console.sol";
-
 import "./interfaces/IOracle.sol";
 import "./Types.sol";
 
