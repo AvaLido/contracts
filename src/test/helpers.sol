@@ -3,8 +3,7 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
-// import "../ValidatorManager.sol";
-import "../Oracle.sol";
+import "../ValidatorSelector.sol";
 
 import "./cheats.sol";
 
@@ -23,7 +22,7 @@ address constant WHITELISTED_ORACLE_5 = 0x0309a747a34befD1625b5dcae0B00625FAa304
 
 abstract contract Helpers {
     function validatorSelectMock(
-        address oracle,
+        address validatorSelector,
         string memory node,
         uint256 amount,
         uint256 remaining
@@ -35,47 +34,10 @@ abstract contract Helpers {
         amountResult[0] = amount;
 
         cheats.mockCall(
-            oracle,
-            abi.encodeWithSelector(Oracle.selectValidatorsForStake.selector),
+            validatorSelector,
+            abi.encodeWithSelector(ValidatorSelector.selectValidatorsForStake.selector),
             abi.encode(idResult, amountResult, remaining)
         );
-    }
-
-    function timeFromNow(uint256 time) public view returns (uint64) {
-        return uint64(block.timestamp + time);
-    }
-
-    // TODO: Some left-padding or similar to match real-world node IDs would be nice.
-    function nodeId(uint256 num) public pure returns (string memory) {
-        return string(abi.encodePacked("NodeID-", Strings.toString(num)));
-    }
-
-    function nValidatorsWithFreeSpace(
-        uint256 n,
-        uint64 endTime,
-        uint256 freeSpace
-    ) public pure returns (ValidatorData[] memory) {
-        ValidatorData[] memory result = new ValidatorData[](n);
-        for (uint256 i = 0; i < n; i++) {
-            result[i] = ValidatorData(nodeId(i), endTime, freeSpace);
-        }
-        return result;
-    }
-
-    function mixOfBigAndSmallValidators() public view returns (ValidatorData[] memory) {
-        ValidatorData[] memory smallValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 0.5 ether);
-        ValidatorData[] memory bigValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 100 ether);
-
-        ValidatorData[] memory validators = new ValidatorData[](smallValidators.length + bigValidators.length);
-
-        for (uint256 i = 0; i < smallValidators.length; i++) {
-            validators[i] = smallValidators[i];
-        }
-        for (uint256 i = 0; i < bigValidators.length; i++) {
-            validators[smallValidators.length + i] = bigValidators[i];
-        }
-
-        return validators;
     }
 
     function stringArrayContains(string memory stringToCheck, string[] memory arrayOfStrings)

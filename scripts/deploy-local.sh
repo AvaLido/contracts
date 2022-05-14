@@ -8,7 +8,8 @@ export ORACLE_WHITELIST=["0x03C1196617387899390d3a98fdBdfD407121BB67","0x6C58f6E
 # These exports used by integration test scripts.
 export ORACLE_MANAGER=$(task deploy -- OracleManager --constructor-args $ROLE_ORACLE_MANAGER $VALIDATOR_WHITELIST $ORACLE_WHITELIST | grep -i "deployed" | cut -d " " -f 3)
 export ORACLE=$(task deploy -- Oracle --constructor-args $ROLE_ORACLE_MANAGER $ORACLE_MANAGER | grep -i "deployed" | cut -d " " -f 3)
-export AVALIDO=$(task deploy -- AvaLido --constructor-args "0x2000000000000000000000000000000000000001" "0x2000000000000000000000000000000000000002" $ORACLE "0x3000000000000000000000000000000000000001" | grep -i "deployed" | cut -d " " -f 3)
+export VALIDATOR_SELECTOR=$(task deploy -- ValidatorSelector --constructor-args $ORACLE | grep -i "deployed" | cut -d " " -f 3)
+export AVALIDO=$(task deploy -- AvaLido --constructor-args "0x2000000000000000000000000000000000000001" "0x2000000000000000000000000000000000000002" $VALIDATOR_SELECTOR "0x3000000000000000000000000000000000000001" | grep -i "deployed" | cut -d " " -f 3)
 
 # set oracle address from oraclemanager
 # task call -- $ORACLE_MANAGER "setOracleAddress(address)" $ORACLE --from $ROLE_ORACLE_MANAGER --private-key $ROLE_ORACLE_MANAGER_PK
@@ -17,4 +18,5 @@ cast send --rpc-url "http://127.0.0.1:9650/ext/bc/C/rpc" --from $ROLE_ORACLE_MAN
 # Print addresses for easy access
 printf "OracleManager contract deployed to: $ORACLE_MANAGER\n"
 printf "Oracle contract deployed to: $ORACLE\n"
+printf "ValidatorSelector contract deployed to: $VALIDATOR_SELECTOR\n"
 printf "AvaLido contract deployed to: $AVALIDO\n"
