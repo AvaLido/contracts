@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2022 Hyperelliptic Labs and RockX
-// SPDX-License-Identifier: GPL-3.0pragma solidity 0.8.10;
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
 // TODO: rename as MPCManager
@@ -52,11 +52,7 @@ contract MpcCoordinator {
     mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
     uint256 private _lastRequestId;
 
-    event ParticipantAdded(
-        bytes indexed publicKey,
-        bytes32 groupId,
-        uint256 index
-    );
+    event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
     event KeygenRequestAdded(bytes32 indexed groupId);
     event StakeRequestAdded(
@@ -76,41 +72,41 @@ contract MpcCoordinator {
         uint256 startTime,
         uint256 endTime
     );
-    event SignRequestAdded(
-        uint256 requestId,
-        bytes indexed publicKey,
-        bytes message
-    );
-    event SignRequestStarted(
-        uint256 requestId,
-        bytes indexed publicKey,
-        bytes message
-    );
+    event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
+    event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
 
-    constructor() payable {    }
+    constructor() payable {}
 
-    receive() payable external {}
+    receive() external payable {}
 
     // TODO:
     // A convinient function for test, remove it for production.
     function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
+
     function getStakeNumber() public view returns (uint256) {
         return stakeNumber;
     }
+
     function getStakeAmount() public view returns (uint256) {
         return stakeAmount;
     }
+
     function getStakeAddress() public view returns (address) {
         return _calculateAddressForTempTest;
     }
 
     // TODO: improve its logic, especially add publick selection logic.
     // Make sure call this function after key reported, and make sure fund the account adequately.
-    function serveStake(string calldata nodeID, uint256 amount, uint256 startTime, uint256 endTime) external {
+    function serveStake(
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) external {
         bytes memory publicKey = _generatedKeyOnlyForTempTest;
-        address publicKeyAddress =_calculateAddressForTempTest;
+        address publicKeyAddress = _calculateAddressForTempTest;
 
         payable(publicKeyAddress).transfer(amount);
         requestStake(publicKey, nodeID, amount, startTime, endTime);
@@ -119,19 +115,11 @@ contract MpcCoordinator {
         stakeAmount += amount;
     }
 
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold)
-    external
-    {
+    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external {
         // TODO: Add auth
         // TODO: Check public keys are valid
-        require(
-            publicKeys.length > 1,
-            "A group requires 2 or more participants."
-        );
-        require(
-            threshold >= 1 && threshold < publicKeys.length,
-            "Invalid threshold"
-        );
+        require(publicKeys.length > 1, "A group requires 2 or more participants.");
+        require(threshold >= 1 && threshold < publicKeys.length, "Invalid threshold");
 
         bytes memory b = bytes.concat(bytes32(threshold));
         for (uint256 i = 0; i < publicKeys.length; i++) {
@@ -163,10 +151,7 @@ contract MpcCoordinator {
         // TODO: Add auth
         KeyInfo storage info = _generatedKeys[generatedPublicKey];
 
-        require(
-            !info.confirmed,
-            "Key has already been confirmed by all participants."
-        );
+        require(!info.confirmed, "Key has already been confirmed by all participants.");
 
         // TODO: Check public key valid
         _keyConfirmations[generatedPublicKey][myIndex] = true;
@@ -184,15 +169,16 @@ contract MpcCoordinator {
     }
 
     // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
-    function requestStake(bytes memory publicKey, string calldata nodeID, uint256 amount, uint256 startTime, uint256 endTime)
-    public
-    {
+    function requestStake(
+        bytes memory publicKey,
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) public {
         // TODO: Add auth
         KeyInfo memory info = _generatedKeys[publicKey];
-        require(
-            info.confirmed,
-            "Key doesn't exist or has not been confirmed."
-        );
+        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
 
         // TODO: Validate input
 
@@ -210,15 +196,10 @@ contract MpcCoordinator {
         emit StakeRequestAdded(requestId, publicKey, nodeID, amount, startTime, endTime);
     }
 
-    function requestSign(bytes calldata publicKey, bytes calldata message)
-    external
-    {
+    function requestSign(bytes calldata publicKey, bytes calldata message) external {
         // TODO: Add auth
         KeyInfo memory info = _generatedKeys[publicKey];
-        require(
-            info.confirmed,
-            "Key doesn't exist or has not been confirmed."
-        );
+        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
         uint256 requestId = _getNextRequestId();
         Request storage status = _requests[requestId];
         status.publicKey = publicKey;
@@ -233,16 +214,10 @@ contract MpcCoordinator {
         require(status.publicKey.length > 0, "Request doesn't exist.");
 
         KeyInfo memory info = _generatedKeys[status.publicKey];
-        require(
-            info.confirmed,
-            "Public key doesn't exist or has not been confirmed."
-        );
+        require(info.confirmed, "Public key doesn't exist or has not been confirmed.");
 
         uint256 threshold = _groupThreshold[info.groupId];
-        require(
-            status.participantIndices.length <= threshold,
-            "Cannot join anymore."
-        );
+        require(status.participantIndices.length <= threshold, "Cannot join anymore.");
 
         _ensureSenderIsClaimedParticipant(info.groupId, myIndex);
 
@@ -252,28 +227,26 @@ contract MpcCoordinator {
         status.participantIndices.push(myIndex);
 
         if (status.participantIndices.length == threshold + 1) {
-            if(status.message.length > 0) {
-                emit SignRequestStarted(
-                    requestId,
-                    status.publicKey,
-                    status.message
-                );
-            }
-            else {
+            if (status.message.length > 0) {
+                emit SignRequestStarted(requestId, status.publicKey, status.message);
+            } else {
                 StakeRequestDetails memory details = _stakeRequestDetails[requestId];
-                if(details.amount > 0) {
-                    emit StakeRequestStarted(requestId, status.publicKey, status.participantIndices, details.nodeID, details.amount, details.startTime, details.endTime);
+                if (details.amount > 0) {
+                    emit StakeRequestStarted(
+                        requestId,
+                        status.publicKey,
+                        status.participantIndices,
+                        details.nodeID,
+                        details.amount,
+                        details.startTime,
+                        details.endTime
+                    );
                 }
             }
-
         }
     }
 
-    function getGroup(bytes32 groupId)
-    external
-    view
-    returns (bytes[] memory participants, uint256 threshold)
-    {
+    function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold) {
         uint256 count = _groupParticipantCount[groupId];
         require(count > 0, "Group doesn't exist.");
         bytes[] memory participants = new bytes[](count);
@@ -285,11 +258,7 @@ contract MpcCoordinator {
         return (participants, threshold);
     }
 
-    function getKey(bytes calldata publicKey)
-    external
-    view
-    returns (KeyInfo memory keyInfo)
-    {
+    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo) {
         keyInfo = _generatedKeys[publicKey];
     }
 
@@ -298,10 +267,11 @@ contract MpcCoordinator {
         _;
     }
 
-    function _generatedKeyConfirmedByAll(
-        bytes32 groupId,
-        bytes calldata generatedPublicKey
-    ) private view returns (bool) {
+    function _generatedKeyConfirmedByAll(bytes32 groupId, bytes calldata generatedPublicKey)
+        private
+        view
+        returns (bool)
+    {
         uint256 count = _groupParticipantCount[groupId];
 
         for (uint256 i = 0; i < count; i++) {
@@ -310,11 +280,7 @@ contract MpcCoordinator {
         return true;
     }
 
-    function _calculateAddress(bytes memory pub)
-    private
-    pure
-    returns (address addr)
-    {
+    function _calculateAddress(bytes memory pub) private pure returns (address addr) {
         bytes32 hash = keccak256(pub);
         assembly {
             mstore(0, hash)
@@ -322,10 +288,7 @@ contract MpcCoordinator {
         }
     }
 
-    function _ensureSenderIsClaimedParticipant(bytes32 groupId, uint256 index)
-    private
-    view
-    {
+    function _ensureSenderIsClaimedParticipant(bytes32 groupId, uint256 index) private view {
         bytes memory publicKey = _groupParticipants[groupId][index];
         require(publicKey.length > 0, "Invalid groupId or index.");
 
