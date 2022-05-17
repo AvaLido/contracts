@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2022 Hyperelliptic Labs and RockX
 // SPDX-License-Identifier: GPL-3.0pragma solidity 0.8.10;
-import "hardhat/console.sol";
+pragma solidity 0.8.10;
 
+// TODO: rename as MPCManager
 contract MpcCoordinator {
     // TODO:
     // Key these statements for observation and testing purposes only
