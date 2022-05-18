@@ -61,9 +61,14 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Events
     event DepositEvent(address indexed _from, uint256 _amount, uint256 timestamp);
-    event WithdrawRequestSubmittedEvent(address indexed _from, uint256 _amount, uint256 timestamp);
+    event WithdrawRequestSubmittedEvent(
+        address indexed _from,
+        uint256 _amount,
+        uint256 timestamp,
+        uint256 requestIndex
+    );
     event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
-    event ClaimEvent(address indexed _from, uint256 _claimAmount, bool indexed finalClaim);
+    event ClaimEvent(address indexed _from, uint256 _claimAmount, bool indexed finalClaim, uint256 requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
 
@@ -170,9 +175,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Create the request and store in our queue.
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));
 
-        emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp);
+        uint256 requestIndex = unstakeRequests.length - 1;
+        emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp, requestIndex);
 
-        return unstakeRequests.length - 1;
+        return requestIndex;
     }
 
     /**
@@ -218,13 +224,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
             unstakeRequestCount[msg.sender]--;
             delete unstakeRequests[requestIndex];
 
-            emit ClaimEvent(msg.sender, amount, true);
+            emit ClaimEvent(msg.sender, amount, true, requestIndex);
 
             return;
         }
 
         // Emit an event which describes the partial claim.
-        emit ClaimEvent(msg.sender, amount, false);
+        emit ClaimEvent(msg.sender, amount, false, requestIndex);
     }
 
     /**
