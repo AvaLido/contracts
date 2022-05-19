@@ -40,7 +40,7 @@ import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "./Types.sol";
 import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
-import "./interfaces/IMPCManager.sol";
+import "./interfaces/IMpcManager.sol";
 
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
@@ -112,7 +112,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Address where we'll send AVAX to be staked.
     address private mpcManagerAddress;
-    IMPCManager private mpcManager;
+    IMpcManager private mpcManager;
 
     constructor(
         address lidoFeeAddress,
@@ -124,7 +124,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         //  mpcWalletAddress = _mpcWalletAddress;
         mpcManagerAddress = _mpcManagerAddress;
-        mpcManager = IMPCManager(_mpcManagerAddress);
+        mpcManager = IMpcManager(_mpcManagerAddress);
 
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
 
@@ -273,7 +273,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         //  payable(mpcWalletAddress).transfer(totalToStake);
 
         // Transfer stAVAX from our contract to the MPC manager address and record it as staked.
-        payable(mpcManagerAddress).transfer(totalToStake);
+        // payable(mpcManagerAddress).transfer(totalToStake);
 
         amountStakedAVAX += totalToStake;
 
@@ -286,7 +286,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 endTime = startTime + STAKE_PERIOD;
         for (uint256 i = 0; i < ids.length; i++) {
             // emit StakeEvent(amounts[i], ids[i], startTime, endTime);
-            mpcManager.serveStake(ids[i], amounts[i], startTime, endTime);
+            mpcManager.requestStake{value: amounts[i]}(ids[i], amounts[i], startTime, endTime);
         }
 
         return totalToStake;
@@ -435,10 +435,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     //     mpcWalletAddress = _mpcWalletAddress;
     // }
 
-    function setMPCManagerAddress(address _mpcManagerAddress) external onlyAdmin {
+    function setMpcManagerAddress(address _mpcManagerAddress) external onlyAdmin {
         require(_mpcManagerAddress != address(0), "Cannot set to 0 address");
         mpcManagerAddress = _mpcManagerAddress;
-        mpcManager = IMPCManager(_mpcManagerAddress);
+        mpcManager = IMpcManager(_mpcManagerAddress);
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyAdmin {

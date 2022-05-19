@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import "../ValidatorSelector.sol";
+import "../MpcManager.sol";
 
 import "./cheats.sol";
 
@@ -19,6 +20,14 @@ address constant WHITELISTED_ORACLE_2 = 0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413
 address constant WHITELISTED_ORACLE_3 = 0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018;
 address constant WHITELISTED_ORACLE_4 = 0xE339767906891bEE026285803DA8d8F2f346842C;
 address constant WHITELISTED_ORACLE_5 = 0x0309a747a34befD1625b5dcae0B00625FAa30460;
+address constant MPC_PLAYER_1_ADDRESS = 0x3051bA2d313840932B7091D2e8684672496E9A4B;
+address constant MPC_PLAYER_2_ADDRESS = 0x7Ac8e2083E3503bE631a0557b3f2A8543EaAdd90;
+address constant MPC_PLAYER_3_ADDRESS = 0x3600323b486F115CE127758ed84F26977628EeaA;
+bytes constant MPC_PLAYER_1_PUBKEY = hex"c20e0c088bb20027a77b1d23ad75058df5349c7a2bfafff7516c44c6f69aa66defafb10f0932dc5c649debab82e6c816e164c7b7ad8abbe974d15a94cd1c2937";
+bytes constant MPC_PLAYER_2_PUBKEY = hex"d0639e479fa1ca8ee13fd966c216e662408ff00349068bdc9c6966c4ea10fe3e5f4d4ffc52db1898fe83742a8732e53322c178acb7113072c8dc6f82bbc00b99";
+bytes constant MPC_PLAYER_3_PUBKEY = hex"73ee5cd601a19cd9bb95fe7be8b1566b73c51d3e7e375359c129b1d77bb4b3e6f06766bde6ff723360cee7f89abab428717f811f460ebf67f5186f75a9f4288d";
+bytes constant MPC_GENERATED_PUBKEY = hex"c6184cd4d6e7eeadd09410fe06a30bc06355c8c8c4dabd5c1e2d3c30d6ba42386bac735d7f4e7d264ac8741ab382a7868bf1bfa3f3b74a67f83d032309d4599c";
+address constant MPC_GENERATED_ADDRESS = 0x24CE57563754DBEc6a92b8bA10af2D2416C237e4;
 
 abstract contract Helpers {
     function validatorSelectMock(
@@ -37,6 +46,21 @@ abstract contract Helpers {
             validatorSelector,
             abi.encodeWithSelector(ValidatorSelector.selectValidatorsForStake.selector),
             abi.encode(idResult, amountResult, remaining)
+        );
+    }
+
+    function mpcRequestStakeMock(
+        address mpcManager,
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) public {
+        // TODO: Use mockCall with value. Don't know why it's not available now.
+        cheats.mockCall(
+            mpcManager,
+            abi.encodeWithSelector(MpcManager.requestStake.selector),
+            abi.encode(nodeID, amount, startTime, endTime)
         );
     }
 

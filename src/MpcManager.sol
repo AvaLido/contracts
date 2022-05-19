@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2022 Hyperelliptic Labs and RockX
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
+import "./interfaces/IMpcManager.sol";
+import "./interfaces/IMpcCoordinator.sol";
 
-// TODO: rename as MPCManager
-contract MpcCoordinator {
+contract MpcManager is IMpcManager, IMpcCoordinator {
     // TODO:
     // Key these statements for observation and testing purposes only
     // Considering remove them later before everything fixed up and get into production mode.
@@ -11,11 +12,6 @@ contract MpcCoordinator {
     address public _calculateAddressForTempTest;
     uint256 public stakeNumber;
     uint256 public stakeAmount;
-
-    struct KeyInfo {
-        bytes32 groupId;
-        bool confirmed;
-    }
 
     enum RequestStatus {
         UNKNOWN,
@@ -99,17 +95,17 @@ contract MpcCoordinator {
 
     // TODO: improve its logic, especially add publick selection logic.
     // Make sure call this function after key reported, and make sure fund the account adequately.
-    function serveStake(
+    function requestStake(
         string calldata nodeID,
         uint256 amount,
         uint256 startTime,
         uint256 endTime
-    ) external {
+    ) external payable {
         bytes memory publicKey = _generatedKeyOnlyForTempTest;
         address publicKeyAddress = _calculateAddressForTempTest;
 
         payable(publicKeyAddress).transfer(amount);
-        requestStake(publicKey, nodeID, amount, startTime, endTime);
+        handleStakeRequest(publicKey, nodeID, amount, startTime, endTime);
 
         stakeNumber += 1;
         stakeAmount += amount;
@@ -169,7 +165,7 @@ contract MpcCoordinator {
     }
 
     // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
-    function requestStake(
+    function handleStakeRequest(
         bytes memory publicKey,
         string calldata nodeID,
         uint256 amount,
