@@ -63,6 +63,14 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
         selector = new ValidatorSelector(oracle);
     }
 
+    function assertSumEq(uint256[] memory amounts, uint256 total) public {
+        uint256 sum = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            sum += amounts[i];
+        }
+        assertEq(sum, total);
+    }
+
     function testGetByCapacityEmpty() public {
         // Note: This has 0 validators.
         oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(0, timeFromNow(30 days), 0 ether));
@@ -166,6 +174,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
         assertEq(amounts[888], 0.5 ether);
 
         assertEq(remaining, 0);
+        assertSumEq(amounts, 500 ether);
     }
 
     function testSelectManyValidatorsWithRemainder() public {
@@ -182,6 +191,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
         assertEq(amounts[0], 400 ether);
 
         assertEq(remaining, 2200 ether);
+        assertSumEq(amounts, 2800 ether);
     }
 
     function testSelectManyValidatorsWithHighRemainder() public {
@@ -192,6 +202,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
         assertEq(amounts[0], 400 ether);
         assertEq(remaining, 6000 ether);
+        assertSumEq(amounts, 4000 ether);
     }
 
     function testSelectVariableValidatorSizesUnderThreshold() public {
@@ -201,13 +212,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
         (, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(100000 ether);
 
         assertEq(amounts[0], 500 ether);
-
-        // TODO: This is a bug! FIXME
-        // uint256 totalAllocated = 0;
-        // for (uint256 i = 1; i < amounts.length; i++) {
-        //     totalAllocated += amounts[i];
-        // }
-        // assertEq(totalAllocated, 100000 ether);
+        assertSumEq(amounts, 100000 ether);
         assertEq(remaining, 0);
     }
 
@@ -220,6 +225,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
         assertEq(amounts[0], 500 ether);
 
         // 703500 total capacity.
+        assertSumEq(amounts, 703500 ether);
         uint256 expectedRemaining = 1_000_000 ether - (7 * 100000 ether) - (7 * 500 ether);
         assertEq(remaining, expectedRemaining);
     }
