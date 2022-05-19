@@ -69,7 +69,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     event ProtocolFeeEvent(uint256 amount);
 
     // Emitted to signal the MPC system to stake AVAX.
-    // TODO: Move to mpc manager contract
+    // TODO: Move to MPC Manager contract
+    // TODO: https://github.com/AvaLido/contracts/issues/54
     // event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
 
     // State variables
@@ -285,6 +286,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 startTime = block.timestamp + 30 minutes;
         uint256 endTime = startTime + STAKE_PERIOD;
         for (uint256 i = 0; i < ids.length; i++) {
+            // TODO: https://github.com/AvaLido/contracts/issues/54
             // emit StakeEvent(amounts[i], ids[i], startTime, endTime);
             mpcManager.requestStake{value: amounts[i]}(ids[i], amounts[i], startTime, endTime);
         }
