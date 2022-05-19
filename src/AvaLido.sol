@@ -194,7 +194,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * for the entire request to be filled to get some liquidity.
      */
     function claim(uint256 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
-        // TODO: Find request by ID
         UnstakeRequest memory request = requestByIndex(requestIndex);
 
         if (request.requester != msg.sender) revert NotAuthorized();
