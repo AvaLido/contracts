@@ -90,7 +90,7 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_GROUP_ID, 3, MPC_GENERATED_PUBKEY);
     }
-    
+
     function testGetKey() public {
         setupKey();
         IMpcManager.KeyInfo memory keyInfo;
@@ -109,7 +109,7 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testJoinSigningRequest() public {
         setupSigningRequest();
-        
+
         cheats.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.joinRequest(1, 1);
 
@@ -130,13 +130,25 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(USER1_ADDRESS);
         cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
         cheats.expectEmit(false, false, true, true);
-        emit StakeRequestAdded(1, MPC_GENERATED_PUBKEY, WHITELISTED_VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
-        mpcManager.requestStake{value: STAKE_AMOUNT}(WHITELISTED_VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+        emit StakeRequestAdded(
+            1,
+            MPC_GENERATED_PUBKEY,
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
+        mpcManager.requestStake{value: STAKE_AMOUNT}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
     }
-    
+
     function testJoinStakingRequest() public {
         setupStakingRequest();
-        
+
         cheats.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.joinRequest(1, 1);
 
@@ -145,7 +157,15 @@ contract MpcManagerTest is DSTest, Helpers {
         uint256[] memory indices = new uint256[](2);
         indices[0] = 1;
         indices[1] = 2;
-        emit StakeRequestStarted(1, MPC_GENERATED_PUBKEY, indices, WHITELISTED_VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+        emit StakeRequestStarted(
+            1,
+            MPC_GENERATED_PUBKEY,
+            indices,
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
         cheats.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.joinRequest(1, 2);
 
@@ -184,6 +204,11 @@ contract MpcManagerTest is DSTest, Helpers {
         setupKey();
         cheats.prank(USER1_ADDRESS);
         cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
-        mpcManager.requestStake{value: STAKE_AMOUNT}(WHITELISTED_VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+        mpcManager.requestStake{value: STAKE_AMOUNT}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
     }
 }

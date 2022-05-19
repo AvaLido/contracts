@@ -8,6 +8,7 @@ import "../interfaces/IOracle.sol";
 import "./helpers.sol";
 
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
+
 contract FakeMpcManager is IMpcManager {
     function requestStake(
         string calldata nodeID,
@@ -17,16 +18,20 @@ contract FakeMpcManager is IMpcManager {
     ) external payable {
         // Empty, just ignore
     }
+
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external {
         revert("Not Implemented");
     }
+
     function requestKeygen(bytes32 groupId) external {
         revert("Not Implemented");
     }
+
     function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold) {
         revert("Not Implemented");
     }
-    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo){
+
+    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo) {
         revert("Not Implemented");
     }
 }
