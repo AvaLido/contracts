@@ -13,6 +13,7 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract FakeMpcManager is IMpcManager {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
+
     function requestStake(
         string calldata nodeID,
         uint256 amount,
@@ -20,15 +21,17 @@ contract FakeMpcManager is IMpcManager {
         uint256 endTime
     ) external payable {
         // assert(msg.value == amount);
-        string memory logData = string(abi.encodePacked(
-            nodeID,
-            ", ",
-            Strings.toString(amount),
-            ", ",
-            Strings.toString(startTime),
-            ", ",
-            Strings.toString(endTime)
-            ));
+        string memory logData = string(
+            abi.encodePacked(
+                nodeID,
+                ", ",
+                Strings.toString(amount),
+                ", ",
+                Strings.toString(startTime),
+                ", ",
+                Strings.toString(endTime)
+            )
+        );
         console.log(logData);
         payable(MPC_GENERATED_ADDRESS).transfer(amount);
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
