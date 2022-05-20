@@ -14,13 +14,15 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 contract FakeMpcManager is IMpcManager {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
 
+    function setAvaLidoAddress(address avaLidoAddress) external {}
+
     function requestStake(
         string calldata nodeID,
         uint256 amount,
         uint256 startTime,
         uint256 endTime
     ) external payable {
-        // assert(msg.value == amount);
+        require(msg.value == amount, "Incorrect value.");
         string memory logData = string(
             abi.encodePacked(
                 nodeID,

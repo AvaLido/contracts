@@ -17,6 +17,8 @@ contract MpcManagerTest is DSTest, Helpers {
     uint256 constant STAKE_START_TIME = 1640966400; // 2022-01-01
     uint256 constant STAKE_END_TIME = 1642176000; // 2022-01-15
 
+    address AVALIDO_ADDRESS = 0x1000000000000000000000000000000000000001;
+
     MpcManager mpcManager;
     bytes[] pubKeys = new bytes[](3);
 
@@ -44,6 +46,7 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function setUp() public {
         mpcManager = new MpcManager();
+        mpcManager.setAvaLidoAddress(AVALIDO_ADDRESS);
         pubKeys[0] = MPC_PLAYER_1_PUBKEY;
         pubKeys[1] = MPC_PLAYER_2_PUBKEY;
         pubKeys[2] = MPC_PLAYER_3_PUBKEY;
@@ -54,7 +57,6 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testCreateGroup() public {
-        cheats.prank(USER1_ADDRESS);
         cheats.expectEmit(false, false, true, true);
         emit ParticipantAdded(MPC_PLAYER_1_PUBKEY, MPC_GROUP_ID, 1);
         emit ParticipantAdded(MPC_PLAYER_2_PUBKEY, MPC_GROUP_ID, 2);
@@ -64,7 +66,6 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testGetGroup() public {
         setupGroup();
-        cheats.prank(USER1_ADDRESS);
         (bytes[] memory participants, uint256 threshold) = mpcManager.getGroup(MPC_GROUP_ID);
         assertEq0(pubKeys[0], participants[0]);
         assertEq0(pubKeys[1], participants[1]);
@@ -101,7 +102,7 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testRequestSigning() public {
         setupKey();
-        cheats.prank(USER1_ADDRESS);
+        cheats.prank(AVALIDO_ADDRESS);
         cheats.expectEmit(false, false, true, true);
         emit SignRequestAdded(1, MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
         mpcManager.requestSign(MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
@@ -126,9 +127,45 @@ contract MpcManagerTest is DSTest, Helpers {
     }
 
     function testRequestStaking() public {
-        setupKey();
+        // Called by wrong sender
         cheats.prank(USER1_ADDRESS);
         cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
+        cheats.expectRevert("Caller is not AvaLido.");
+        mpcManager.requestStake{value: STAKE_AMOUNT}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
+
+        // Called before keygen
+        cheats.prank(AVALIDO_ADDRESS);
+        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+
+        cheats.expectRevert("Key has not been generated yet.");
+        mpcManager.requestStake{value: STAKE_AMOUNT}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
+
+        setupKey();
+
+        // Called with incorrect amount
+        cheats.prank(AVALIDO_ADDRESS);
+        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        cheats.expectRevert("Incorrect value.");
+        mpcManager.requestStake{value: STAKE_AMOUNT - 1}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
+
+        // Called with correct sender and after keygen
+        cheats.prank(AVALIDO_ADDRESS);
+        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
         cheats.expectEmit(false, false, true, true);
         emit StakeRequestAdded(
             1,
@@ -144,6 +181,7 @@ contract MpcManagerTest is DSTest, Helpers {
             STAKE_START_TIME,
             STAKE_END_TIME
         );
+        assertEq(address(MPC_GENERATED_ADDRESS).balance, STAKE_AMOUNT);
     }
 
     function testJoinStakingRequest() public {
@@ -180,7 +218,6 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function setupGroup() private {
-        cheats.prank(USER1_ADDRESS);
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
     }
 
@@ -196,14 +233,14 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function setupSigningRequest() private {
         setupKey();
-        cheats.prank(USER1_ADDRESS);
+        cheats.prank(AVALIDO_ADDRESS);
         mpcManager.requestSign(MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
     }
 
     function setupStakingRequest() private {
         setupKey();
-        cheats.prank(USER1_ADDRESS);
-        cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
+        cheats.prank(AVALIDO_ADDRESS);
+        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
         mpcManager.requestStake{value: STAKE_AMOUNT}(
             WHITELISTED_VALIDATOR_1,
             STAKE_AMOUNT,

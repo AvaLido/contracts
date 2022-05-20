@@ -1,17 +1,19 @@
 // SPDX-FileCopyrightText: 2022 Hyperelliptic Labs and RockX
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
+
+import "openzeppelin-contracts/contracts/security/Pausable.sol";
+import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "./interfaces/IMpcManager.sol";
 import "./interfaces/IMpcCoordinator.sol";
 
-contract MpcManager is IMpcManager, IMpcCoordinator {
+contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, IMpcCoordinator {
     // TODO:
     // Key these statements for observation and testing purposes only
     // Considering remove them later before everything fixed up and get into production mode.
-    bytes public _generatedKeyOnlyForTempTest;
-    address public _calculateAddressForTempTest;
-    uint256 public stakeNumber;
-    uint256 public stakeAmount;
+    bytes public lastGenPubKey;
+    address public lastGenAddress;
 
     enum RequestStatus {
         UNKNOWN,
@@ -30,6 +32,9 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         uint256 startTime;
         uint256 endTime;
     }
+
+
+    address private _avaLidoAddress;
     // groupId -> number of participants in the group
     mapping(bytes32 => uint256) private _groupParticipantCount;
     // groupId -> threshold
@@ -71,48 +76,39 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
 
-    constructor() payable {}
+    constructor() {_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);}
 
-    receive() external payable {}
+    // -------------------------------------------------------------------------
+    //  External functions
+    // -------------------------------------------------------------------------
 
-    // TODO:
-    // A convinient function for test, remove it for production.
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
-
-    function getStakeNumber() public view returns (uint256) {
-        return stakeNumber;
-    }
-
-    function getStakeAmount() public view returns (uint256) {
-        return stakeAmount;
-    }
-
-    function getStakeAddress() public view returns (address) {
-        return _calculateAddressForTempTest;
-    }
-
-    // TODO: improve its logic, especially add publick selection logic.
-    // Make sure call this function after key reported, and make sure fund the account adequately.
+    /**
+     * @notice Send AVAX and start a StakeRequest.
+     * @dev The received token will be immediately forwarded the the last generated MPC wallet
+     * and the group members will handle the stake flow from the c-chain to the p-chain.
+     */
     function requestStake(
         string calldata nodeID,
         uint256 amount,
         uint256 startTime,
         uint256 endTime
-    ) external payable {
-        bytes memory publicKey = _generatedKeyOnlyForTempTest;
-        address publicKeyAddress = _calculateAddressForTempTest;
-
-        payable(publicKeyAddress).transfer(amount);
-        handleStakeRequest(publicKey, nodeID, amount, startTime, endTime);
-
-        stakeNumber += 1;
-        stakeAmount += amount;
+    ) external payable onlyAvaLido {
+        require(lastGenAddress != address(0), "Key has not been generated yet.");
+        require(msg.value == amount, "Incorrect value.");
+        payable(lastGenAddress).transfer(amount);
+        _handleStakeRequest(lastGenPubKey, nodeID, amount, startTime, endTime);
     }
 
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external {
-        // TODO: Add auth
+    /**
+     * @notice Admin will call this function to create an MPC group consisting of n members
+     * and a specified threshold t. The signing can be performed by any t + 1 participants
+     * from the group.
+     * @param publicKeys The public keys which identify the n group members.
+     * @param threshold The threshold t. Note: t + 1 participants are required to complete a
+     * signing.
+     */
+    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyAdmin {
+        // TODO: Refine ACL
         // TODO: Check public keys are valid
         require(publicKeys.length > 1, "A group requires 2 or more participants.");
         require(threshold >= 1 && threshold < publicKeys.length, "Invalid threshold");
@@ -134,17 +130,28 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         }
     }
 
-    function requestKeygen(bytes32 groupId) external {
-        // TODO: Add auth
+    /**
+     * @notice Admin will call this function to tell the group members to generate a key. Multiple
+     * keys can be generated for the same group.
+     * @param groupId The id of the group which is deterministically derived from the public keys
+     * of the ordered group members and the threshold.
+     */
+    function requestKeygen(bytes32 groupId) external onlyAdmin {
+        // TODO: Refine ACL
         emit KeygenRequestAdded(groupId);
     }
 
+    /**
+     * @notice All group members have to report the generated key which also serves as the proof.
+     * @param groupId The id of the mpc group.
+     * @param myIndex The index of the participant in the group. This is 1-based.
+     * @param generatedPublicKey The generated public key.
+     */
     function reportGeneratedKey(
         bytes32 groupId,
         uint256 myIndex,
         bytes calldata generatedPublicKey
     ) external onlyGroupMember(groupId, myIndex) {
-        // TODO: Add auth
         KeyInfo storage info = _generatedKeys[generatedPublicKey];
 
         require(!info.confirmed, "Key has already been confirmed by all participants.");
@@ -156,44 +163,20 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
             info.groupId = groupId;
             info.confirmed = true;
             // TODO: The two sentence below for naive testing purpose, to deal with them furher.
-            _generatedKeyOnlyForTempTest = generatedPublicKey;
-            _calculateAddressForTempTest = _calculateAddress(generatedPublicKey);
+            lastGenPubKey = generatedPublicKey;
+            lastGenAddress = _calculateAddress(generatedPublicKey);
             emit KeyGenerated(groupId, generatedPublicKey);
         }
 
         // TODO: Removed _keyConfirmations data after all confirmed
     }
 
-    // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
-    function handleStakeRequest(
-        bytes memory publicKey,
-        string calldata nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    ) public {
-        // TODO: Add auth
-        KeyInfo memory info = _generatedKeys[publicKey];
-        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
-
-        // TODO: Validate input
-
-        uint256 requestId = _getNextRequestId();
-        Request storage status = _requests[requestId];
-        status.publicKey = publicKey;
-        // status.message is intentionally not set to indicate it's a StakeRequest
-
-        StakeRequestDetails storage details = _stakeRequestDetails[requestId];
-
-        details.nodeID = nodeID;
-        details.amount = amount;
-        details.startTime = startTime;
-        details.endTime = endTime;
-        emit StakeRequestAdded(requestId, publicKey, nodeID, amount, startTime, endTime);
-    }
-
-    function requestSign(bytes calldata publicKey, bytes calldata message) external {
-        // TODO: Add auth
+    /**
+     * @notice This is the primitive signing request. It may not be used in actual production.
+     * @param publicKey The publicKey used for signing.
+     * @param message An arbitrary message to be signed.
+     */
+    function requestSign(bytes calldata publicKey, bytes calldata message) external onlyAvaLido {
         KeyInfo memory info = _generatedKeys[publicKey];
         require(info.confirmed, "Key doesn't exist or has not been confirmed.");
         uint256 requestId = _getNextRequestId();
@@ -203,6 +186,10 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         emit SignRequestAdded(requestId, publicKey, message);
     }
 
+    /**
+     * @notice Participant has to call this function to join an MPC request. Each request
+     * requires exactly t + 1 members to join.
+     */
     function joinRequest(uint256 requestId, uint256 myIndex) external {
         // TODO: Add auth
 
@@ -242,6 +229,18 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         }
     }
 
+    // -------------------------------------------------------------------------
+    //  Admin functions
+    // -------------------------------------------------------------------------
+
+    function setAvaLidoAddress(address avaLidoAddress) external onlyAdmin {
+        _avaLidoAddress = avaLidoAddress;
+    }
+
+    // -------------------------------------------------------------------------
+    //  External view functions
+    // -------------------------------------------------------------------------
+
     function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold) {
         uint256 count = _groupParticipantCount[groupId];
         require(count > 0, "Group doesn't exist.");
@@ -258,10 +257,65 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         keyInfo = _generatedKeys[publicKey];
     }
 
+    // -------------------------------------------------------------------------
+    //  Modifiers
+    // -------------------------------------------------------------------------
+
+    modifier onlyAdmin() {
+        // TODO: Define proper RBAC. For now just use deployer as admin.
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin.");
+        _;
+    }
+
+    modifier onlyAvaLido() {
+        require(msg.sender == _avaLidoAddress, "Caller is not AvaLido.");
+        _;
+    }
+
     modifier onlyGroupMember(bytes32 groupId, uint256 index) {
         _ensureSenderIsClaimedParticipant(groupId, index);
         _;
     }
+
+    // -------------------------------------------------------------------------
+    //  Internal functions
+    // -------------------------------------------------------------------------
+
+    // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
+    function _handleStakeRequest(
+        bytes memory publicKey,
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) internal {
+        KeyInfo memory info = _generatedKeys[publicKey];
+        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
+
+        // TODO: Validate input
+
+        uint256 requestId = _getNextRequestId();
+        Request storage status = _requests[requestId];
+        status.publicKey = publicKey;
+        // status.message is intentionally not set to indicate it's a StakeRequest
+
+        StakeRequestDetails storage details = _stakeRequestDetails[requestId];
+
+        details.nodeID = nodeID;
+        details.amount = amount;
+        details.startTime = startTime;
+        details.endTime = endTime;
+        emit StakeRequestAdded(requestId, publicKey, nodeID, amount, startTime, endTime);
+    }
+
+    function _getNextRequestId() internal returns (uint256) {
+        _lastRequestId += 1;
+        return _lastRequestId;
+    }
+
+    // -------------------------------------------------------------------------
+    //  Private functions
+    // -------------------------------------------------------------------------
 
     function _generatedKeyConfirmedByAll(bytes32 groupId, bytes calldata generatedPublicKey)
         private
@@ -291,10 +345,5 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         address member = _calculateAddress(publicKey);
 
         require(msg.sender == member, "Caller is not a group member");
-    }
-
-    function _getNextRequestId() internal returns (uint256) {
-        _lastRequestId += 1;
-        return _lastRequestId;
     }
 }
