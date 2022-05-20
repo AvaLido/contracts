@@ -127,7 +127,43 @@ contract MpcManagerTest is DSTest, Helpers {
     }
 
     function testRequestStaking() public {
+        // Called by wrong sender
+        cheats.prank(USER1_ADDRESS);
+        cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
+        cheats.expectRevert("Caller is not AvaLido.");
+        mpcManager.requestStake{value: STAKE_AMOUNT}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
+
+        // Called before keygen
+        cheats.prank(AVALIDO_ADDRESS);
+        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+
+        cheats.expectRevert("Key has not been generated yet.");
+        mpcManager.requestStake{value: STAKE_AMOUNT}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
+
         setupKey();
+
+        // Called with incorrect amount
+        cheats.prank(AVALIDO_ADDRESS);
+        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        cheats.expectRevert("Incorrect value.");
+        mpcManager.requestStake{value: STAKE_AMOUNT - 1}(
+            WHITELISTED_VALIDATOR_1,
+            STAKE_AMOUNT,
+            STAKE_START_TIME,
+            STAKE_END_TIME
+        );
+
+        // Called with correct sender and after keygen
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
         cheats.expectEmit(false, false, true, true);
@@ -145,6 +181,7 @@ contract MpcManagerTest is DSTest, Helpers {
             STAKE_START_TIME,
             STAKE_END_TIME
         );
+        assertEq(address(MPC_GENERATED_ADDRESS).balance, STAKE_AMOUNT);
     }
 
     function testJoinStakingRequest() public {

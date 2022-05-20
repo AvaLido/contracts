@@ -22,7 +22,7 @@ contract FakeMpcManager is IMpcManager {
         uint256 startTime,
         uint256 endTime
     ) external payable {
-        // assert(msg.value == amount);
+        require(msg.value == amount, "Incorrect value.");
         string memory logData = string(
             abi.encodePacked(
                 nodeID,

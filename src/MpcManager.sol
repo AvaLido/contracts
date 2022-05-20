@@ -12,10 +12,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     // TODO:
     // Key these statements for observation and testing purposes only
     // Considering remove them later before everything fixed up and get into production mode.
-    bytes public _generatedKeyOnlyForTempTest;
-    address public _calculateAddressForTempTest;
-    uint256 public stakeNumber;
-    uint256 public stakeAmount;
+    bytes public lastGenPubKey;
+    address public lastGenAddress;
 
     enum RequestStatus {
         UNKNOWN,
@@ -80,8 +78,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
 
     constructor() {_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);}
 
-    receive() external payable {}
-
     // -------------------------------------------------------------------------
     //  External functions
     // -------------------------------------------------------------------------
@@ -94,14 +90,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 startTime,
         uint256 endTime
     ) external payable onlyAvaLido {
-        bytes memory publicKey = _generatedKeyOnlyForTempTest;
-        address publicKeyAddress = _calculateAddressForTempTest;
-
-        payable(publicKeyAddress).transfer(amount);
-        _handleStakeRequest(publicKey, nodeID, amount, startTime, endTime);
-
-        stakeNumber += 1;
-        stakeAmount += amount;
+        require(lastGenAddress != address(0), "Key has not been generated yet.");
+        require(msg.value == amount, "Incorrect value.");
+        payable(lastGenAddress).transfer(amount);
+        _handleStakeRequest(lastGenPubKey, nodeID, amount, startTime, endTime);
     }
 
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyAdmin {
@@ -150,8 +142,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
             info.groupId = groupId;
             info.confirmed = true;
             // TODO: The two sentence below for naive testing purpose, to deal with them furher.
-            _generatedKeyOnlyForTempTest = generatedPublicKey;
-            _calculateAddressForTempTest = _calculateAddress(generatedPublicKey);
+            lastGenPubKey = generatedPublicKey;
+            lastGenAddress = _calculateAddress(generatedPublicKey);
             emit KeyGenerated(groupId, generatedPublicKey);
         }
 
@@ -236,36 +228,18 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         keyInfo = _generatedKeys[publicKey];
     }
 
-    // TODO:
-    // A convinient function for test, remove it for production.
-    function getBalance() external view returns (uint256) {
-        return address(this).balance;
-    }
-
-    function getStakeNumber() external view returns (uint256) {
-        return stakeNumber;
-    }
-
-    function getStakeAmount() external view returns (uint256) {
-        return stakeAmount;
-    }
-
-    function getStakeAddress() external view returns (address) {
-        return _calculateAddressForTempTest;
-    }
-
     // -------------------------------------------------------------------------
     //  Modifiers
     // -------------------------------------------------------------------------
 
     modifier onlyAdmin() {
         // TODO: Define proper RBAC. For now just use deployer as admin.
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin");
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin.");
         _;
     }
 
     modifier onlyAvaLido() {
-        require(msg.sender == _avaLidoAddress, "Caller is not AvaLido");
+        require(msg.sender == _avaLidoAddress, "Caller is not AvaLido.");
         _;
     }
 
