@@ -61,6 +61,36 @@ If you don't care about these args and just want some defaults for development, 
 task deploy-default
 ```
 
+### Run MPC local network
+
+Prerequisites:
+
+1. MPC-Manager smart contract deployed with a deterministic address.
+2. Make sure you have `Go` and `Rust` installed in advance.
+3. Update submodules: `git submodule init && git submodule update`
+
+**MPC-Server local network**
+1. From within the mpc-server directory and build the 3 projects:
+   ```
+   cd messenger
+   cargo build
+   cd ../secp256k1-id
+   cargo build
+   cd ..
+   cargo build
+   ```
+2. Run the start script `./scripts/start.sh`
+
+There should be three MPC-Server nodes running and listening on `8001`, `8002` and `8003` ports respectively.
+
+**MPC-Controller local network**
+1. From within the mpc-controller directory, build the project by `go clean && go build`.
+2. Change the value of `coordinatorAddress` field in the three yaml config files to the MPC manager address that has just been deployed.
+3. Run the start script `./scripts/start.sh`
+
+There should be three MPC-Controller nodes running, each talks to one MPC-Server independently.
+
+
 ### Interaction
 
 Use `cast` to call contract functions directly. Examples:
