@@ -14,6 +14,8 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 contract FakeMpcManager is IMpcManager {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
 
+    function setAvaLidoAddress(address avaLidoAddress) external {}
+
     function requestStake(
         string calldata nodeID,
         uint256 amount,

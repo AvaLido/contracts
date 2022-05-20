@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2022 Hyperelliptic Labs and RockX
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
+
+import "openzeppelin-contracts/contracts/security/Pausable.sol";
+import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "./interfaces/IMpcManager.sol";
 import "./interfaces/IMpcCoordinator.sol";
 
-contract MpcManager is IMpcManager, IMpcCoordinator {
+contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, IMpcCoordinator {
     // TODO:
     // Key these statements for observation and testing purposes only
     // Considering remove them later before everything fixed up and get into production mode.
@@ -30,6 +34,9 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         uint256 startTime;
         uint256 endTime;
     }
+
+
+    address private _avaLidoAddress;
     // groupId -> number of participants in the group
     mapping(bytes32 => uint256) private _groupParticipantCount;
     // groupId -> threshold
@@ -71,9 +78,13 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
 
-    constructor() payable {}
+    constructor() {_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);}
 
     receive() external payable {}
+
+    // -------------------------------------------------------------------------
+    //  Public functions
+    // -------------------------------------------------------------------------
 
     // TODO:
     // A convinient function for test, remove it for production.
@@ -100,19 +111,19 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         uint256 amount,
         uint256 startTime,
         uint256 endTime
-    ) external payable {
+    ) external payable onlyAvaLido {
         bytes memory publicKey = _generatedKeyOnlyForTempTest;
         address publicKeyAddress = _calculateAddressForTempTest;
 
         payable(publicKeyAddress).transfer(amount);
-        handleStakeRequest(publicKey, nodeID, amount, startTime, endTime);
+        _handleStakeRequest(publicKey, nodeID, amount, startTime, endTime);
 
         stakeNumber += 1;
         stakeAmount += amount;
     }
 
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external {
-        // TODO: Add auth
+    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyAdmin {
+        // TODO: Refine ACL
         // TODO: Check public keys are valid
         require(publicKeys.length > 1, "A group requires 2 or more participants.");
         require(threshold >= 1 && threshold < publicKeys.length, "Invalid threshold");
@@ -134,7 +145,8 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
         }
     }
 
-    function requestKeygen(bytes32 groupId) external {
+    function requestKeygen(bytes32 groupId) external onlyAdmin {
+        // TODO: Refine ACL
         // TODO: Add auth
         emit KeygenRequestAdded(groupId);
     }
@@ -165,13 +177,13 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
     }
 
     // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
-    function handleStakeRequest(
+    function _handleStakeRequest(
         bytes memory publicKey,
         string calldata nodeID,
         uint256 amount,
         uint256 startTime,
         uint256 endTime
-    ) public {
+    ) internal {
         // TODO: Add auth
         KeyInfo memory info = _generatedKeys[publicKey];
         require(info.confirmed, "Key doesn't exist or has not been confirmed.");
@@ -256,6 +268,30 @@ contract MpcManager is IMpcManager, IMpcCoordinator {
 
     function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo) {
         keyInfo = _generatedKeys[publicKey];
+    }
+
+
+    // -------------------------------------------------------------------------
+    //  Admin functions
+    // -------------------------------------------------------------------------
+
+    function setAvaLidoAddress(address avaLidoAddress) external onlyAdmin {
+        _avaLidoAddress = avaLidoAddress;
+    }
+
+    // -------------------------------------------------------------------------
+    //  Modifiers
+    // -------------------------------------------------------------------------
+
+    modifier onlyAdmin() {
+        // TODO: Define proper RBAC. For now just use deployer as admin.
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin");
+        _;
+    }
+
+    modifier onlyAvaLido() {
+        require(msg.sender == _avaLidoAddress, "Caller is not AvaLido");
+        _;
     }
 
     modifier onlyGroupMember(bytes32 groupId, uint256 index) {
