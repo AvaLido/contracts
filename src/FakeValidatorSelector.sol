@@ -26,10 +26,10 @@ contract FakeValidatorSelector is IValidatorSelector {
         uint256 remainingUnstaked = 0;
         
         uint256[] memory resultAmounts = new uint256[](1);
-        resultAmounts[1] = amount;
+        resultAmounts[0] = amount;
 
         string[] memory validatorIds = new string[](1);
-        validatorIds[1] = _nodeID;
+        validatorIds[0] = _nodeID;
 
         return (validatorIds, resultAmounts, remainingUnstaked);
     }
