@@ -11,7 +11,7 @@ export ORACLE_WHITELIST=["0x03C1196617387899390d3a98fdBdfD407121BB67","0x6C58f6E
 export MPC_MANAGER=$(task deploy -- MpcManager | grep -i "deployed" | cut -d " " -f 3)
 export ORACLE_MANAGER=$(task deploy -- OracleManager --constructor-args $ROLE_ORACLE_MANAGER $VALIDATOR_WHITELIST $ORACLE_WHITELIST | grep -i "deployed" | cut -d " " -f 3)
 export ORACLE=$(task deploy -- Oracle --constructor-args $ROLE_ORACLE_MANAGER $ORACLE_MANAGER | grep -i "deployed" | cut -d " " -f 3)
-export VALIDATOR_SELECTOR=$(task deploy -- ValidatorSelector --constructor-args $ORACLE | grep -i "deployed" | cut -d " " -f 3)
+export VALIDATOR_SELECTOR=$(task deploy -- FakeValidatorSelector --constructor-args "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5" | grep -i "deployed" | cut -d " " -f 3)
 export AVALIDO=$(task deploy -- AvaLido --constructor-args "0x2000000000000000000000000000000000000001" "0x2000000000000000000000000000000000000002" $VALIDATOR_SELECTOR $MPC_MANAGER | grep -i "deployed" | cut -d " " -f 3)
 
 # set AvaLido address for MpcManager
