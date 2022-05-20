@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
+import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../AvaLido.sol";
 import "../interfaces/IOracle.sol";
@@ -8,15 +9,29 @@ import "../interfaces/IOracle.sol";
 import "./helpers.sol";
 
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract FakeMpcManager is IMpcManager {
+    event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     function requestStake(
         string calldata nodeID,
         uint256 amount,
         uint256 startTime,
         uint256 endTime
     ) external payable {
-        // Empty, just ignore
+        // assert(msg.value == amount);
+        string memory logData = string(abi.encodePacked(
+            nodeID,
+            ", ",
+            Strings.toString(amount),
+            ", ",
+            Strings.toString(startTime),
+            ", ",
+            Strings.toString(endTime)
+            ));
+        console.log(logData);
+        payable(MPC_GENERATED_ADDRESS).transfer(amount);
+        emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }
 
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external {
@@ -37,7 +52,7 @@ contract FakeMpcManager is IMpcManager {
 }
 
 contract AvaLidoTest is DSTest, Helpers {
-    event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
+    event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
 
@@ -138,7 +153,7 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectMock(validatorSelectorAddress, "test-node", 9 ether, 1 ether);
         uint256 staked = lido.initiateStake();
         assertEq(staked, 9 ether);
-        assertEq(address(mpcManagerAddress).balance, 9 ether);
+        assertEq(address(MPC_GENERATED_ADDRESS).balance, 9 ether);
         assertEq(lido.amountPendingAVAX(), 1 ether);
     }
 
@@ -330,9 +345,8 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 10 ether}();
 
         // Check event emission for staking.
-        // TODO: https://github.com/AvaLido/contracts/issues/54
-        // cheats.expectEmit(true, true, false, false);
-        // emit StakeEvent(10 ether, "test", 1800, 1211400);
+        cheats.expectEmit(false, false, false, true);
+        emit FakeStakeRequested("test", 10 ether, 1801, 1211401);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);

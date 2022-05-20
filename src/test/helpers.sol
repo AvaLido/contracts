@@ -49,21 +49,6 @@ abstract contract Helpers {
         );
     }
 
-    function mpcRequestStakeMock(
-        address mpcManager,
-        string calldata nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    ) public {
-        // TODO: Use mockCall with value. Don't know why it's not available now.
-        cheats.mockCall(
-            mpcManager,
-            abi.encodeWithSelector(MpcManager.requestStake.selector),
-            abi.encode(nodeID, amount, startTime, endTime)
-        );
-    }
-
     function stringArrayContains(string memory stringToCheck, string[] memory arrayOfStrings)
         public
         pure
