@@ -10,3 +10,6 @@
 [submodule "mpc-server"]
 	path = mpc-server
 	url = git@github.com:AvaLido/mpc-server.git
+[submodule "mpc-controller"]
+	path = mpc-controller
+	url = git@github.com:AvaLido/mpc-controller.git
