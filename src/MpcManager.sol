@@ -33,7 +33,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 endTime;
     }
 
-
     address private _avaLidoAddress;
     // groupId -> number of participants in the group
     mapping(bytes32 => uint256) private _groupParticipantCount;
@@ -76,7 +75,9 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
 
-    constructor() {_setupRole(DEFAULT_ADMIN_ROLE, msg.sender);}
+    constructor() {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
 
     // -------------------------------------------------------------------------
     //  External functions
