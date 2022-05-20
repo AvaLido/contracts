@@ -83,26 +83,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     receive() external payable {}
 
     // -------------------------------------------------------------------------
-    //  Public functions
+    //  External functions
     // -------------------------------------------------------------------------
-
-    // TODO:
-    // A convinient function for test, remove it for production.
-    function getBalance() public view returns (uint256) {
-        return address(this).balance;
-    }
-
-    function getStakeNumber() public view returns (uint256) {
-        return stakeNumber;
-    }
-
-    function getStakeAmount() public view returns (uint256) {
-        return stakeAmount;
-    }
-
-    function getStakeAddress() public view returns (address) {
-        return _calculateAddressForTempTest;
-    }
 
     // TODO: improve its logic, especially add publick selection logic.
     // Make sure call this function after key reported, and make sure fund the account adequately.
@@ -176,34 +158,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         // TODO: Removed _keyConfirmations data after all confirmed
     }
 
-    // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
-    function _handleStakeRequest(
-        bytes memory publicKey,
-        string calldata nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    ) internal {
-        // TODO: Add auth
-        KeyInfo memory info = _generatedKeys[publicKey];
-        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
-
-        // TODO: Validate input
-
-        uint256 requestId = _getNextRequestId();
-        Request storage status = _requests[requestId];
-        status.publicKey = publicKey;
-        // status.message is intentionally not set to indicate it's a StakeRequest
-
-        StakeRequestDetails storage details = _stakeRequestDetails[requestId];
-
-        details.nodeID = nodeID;
-        details.amount = amount;
-        details.startTime = startTime;
-        details.endTime = endTime;
-        emit StakeRequestAdded(requestId, publicKey, nodeID, amount, startTime, endTime);
-    }
-
     function requestSign(bytes calldata publicKey, bytes calldata message) external {
         // TODO: Add auth
         KeyInfo memory info = _generatedKeys[publicKey];
@@ -254,6 +208,18 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         }
     }
 
+    // -------------------------------------------------------------------------
+    //  Admin functions
+    // -------------------------------------------------------------------------
+
+    function setAvaLidoAddress(address avaLidoAddress) external onlyAdmin {
+        _avaLidoAddress = avaLidoAddress;
+    }
+
+    // -------------------------------------------------------------------------
+    //  External view functions
+    // -------------------------------------------------------------------------
+
     function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold) {
         uint256 count = _groupParticipantCount[groupId];
         require(count > 0, "Group doesn't exist.");
@@ -270,13 +236,22 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         keyInfo = _generatedKeys[publicKey];
     }
 
+    // TODO:
+    // A convinient function for test, remove it for production.
+    function getBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
 
-    // -------------------------------------------------------------------------
-    //  Admin functions
-    // -------------------------------------------------------------------------
+    function getStakeNumber() external view returns (uint256) {
+        return stakeNumber;
+    }
 
-    function setAvaLidoAddress(address avaLidoAddress) external onlyAdmin {
-        _avaLidoAddress = avaLidoAddress;
+    function getStakeAmount() external view returns (uint256) {
+        return stakeAmount;
+    }
+
+    function getStakeAddress() external view returns (address) {
+        return _calculateAddressForTempTest;
     }
 
     // -------------------------------------------------------------------------
@@ -298,6 +273,46 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         _ensureSenderIsClaimedParticipant(groupId, index);
         _;
     }
+
+    // -------------------------------------------------------------------------
+    //  Internal functions
+    // -------------------------------------------------------------------------
+
+    // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
+    function _handleStakeRequest(
+        bytes memory publicKey,
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) internal {
+        KeyInfo memory info = _generatedKeys[publicKey];
+        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
+
+        // TODO: Validate input
+
+        uint256 requestId = _getNextRequestId();
+        Request storage status = _requests[requestId];
+        status.publicKey = publicKey;
+        // status.message is intentionally not set to indicate it's a StakeRequest
+
+        StakeRequestDetails storage details = _stakeRequestDetails[requestId];
+
+        details.nodeID = nodeID;
+        details.amount = amount;
+        details.startTime = startTime;
+        details.endTime = endTime;
+        emit StakeRequestAdded(requestId, publicKey, nodeID, amount, startTime, endTime);
+    }
+
+    function _getNextRequestId() internal returns (uint256) {
+        _lastRequestId += 1;
+        return _lastRequestId;
+    }
+
+    // -------------------------------------------------------------------------
+    //  Private functions
+    // -------------------------------------------------------------------------
 
     function _generatedKeyConfirmedByAll(bytes32 groupId, bytes calldata generatedPublicKey)
         private
@@ -327,10 +342,5 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         address member = _calculateAddress(publicKey);
 
         require(msg.sender == member, "Caller is not a group member");
-    }
-
-    function _getNextRequestId() internal returns (uint256) {
-        _lastRequestId += 1;
-        return _lastRequestId;
     }
 }
