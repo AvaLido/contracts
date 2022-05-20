@@ -82,8 +82,11 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     //  External functions
     // -------------------------------------------------------------------------
 
-    // TODO: improve its logic, especially add publick selection logic.
-    // Make sure call this function after key reported, and make sure fund the account adequately.
+    /**
+     * @notice Send AVAX and start a StakeRequest.
+     * @dev The received token will be immediately forwarded the the last generated MPC wallet
+     * and the group members will handle the stake flow from the c-chain to the p-chain.
+     */
     function requestStake(
         string calldata nodeID,
         uint256 amount,
@@ -96,6 +99,14 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         _handleStakeRequest(lastGenPubKey, nodeID, amount, startTime, endTime);
     }
 
+    /**
+     * @notice Admin will call this function to create an MPC group consisting of n members
+     * and a specified threshold t. The signing can be performed by any t + 1 participants
+     * from the group.
+     * @param publicKeys The public keys which identify the n group members.
+     * @param threshold The threshold t. Note: t + 1 participants are required to complete a
+     * signing.
+     */
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyAdmin {
         // TODO: Refine ACL
         // TODO: Check public keys are valid
@@ -119,18 +130,28 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         }
     }
 
+    /**
+     * @notice Admin will call this function to tell the group members to generate a key. Multiple
+     * keys can be generated for the same group.
+     * @param groupId The id of the group which is deterministically derived from the public keys
+     * of the ordered group members and the threshold.
+     */
     function requestKeygen(bytes32 groupId) external onlyAdmin {
         // TODO: Refine ACL
-        // TODO: Add auth
         emit KeygenRequestAdded(groupId);
     }
 
+    /**
+     * @notice All group members have to report the generated key which also serves as the proof.
+     * @param groupId The id of the mpc group.
+     * @param myIndex The index of the participant in the group. This is 1-based.
+     * @param generatedPublicKey The generated public key.
+     */
     function reportGeneratedKey(
         bytes32 groupId,
         uint256 myIndex,
         bytes calldata generatedPublicKey
     ) external onlyGroupMember(groupId, myIndex) {
-        // TODO: Add auth
         KeyInfo storage info = _generatedKeys[generatedPublicKey];
 
         require(!info.confirmed, "Key has already been confirmed by all participants.");
@@ -150,8 +171,12 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         // TODO: Removed _keyConfirmations data after all confirmed
     }
 
-    function requestSign(bytes calldata publicKey, bytes calldata message) external {
-        // TODO: Add auth
+    /**
+     * @notice This is the primitive signing request. It may not be used in actual production.
+     * @param publicKey The publicKey used for signing.
+     * @param message An arbitrary message to be signed.
+     */
+    function requestSign(bytes calldata publicKey, bytes calldata message) external onlyAvaLido {
         KeyInfo memory info = _generatedKeys[publicKey];
         require(info.confirmed, "Key doesn't exist or has not been confirmed.");
         uint256 requestId = _getNextRequestId();
@@ -161,6 +186,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         emit SignRequestAdded(requestId, publicKey, message);
     }
 
+    /**
+     * @notice Participant has to call this function to join an MPC request. Each request
+     * requires exactly t + 1 members to join.
+     */
     function joinRequest(uint256 requestId, uint256 myIndex) external {
         // TODO: Add auth
 

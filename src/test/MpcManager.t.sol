@@ -102,7 +102,7 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testRequestSigning() public {
         setupKey();
-        cheats.prank(USER1_ADDRESS);
+        cheats.prank(AVALIDO_ADDRESS);
         cheats.expectEmit(false, false, true, true);
         emit SignRequestAdded(1, MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
         mpcManager.requestSign(MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
