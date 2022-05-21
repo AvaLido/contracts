@@ -67,7 +67,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 timestamp,
         uint256 requestIndex
     );
-    event RequestFilledEvent(uint256 indexed _fillAmount, uint256 timestamp);
+    event RequestFullyFilledEvent(uint256 indexed _requestedAmount, uint256 timestamp, uint256 requestIndex);
+    event RequestPartiallyFilledEvent(uint256 indexed _fillAmount, uint256 timestamp, uint256 requestIndex);
     event ClaimEvent(address indexed _from, uint256 _claimAmount, bool indexed finalClaim, uint256 requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
@@ -396,7 +397,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
                 // We filled the request entirely, so move the head pointer on
                 if (isFilled(unstakeRequests[i])) {
                     unfilledHead = i + 1;
-                    emit RequestFilledEvent(amountToFill, block.timestamp);
+                    emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, block.timestamp, i);
+                } else {
+                    emit RequestPartiallyFilledEvent(unstakeRequests[i].amountFilled, block.timestamp, i);
                 }
             }
 
