@@ -92,7 +92,7 @@ abstract contract stAVAX is IERC20, IERC20Metadata, ReentrancyGuard {
     /**
      * @dev See {IERC20-transfer}.
      */
-    function transfer(address to, uint256 amount) public virtual override returns (bool) {
+    function transfer(address to, uint256 amount) public override returns (bool) {
         address owner = msg.sender;
         _transfer(owner, to, amount);
         return true;
@@ -101,14 +101,14 @@ abstract contract stAVAX is IERC20, IERC20Metadata, ReentrancyGuard {
     /**
      * @dev See {IERC20-allowance}.
      */
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+    function allowance(address owner, address spender) public view override returns (uint256) {
         return allowances[owner][spender];
     }
 
     /**
      * @dev See {IERC20-approve}.
      */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+    function approve(address spender, uint256 amount) public override returns (bool) {
         address owner = msg.sender;
         _approve(owner, spender, amount);
         return true;
@@ -121,7 +121,7 @@ abstract contract stAVAX is IERC20, IERC20Metadata, ReentrancyGuard {
         address from,
         address to,
         uint256 amount
-    ) public virtual override returns (bool) {
+    ) public override returns (bool) {
         address spender = msg.sender;
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);

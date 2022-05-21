@@ -418,7 +418,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // -------------------------------------------------------------------------
 
     function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
-        require(_protocolFeePercentage <= 100);
+        require(_protocolFeePercentage >= 0 && _protocolFeePercentage <= 100);
         protocolFeePercentage = _protocolFeePercentage;
     }
 
