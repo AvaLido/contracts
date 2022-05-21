@@ -13,8 +13,8 @@ contract AvaLidoTest is DSTest, Helpers {
     event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-    event RequestFullyFilledEvent(uint256 indexed _requestedAmount, uint256 timestamp, uint256 requestIndex);
-    event RequestPartiallyFilledEvent(uint256 indexed _fillAmount, uint256 timestamp, uint256 requestIndex);
+    event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
+    event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
