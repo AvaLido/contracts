@@ -13,6 +13,8 @@ contract AvaLidoTest is DSTest, Helpers {
     event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
+    event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
+    event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
@@ -57,6 +59,70 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
         lido.deposit{value: x}();
         assertEq(lido.balanceOf(DEPLOYER_ADDRESS), x);
+    }
+
+    function testStakeAlsoFillsUnstakeRequests() public {
+        // Deposit as user 1.
+        cheats.prank(USER1_ADDRESS);
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        lido.deposit{value: 10 ether}();
+
+        // Test the amountPendingAVAX the contract has
+        assertEq(10 ether, lido.amountPendingAVAX());
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // Test the amountPendingAVAX the contract has - all should have been staked
+        assertEq(0 ether, lido.amountPendingAVAX());
+
+        // User 1 requests a withdrawal of 2 ether
+        cheats.prank(USER1_ADDRESS);
+        lido.requestWithdrawal(2 ether);
+        cheats.expectEmit(true, false, false, true);
+        emit RequestPartiallyFilledEvent(1 ether, uint64(block.timestamp), 0);
+        lido.receivePrincipalFromMPC{value: 1 ether}();
+
+        // Test that user 1's request has been partially filled
+        (
+            address requester,
+            uint64 requestAt,
+            uint256 amountRequested,
+            uint256 amountFilled,
+            uint256 amountClaimed
+        ) = lido.unstakeRequests(0);
+
+        assertEq(requester, USER1_ADDRESS);
+        assertEq(requestAt, uint64(block.timestamp));
+        assertEq(amountRequested, 2 ether);
+        assertEq(amountFilled, 1 ether);
+        assertEq(amountClaimed, 0 ether);
+
+        // Test the amountPendingAVAX the contract has - should be 0 since 1/2 is partilly filled from receivePrincipalFromMPC
+        assertEq(lido.amountPendingAVAX(), 0 ether);
+
+        // User 1 requests another withdrawal
+        cheats.prank(USER1_ADDRESS);
+        lido.requestWithdrawal(2 ether);
+
+        // Deposit as user 2. This should trigger the filling of the rest of user 1's request.
+        cheats.prank(USER2_ADDRESS);
+        cheats.deal(USER2_ADDRESS, 1 ether);
+
+        // We expect that the leftover 1 AVAX + the 1 AVAX from the deposit fill user 1's request...
+        cheats.expectEmit(true, false, false, true);
+        emit RequestFullyFilledEvent(2 ether, uint64(block.timestamp), 0);
+        lido.deposit{value: 1 ether}();
+
+        (, , uint256 amountRequested2, uint256 amountFilled2, uint256 amountClaimed2) = lido.unstakeRequests(0);
+
+        assertEq(amountRequested2, 2 ether);
+        assertEq(amountFilled2, 2 ether);
+        assertEq(amountClaimed2, 0 ether);
+
+        //...and that there is now nothing left pending in the contract.
+        assertEq(lido.amountPendingAVAX(), 0 ether);
     }
 
     // Initiate staking
