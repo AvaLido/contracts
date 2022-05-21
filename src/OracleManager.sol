@@ -18,7 +18,6 @@ import "./Types.sol";
  * AvaLido.sol can read the latest P-chain state to calculate distribution
  * of stakes to our whitelisted Validators.
  */
-
 contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     IOracle Oracle;
 
