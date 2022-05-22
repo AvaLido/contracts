@@ -394,7 +394,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
                     unfilledHead = i + 1;
                     emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, block.timestamp, i);
                 } else {
-                    emit RequestPartiallyFilledEvent(unstakeRequests[i].amountFilled, block.timestamp, i);
+                    emit RequestPartiallyFilledEvent(amountToFill, block.timestamp, i);
                 }
             }
 
