@@ -17,7 +17,7 @@ bal=$(cast balance --rpc-url "http://127.0.0.1:9650/ext/bc/C/rpc" $addr)
 if [[ bal -eq 0 ]]
 then
 
-    echo "Crediting 1 ether to MPC wallet $add as fees for MPC operations"
+    echo "Crediting 1 ether to MPC wallet $addr as fees for MPC operations"
     ETHER=000000000000000000
 
     cast send --rpc-url "http://127.0.0.1:9650/ext/bc/C/rpc" --from $ROLE_DEFAULT_ADMIN --private-key $ROLE_DEFAULT_ADMIN_PK \
