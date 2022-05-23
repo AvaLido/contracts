@@ -1,6 +1,9 @@
 out/
 cache/
-
+demo/addresses
+demo/configs
+demo/dbs
+demo/logs
 network/node-*
 network/build
 

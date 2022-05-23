@@ -29,8 +29,9 @@ cast send --rpc-url "http://127.0.0.1:9650/ext/bc/C/rpc" --from $ROLE_DEFAULT_AD
 cast send --rpc-url "http://127.0.0.1:9650/ext/bc/C/rpc" --from $ROLE_ORACLE_MANAGER --private-key $ROLE_ORACLE_MANAGER_PK -- $ORACLE_MANAGER "setOracleAddress(address)" $ORACLE
 
 cd $SCRIPT_DIR
-echo -n $MPC_MANAGER > MPC_MANAGER_ADDRESS
-echo -n $AVALIDO > AVALIDO_ADDRESS
+mkdir -p addresses
+echo -n $MPC_MANAGER > addresses/MPC_MANAGER_ADDRESS
+echo -n $AVALIDO > addresses/AVALIDO_ADDRESS
 
 # Print addresses for easy access
 printf "MpcManager contract deployed to: $MPC_MANAGER\n"
