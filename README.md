@@ -63,3 +63,9 @@ If you don't care about these args and just want some defaults for development, 
 ```
 task deploy-default
 ```
+
+If you don't care about the actual cross-chain MPC operations and just want a smart contract development environment, you can use the following task to initialize the contract with a placeholder key:
+
+```
+task init-mpc-fake -- <Deployed MpcManager Contract Address>
+```
