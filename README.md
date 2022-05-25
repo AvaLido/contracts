@@ -30,6 +30,9 @@ The local network has a few pre-funded accounts to make development easier:
 - 🔮 `Oracle 3` - `0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018` PK `d876abc4ef78972fc733651bfc79676d9a6722626f9980e2db249c22ed57dbb2`
 - 🔮 `Oracle 4` - `0xE339767906891bEE026285803DA8d8F2f346842C` PK `6353637e9d5cdc0cbc921dadfcc8877d54c0a05b434a1d568423cb918d582eac`
 - 🔮 `Oracle 5` - `0x0309a747a34befD1625b5dcae0B00625FAa30460` PK `c847f461acdd47f2f0bf08b7480d68f940c97bbc6c0a5a03e0cbefae4d9a7592`
+- 🐪 `Mpc Player 1` - `0x3051bA2d313840932B7091D2e8684672496E9A4B` PK `59d1c6956f08477262c9e827239457584299cf583027a27c1d472087e8c35f21`
+- 🐪 `Mpc Player 2` - `0x7Ac8e2083E3503bE631a0557b3f2A8543EaAdd90` PK `6c326909bee727d5fc434e2c75a3e0126df2ec4f49ad02cdd6209cf19f91da33`
+- 🐪 `Mpc Player 3` - `0x3600323b486F115CE127758ed84F26977628EeaA` PK `5431ed99fbcc291f2ed8906d7d46fdf45afbb1b95da65fecd4707d16a6b3301b`
 
 The network stores state in the `node-N` directories in the `network` folder. This means you can kill and restart the network without losing state. You should be able to use Metamask like normal to test out the network.
 
@@ -51,7 +54,7 @@ This uses the pre-funded AVAX account label "Contract deployer" above. The contr
 1. lidoFeeAddress - The address of the lido controlled wallet which collects revenue
 1. authorFeeAddress - The address of the hyperelliptic/rockx wallet which collects revenue
 1. validatorManagerAddress - The address of the validator manager contract to use
-1. \_mpcWalletAddress - The address of the MPC wallet to send stakes to.
+1. \_mpcManagerAddress - The address of the MPC manager contract which manages MPC operations.
 
 The validatorManagerAddress requires deploying the `ValidatorManager` contract, which in turn requires the `ValidatorOracle` contract address.
 
@@ -60,50 +63,3 @@ If you don't care about these args and just want some defaults for development, 
 ```
 task deploy-default
 ```
-
-### Run MPC local network
-
-Prerequisites:
-
-1. MPC-Manager smart contract deployed with a deterministic address.
-2. Make sure you have `Go` and `Rust` installed in advance.
-3. Update submodules: `git submodule init && git submodule update`
-
-**MPC-Server local network**
-1. From within the mpc-server directory and build the 3 projects:
-   ```
-   cd messenger
-   cargo build
-   cd ../secp256k1-id
-   cargo build
-   cd ..
-   cargo build
-   ```
-2. Run the start script `./scripts/start.sh`
-
-There should be three MPC-Server nodes running and listening on `8001`, `8002` and `8003` ports respectively.
-
-**MPC-Controller local network**
-1. From within the mpc-controller directory, build the project by `go clean && go build`.
-2. Change the value of `coordinatorAddress` field in the three yaml config files to the MPC manager address that has just been deployed.
-3. Run the start script `./scripts/start.sh`
-
-There should be three MPC-Controller nodes running, each talks to one MPC-Server independently.
-
-
-### Interaction
-
-Use `cast` to call contract functions directly. Examples:
-
-- Calling a method: `cast call <address> "deposit()" --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc`
-- Sending AVAX to a `payable` method: `cast send --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc --from <address> --private-key <key> --value 1 <address> "deposit()"`
-
-You can also use the `task` command, which has the RPC URL pre-set: `task call -- <address> "deposit()"`
-
-To pass arguments to a function, you'll need to split them out: `task call -- <address> "deposit(uint256)" 1`
-
-### Testing
-
-Unit tests are run with `forge test`. Integration tests are run using [Jest](https://jestjs.io/docs/getting-started_) with `jest integration`
-
-Integration tests expect that the `$AVALIDO` environment variable has been set to the deployed contract address. Deploying via `. ./scripts/deploy-local.sh` will set this automagically.
