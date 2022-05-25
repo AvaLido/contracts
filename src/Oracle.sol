@@ -13,10 +13,9 @@ import "./Types.sol";
 /**
  * @title Lido on Avalanche Validator Oracle
  * @dev This contract stores finalized oracle reports from the OracleManager that have
- achieved quorum. It does not do any oracle or validator-related management. It can only
+ * achieved quorum. It does not do any oracle or validator-related management. It can only
  * be accessed by the OracleManager contract and ROLE_ORACLE_MANAGER.
  */
-
 contract Oracle is IOracle, AccessControlEnumerable {
     // Errors
     error InvalidAddress();
