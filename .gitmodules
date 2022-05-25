@@ -7,9 +7,3 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
-[submodule "mpc-server"]
-	path = mpc-server
-	url = git@github.com:AvaLido/mpc-server.git
-[submodule "mpc-controller"]
-	path = mpc-controller
-	url = git@github.com:AvaLido/mpc-controller.git
