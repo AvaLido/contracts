@@ -69,3 +69,20 @@ If you don't care about the actual cross-chain MPC operations and just want a sm
 ```
 task init-mpc-fake -- <Deployed MpcManager Contract Address>
 ```
+
+### Interaction
+
+Use `cast` to call contract functions directly. Examples:
+
+- Calling a method: `cast call <address> "deposit()" --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc`
+- Sending AVAX to a `payable` method: `cast send --rpc-url http://127.0.0.1:9650/ext/bc/C/rpc --from <address> --private-key <key> --value 1 <address> "deposit()"`
+
+You can also use the `task` command, which has the RPC URL pre-set: `task call -- <address> "deposit()"`
+
+To pass arguments to a function, you'll need to split them out: `task call -- <address> "deposit(uint256)" 1`
+
+### Testing
+
+Unit tests are run with `forge test`. Integration tests are run using [Jest](https://jestjs.io/docs/getting-started_) with `jest integration`
+
+Integration tests expect that the `$AVALIDO` environment variable has been set to the deployed contract address. Deploying via `. ./scripts/deploy-local.sh` will set this automatically.
