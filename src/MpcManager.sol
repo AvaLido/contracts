@@ -243,11 +243,11 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     //  External view functions
     // -------------------------------------------------------------------------
 
-    function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold) {
+    function getGroup(bytes32 groupId) external view returns (bytes[] memory, uint256) {
         uint256 count = _groupParticipantCount[groupId];
         if (count == 0) revert GroupNotFound();
         bytes[] memory participants = new bytes[](count);
-        threshold = _groupThreshold[groupId];
+        uint256 threshold = _groupThreshold[groupId];
 
         for (uint256 i = 0; i < count; i++) {
             participants[i] = _groupParticipants[groupId][i + 1]; // Participant index is 1-based.
@@ -255,8 +255,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         return (participants, threshold);
     }
 
-    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo) {
-        keyInfo = _generatedKeys[publicKey];
+    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory) {
+        return _generatedKeys[publicKey];
     }
 
     // -------------------------------------------------------------------------

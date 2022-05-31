@@ -39,19 +39,19 @@ contract FakeMpcManager is IMpcManager {
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }
 
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external {
+    function createGroup(bytes[] calldata, uint256) external {
         revert("Not Implemented");
     }
 
-    function requestKeygen(bytes32 groupId) external {
+    function requestKeygen(bytes32) external {
         revert("Not Implemented");
     }
 
-    function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold) {
+    function getGroup(bytes32) external view returns (bytes[] memory, uint256) {
         revert("Not Implemented");
     }
 
-    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo) {
+    function getKey(bytes calldata) external view returns (KeyInfo memory) {
         revert("Not Implemented");
     }
 }
