@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "format:test": "prettier --check './src/**/*.sol'"
+    "format:test": "prettier --check './src/**/*.sol'",
+    "lint": "prettier --write 'src/**/*.sol'"
   },
   "devDependencies": {
     "ethers": "^5.6.4",

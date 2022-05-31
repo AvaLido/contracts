@@ -20,7 +20,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         STARTED,
         COMPLETED
     }
-    enum RequestType { UNKNOWN, STAKE } // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
+    enum RequestType {
+        UNKNOWN,
+        STAKE
+    } // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
     struct Request {
         bytes publicKey;
         RequestType requestType;
@@ -229,7 +232,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         threshold = _groupThreshold[groupId];
 
         for (uint256 i = 0; i < count; i++) {
-            participants[i] = _groupParticipants[groupId][i + 1]; // Participant index is 1-based. 
+            participants[i] = _groupParticipants[groupId][i + 1]; // Participant index is 1-based.
         }
         return (participants, threshold);
     }
@@ -311,7 +314,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         return true;
     }
 
-    
     /**
      * @dev converts a public key to ethereum address.
      * Reference: https://ethereum.stackexchange.com/questions/40897/get-address-from-public-key-in-solidity
