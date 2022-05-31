@@ -69,11 +69,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
 
-    // Emitted to signal the MPC system to stake AVAX.
-    // TODO: Move to MPC Manager contract
-    // TODO: https://github.com/AvaLido/contracts/issues/54
-    // event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
-
     // State variables
 
     // The array of all unstake requests.
@@ -102,9 +97,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     PaymentSplitter public protocolFeeSplitter;
     uint256 public protocolFeePercentage = 10;
 
-    // // Address where we'll send AVAX to be staked.
-    // address private mpcWalletAddress;
-
     // For gas efficiency, we won't emit staking events if the pending amount is below
     // this value.
     uint256 public minStakeBatchAmount = 10 ether;
@@ -120,11 +112,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         address lidoFeeAddress,
         address authorFeeAddress,
         address validatorSelectorAddress,
-        //  address _mpcWalletAddress
         address _mpcManagerAddress
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        //  mpcWalletAddress = _mpcWalletAddress;
         mpcManagerAddress = _mpcManagerAddress;
         mpcManager = IMpcManager(_mpcManagerAddress);
 
@@ -271,12 +261,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         uint256 totalToStake = amountPendingAVAX - remaining;
 
-        //  // Transfer stAVAX from our contract to the MPC wallet and record it as staked.
-        //  payable(mpcWalletAddress).transfer(totalToStake);
-
-        // Transfer stAVAX from our contract to the MPC manager address and record it as staked.
-        // payable(mpcManagerAddress).transfer(totalToStake);
-
         amountStakedAVAX += totalToStake;
 
         // Our pending AVAX is now whatever we couldn't allocate.
@@ -287,8 +271,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 startTime = block.timestamp + 30 minutes;
         uint256 endTime = startTime + STAKE_PERIOD;
         for (uint256 i = 0; i < ids.length; i++) {
-            // TODO: https://github.com/AvaLido/contracts/issues/54
-            // emit StakeEvent(amounts[i], ids[i], startTime, endTime);
             mpcManager.requestStake{value: amounts[i]}(ids[i], amounts[i], startTime, endTime);
         }
 
@@ -434,11 +416,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         require(_protocolFeePercentage >= 0 && _protocolFeePercentage <= 100);
         protocolFeePercentage = _protocolFeePercentage;
     }
-
-    // function setMPCWalletAddress(address _mpcWalletAddress) external onlyAdmin {
-    //     require(_mpcWalletAddress != address(0), "Cannot set to 0 address");
-    //     mpcWalletAddress = _mpcWalletAddress;
-    // }
 
     function setMpcManagerAddress(address _mpcManagerAddress) external onlyAdmin {
         require(_mpcManagerAddress != address(0), "Cannot set to 0 address");
