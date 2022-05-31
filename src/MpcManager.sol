@@ -6,9 +6,8 @@ import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "./interfaces/IMpcManager.sol";
-import "./interfaces/IMpcCoordinator.sol";
 
-contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, IMpcCoordinator {
+contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager {
     // Errors
     error AdminOnly();
     error AvaLidoOnly();
