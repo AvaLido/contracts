@@ -9,6 +9,25 @@ import "./interfaces/IMpcManager.sol";
 import "./interfaces/IMpcCoordinator.sol";
 
 contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, IMpcCoordinator {
+    // Errors
+    error AdminOnly();
+    error AvaLidoOnly();
+
+    error InvalidGroupSize(); // A group requires 2 or more participants.
+    error InvalidThreshold(); // Threshold has to be in range [1, n - 1].
+    error GroupNotFound();
+    error InvalidGroupMembership();
+    error AttemptToReaddGroup();
+
+    error KeyNotGenerated();
+    error KeyNotFound();
+    error AttemptToReconfirmKey();
+
+    error InvalidAmount();
+    error RequestNotFound();
+    error QuorumAlreadyReached();
+    error AttemptToRejoin();
+
     // TODO:
     // Key these statements for observation and testing purposes only
     // Considering remove them later before everything fixed up and get into production mode.
@@ -96,8 +115,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 startTime,
         uint256 endTime
     ) external payable onlyAvaLido {
-        require(lastGenAddress != address(0), "Key has not been generated yet.");
-        require(msg.value == amount, "Incorrect value.");
+        if (lastGenAddress == address(0)) revert KeyNotGenerated();
+        if (msg.value != amount) revert InvalidAmount();
         payable(lastGenAddress).transfer(amount);
         _handleStakeRequest(lastGenPubKey, nodeID, amount, startTime, endTime);
     }
@@ -113,8 +132,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyAdmin {
         // TODO: Refine ACL
         // TODO: Check public keys are valid
-        require(publicKeys.length > 1, "A group requires 2 or more participants.");
-        require(threshold >= 1 && threshold < publicKeys.length, "Invalid threshold");
+        if (publicKeys.length < 2) revert InvalidGroupSize();
+        if (threshold < 1 || threshold >= publicKeys.length) revert InvalidThreshold();
 
         bytes memory b = bytes.concat(bytes32(threshold));
         for (uint256 i = 0; i < publicKeys.length; i++) {
@@ -123,7 +142,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         bytes32 groupId = keccak256(b);
 
         uint256 count = _groupParticipantCount[groupId];
-        require(count == 0, "Group already exists.");
+        if (count > 0) revert AttemptToReaddGroup();
         _groupParticipantCount[groupId] = publicKeys.length;
         _groupThreshold[groupId] = threshold;
 
@@ -157,7 +176,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     ) external onlyGroupMember(groupId, myIndex) {
         KeyInfo storage info = _generatedKeys[generatedPublicKey];
 
-        require(!info.confirmed, "Key has already been confirmed by all participants.");
+        if (info.confirmed) revert AttemptToReconfirmKey();
 
         // TODO: Check public key valid
         _keyConfirmations[generatedPublicKey][myIndex] = true;
@@ -182,18 +201,18 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         // TODO: Add auth
 
         Request storage status = _requests[requestId];
-        require(status.publicKey.length > 0, "Request doesn't exist.");
+        if (status.publicKey.length == 0) revert RequestNotFound();
 
         KeyInfo memory info = _generatedKeys[status.publicKey];
-        require(info.confirmed, "Public key doesn't exist or has not been confirmed.");
+        if (!info.confirmed) revert KeyNotFound();
 
         uint256 threshold = _groupThreshold[info.groupId];
-        require(status.participantIndices.length <= threshold, "Cannot join anymore.");
+        if (status.participantIndices.length > threshold) revert QuorumAlreadyReached();
 
         _ensureSenderIsClaimedParticipant(info.groupId, myIndex);
 
         for (uint256 i = 0; i < status.participantIndices.length; i++) {
-            require(status.participantIndices[i] != myIndex, "Already joined.");
+            if (status.participantIndices[i] == myIndex) revert AttemptToRejoin();
         }
         status.participantIndices.push(myIndex);
 
@@ -227,7 +246,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
 
     function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold) {
         uint256 count = _groupParticipantCount[groupId];
-        require(count > 0, "Group doesn't exist.");
+        if (count == 0) revert GroupNotFound();
         bytes[] memory participants = new bytes[](count);
         threshold = _groupThreshold[groupId];
 
@@ -247,12 +266,12 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
 
     modifier onlyAdmin() {
         // TODO: Define proper RBAC. For now just use deployer as admin.
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin.");
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert AdminOnly();
         _;
     }
 
     modifier onlyAvaLido() {
-        require(msg.sender == _avaLidoAddress, "Caller is not AvaLido.");
+        if (msg.sender != _avaLidoAddress) revert AvaLidoOnly();
         _;
     }
 
@@ -274,7 +293,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 endTime
     ) internal {
         KeyInfo memory info = _generatedKeys[publicKey];
-        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
+        if (!info.confirmed) revert KeyNotFound();
 
         // TODO: Validate input
 
@@ -328,10 +347,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
 
     function _ensureSenderIsClaimedParticipant(bytes32 groupId, uint256 index) private view {
         bytes memory publicKey = _groupParticipants[groupId][index];
-        require(publicKey.length > 0, "Invalid groupId or index.");
+        if (publicKey.length == 0) revert GroupNotFound();
 
         address member = _calculateAddress(publicKey);
 
-        require(msg.sender == member, "Caller is not a group member");
+        if (msg.sender != member) revert InvalidGroupMembership();
     }
 }

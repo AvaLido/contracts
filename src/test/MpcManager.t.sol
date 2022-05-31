@@ -104,7 +104,7 @@ contract MpcManagerTest is DSTest, Helpers {
         // Called by wrong sender
         cheats.prank(USER1_ADDRESS);
         cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
-        cheats.expectRevert("Caller is not AvaLido.");
+        cheats.expectRevert(MpcManager.AvaLidoOnly.selector);
         mpcManager.requestStake{value: STAKE_AMOUNT}(
             WHITELISTED_VALIDATOR_1,
             STAKE_AMOUNT,
@@ -116,7 +116,7 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
 
-        cheats.expectRevert("Key has not been generated yet.");
+        cheats.expectRevert(MpcManager.KeyNotGenerated.selector);
         mpcManager.requestStake{value: STAKE_AMOUNT}(
             WHITELISTED_VALIDATOR_1,
             STAKE_AMOUNT,
@@ -129,7 +129,7 @@ contract MpcManagerTest is DSTest, Helpers {
         // Called with incorrect amount
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
-        cheats.expectRevert("Incorrect value.");
+        cheats.expectRevert(MpcManager.InvalidAmount.selector);
         mpcManager.requestStake{value: STAKE_AMOUNT - 1}(
             WHITELISTED_VALIDATOR_1,
             STAKE_AMOUNT,
@@ -183,7 +183,7 @@ contract MpcManagerTest is DSTest, Helpers {
 
         // Cannot join anymore after required t+1 participants have joined
         cheats.prank(MPC_PLAYER_3_ADDRESS);
-        cheats.expectRevert("Cannot join anymore.");
+        cheats.expectRevert(MpcManager.QuorumAlreadyReached.selector);
         mpcManager.joinRequest(1, 3);
     }
 
