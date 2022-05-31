@@ -28,12 +28,29 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     error QuorumAlreadyReached();
     error AttemptToRejoin();
 
-    // TODO:
-    // Key these statements for observation and testing purposes only
-    // Considering remove them later before everything fixed up and get into production mode.
-    bytes public lastGenPubKey;
-    address public lastGenAddress;
+    // Events
+    event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
+    event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
+    event KeygenRequestAdded(bytes32 indexed groupId);
+    event StakeRequestAdded(
+        uint256 requestId,
+        bytes indexed publicKey,
+        string nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    );
+    event StakeRequestStarted(
+        uint256 requestId,
+        bytes indexed publicKey,
+        uint256[] participantIndices,
+        string nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    );
 
+    // Types
     enum RequestStatus {
         UNKNOWN,
         STARTED,
@@ -56,6 +73,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 endTime;
     }
 
+    // State variables
+    bytes public lastGenPubKey;
+    address public lastGenAddress;
+
     address private _avaLidoAddress;
     // groupId -> number of participants in the group
     mapping(bytes32 => uint256) private _groupParticipantCount;
@@ -74,27 +95,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     mapping(uint256 => Request) private _requests;
     mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
     uint256 private _lastRequestId;
-
-    event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
-    event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
-    event KeygenRequestAdded(bytes32 indexed groupId);
-    event StakeRequestAdded(
-        uint256 requestId,
-        bytes indexed publicKey,
-        string nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    );
-    event StakeRequestStarted(
-        uint256 requestId,
-        bytes indexed publicKey,
-        uint256[] participantIndices,
-        string nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    );
 
     constructor() {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
