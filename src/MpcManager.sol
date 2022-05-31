@@ -20,9 +20,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         STARTED,
         COMPLETED
     }
+    enum RequestType { UNKNOWN, STAKE } // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
     struct Request {
         bytes publicKey;
-        bytes message;
+        RequestType requestType;
         uint256[] participantIndices;
         RequestStatus status;
     }
@@ -72,8 +73,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 startTime,
         uint256 endTime
     );
-    event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
-    event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
 
     constructor() {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -173,21 +172,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     }
 
     /**
-     * @notice This is the primitive signing request. It may not be used in actual production.
-     * @param publicKey The publicKey used for signing.
-     * @param message An arbitrary message to be signed.
-     */
-    function requestSign(bytes calldata publicKey, bytes calldata message) external onlyAvaLido {
-        KeyInfo memory info = _generatedKeys[publicKey];
-        require(info.confirmed, "Key doesn't exist or has not been confirmed.");
-        uint256 requestId = _getNextRequestId();
-        Request storage status = _requests[requestId];
-        status.publicKey = publicKey;
-        status.message = message;
-        emit SignRequestAdded(requestId, publicKey, message);
-    }
-
-    /**
      * @notice Participant has to call this function to join an MPC request. Each request
      * requires exactly t + 1 members to join.
      */
@@ -211,21 +195,17 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         status.participantIndices.push(myIndex);
 
         if (status.participantIndices.length == threshold + 1) {
-            if (status.message.length > 0) {
-                emit SignRequestStarted(requestId, status.publicKey, status.message);
-            } else {
-                StakeRequestDetails memory details = _stakeRequestDetails[requestId];
-                if (details.amount > 0) {
-                    emit StakeRequestStarted(
-                        requestId,
-                        status.publicKey,
-                        status.participantIndices,
-                        details.nodeID,
-                        details.amount,
-                        details.startTime,
-                        details.endTime
-                    );
-                }
+            StakeRequestDetails memory details = _stakeRequestDetails[requestId];
+            if (details.amount > 0) {
+                emit StakeRequestStarted(
+                    requestId,
+                    status.publicKey,
+                    status.participantIndices,
+                    details.nodeID,
+                    details.amount,
+                    details.startTime,
+                    details.endTime
+                );
             }
         }
     }
@@ -249,7 +229,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         threshold = _groupThreshold[groupId];
 
         for (uint256 i = 0; i < count; i++) {
-            participants[i] = _groupParticipants[groupId][i + 1];
+            participants[i] = _groupParticipants[groupId][i + 1]; // Participant index is 1-based. 
         }
         return (participants, threshold);
     }
@@ -298,7 +278,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 requestId = _getNextRequestId();
         Request storage status = _requests[requestId];
         status.publicKey = publicKey;
-        // status.message is intentionally not set to indicate it's a StakeRequest
+        status.requestType = RequestType.STAKE;
 
         StakeRequestDetails storage details = _stakeRequestDetails[requestId];
 
@@ -326,11 +306,16 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 count = _groupParticipantCount[groupId];
 
         for (uint256 i = 0; i < count; i++) {
-            if (!_keyConfirmations[generatedPublicKey][i + 1]) return false;
+            if (!_keyConfirmations[generatedPublicKey][i + 1]) return false; // Participant index is 1-based.
         }
         return true;
     }
 
+    
+    /**
+     * @dev converts a public key to ethereum address.
+     * Reference: https://ethereum.stackexchange.com/questions/40897/get-address-from-public-key-in-solidity
+     */
     function _calculateAddress(bytes memory pub) private pure returns (address addr) {
         bytes32 hash = keccak256(pub);
         assembly {

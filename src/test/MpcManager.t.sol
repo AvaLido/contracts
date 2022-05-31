@@ -100,32 +100,6 @@ contract MpcManagerTest is DSTest, Helpers {
         assert(keyInfo.confirmed);
     }
 
-    function testRequestSigning() public {
-        setupKey();
-        cheats.prank(AVALIDO_ADDRESS);
-        cheats.expectEmit(false, false, true, true);
-        emit SignRequestAdded(1, MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
-        mpcManager.requestSign(MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
-    }
-
-    function testJoinSigningRequest() public {
-        setupSigningRequest();
-
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
-        mpcManager.joinRequest(1, 1);
-
-        // Event emitted after required t+1 participants have joined
-        cheats.expectEmit(false, false, true, true);
-        emit SignRequestStarted(1, MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
-        cheats.prank(MPC_PLAYER_2_ADDRESS);
-        mpcManager.joinRequest(1, 2);
-
-        // Cannot join anymore after required t+1 participants have joined
-        cheats.prank(MPC_PLAYER_3_ADDRESS);
-        cheats.expectRevert("Cannot join anymore.");
-        mpcManager.joinRequest(1, 3);
-    }
-
     function testRequestStaking() public {
         // Called by wrong sender
         cheats.prank(USER1_ADDRESS);
@@ -229,12 +203,6 @@ contract MpcManagerTest is DSTest, Helpers {
         mpcManager.reportGeneratedKey(MPC_GROUP_ID, 2, MPC_GENERATED_PUBKEY);
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_GROUP_ID, 3, MPC_GENERATED_PUBKEY);
-    }
-
-    function setupSigningRequest() private {
-        setupKey();
-        cheats.prank(AVALIDO_ADDRESS);
-        mpcManager.requestSign(MPC_GENERATED_PUBKEY, MESSAGE_TO_SIGN);
     }
 
     function setupStakingRequest() private {
