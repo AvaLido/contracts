@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
+import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../AvaLido.sol";
 import "../interfaces/IOracle.sol";
@@ -8,9 +9,55 @@ import "../interfaces/IOracle.sol";
 import "./helpers.sol";
 
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
+
+contract FakeMpcManager is IMpcManager {
+    event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
+
+    function setAvaLidoAddress(address avaLidoAddress) external {}
+
+    function requestStake(
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) external payable {
+        require(msg.value == amount, "Incorrect value.");
+        string memory logData = string(
+            abi.encodePacked(
+                nodeID,
+                ", ",
+                Strings.toString(amount),
+                ", ",
+                Strings.toString(startTime),
+                ", ",
+                Strings.toString(endTime)
+            )
+        );
+        console.log(logData);
+        payable(MPC_GENERATED_ADDRESS).transfer(amount);
+        emit FakeStakeRequested(nodeID, amount, startTime, endTime);
+    }
+
+    function createGroup(bytes[] calldata, uint256) external {
+        revert("Not Implemented");
+    }
+
+    function requestKeygen(bytes32) external {
+        revert("Not Implemented");
+    }
+
+    function getGroup(bytes32) external view returns (bytes[] memory, uint256) {
+        revert("Not Implemented");
+    }
+
+    function getKey(bytes calldata) external view returns (KeyInfo memory) {
+        revert("Not Implemented");
+    }
+}
 
 contract AvaLidoTest is DSTest, Helpers {
-    event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
+    event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
     event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
@@ -18,19 +65,22 @@ contract AvaLidoTest is DSTest, Helpers {
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
+    FakeMpcManager fakeMpcManager;
 
     address feeAddressAuthor = 0x1000000000000000000000000000000000000001;
     address feeAddressLido = 0x1000000000000000000000000000000000000002;
-    address mpcWalletAddress = 0x1000000000000000000000000000000000000004;
+    address mpcManagerAddress;
     address validatorSelectorAddress;
 
     function setUp() public {
         // Not an actual oracle contract, but calls to ValidatorSelector should all be stubbed.
         IOracle oracle = IOracle(0x9000000000000000000000000000000000000001);
         validatorSelector = new ValidatorSelector(oracle);
+        fakeMpcManager = new FakeMpcManager();
         validatorSelectorAddress = address(validatorSelector);
+        mpcManagerAddress = address(fakeMpcManager);
 
-        lido = new AvaLido(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcWalletAddress);
+        lido = new AvaLido(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
     }
 
     receive() external payable {}
@@ -163,7 +213,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
     //     uint256 staked = lido.initiateStake();
     //     assertEq(staked, 10 ether);
-    //     assertEq(address(mpcWalletAddress).balance, 10 ether);
+    //     assertEq(address(mpcManagerAddress).balance, 10 ether);
     // }
 
     function testInitiateStakePartialAllocation() public {
@@ -174,7 +224,7 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectMock(validatorSelectorAddress, "test-node", 9 ether, 1 ether);
         uint256 staked = lido.initiateStake();
         assertEq(staked, 9 ether);
-        assertEq(address(mpcWalletAddress).balance, 9 ether);
+        assertEq(address(MPC_GENERATED_ADDRESS).balance, 9 ether);
         assertEq(lido.amountPendingAVAX(), 1 ether);
     }
 
@@ -366,8 +416,8 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 10 ether}();
 
         // Check event emission for staking.
-        cheats.expectEmit(true, true, false, false);
-        emit StakeEvent(10 ether, "test", 1800, 1211400);
+        cheats.expectEmit(false, false, false, true);
+        emit FakeStakeRequested("test", 10 ether, 1801, 1211401);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -377,9 +427,11 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.prank(USER1_ADDRESS);
         lido.requestWithdrawal(0.5 ether);
 
+        // cheats.deal(MPC_GENERATED_ADDRESS, 1 ether);
+        // cheats.startPrank(MPC_GENERATED_ADDRESS);
+
         // Receive principal back from MPC for unstaking.
         lido.receivePrincipalFromMPC{value: 0.1 ether}();
-
         lido.receivePrincipalFromMPC{value: 0.9 ether}();
 
         (, , uint256 amountRequested, uint256 amountFilled, ) = lido.unstakeRequests(0);
@@ -542,8 +594,8 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(lido.balanceOf(USER1_ADDRESS), 6 ether);
 
         // Receive from MPC for unstaking
-        cheats.deal(mpcWalletAddress, 5 ether);
-        cheats.prank(mpcWalletAddress);
+        cheats.deal(MPC_GENERATED_ADDRESS, 5 ether);
+        cheats.prank(MPC_GENERATED_ADDRESS);
         lido.receivePrincipalFromMPC{value: 5 ether}();
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);

@@ -40,6 +40,7 @@ import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "./Types.sol";
 import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
+import "./interfaces/IMpcManager.sol";
 
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
@@ -67,10 +68,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-
-    // Emitted to signal the MPC system to stake AVAX.
-    // TODO: Move to mpc manager contract
-    event StakeEvent(uint256 indexed amount, string indexed validator, uint256 stakeStartTime, uint256 stakeEndTime);
 
     // State variables
 
@@ -100,9 +97,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     PaymentSplitter public protocolFeeSplitter;
     uint256 public protocolFeePercentage = 10;
 
-    // Address where we'll send AVAX to be staked.
-    address private mpcWalletAddress;
-
     // For gas efficiency, we won't emit staking events if the pending amount is below
     // this value.
     uint256 public minStakeBatchAmount = 10 ether;
@@ -110,14 +104,19 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Selector used to find validators to stake on.
     IValidatorSelector public validatorSelector;
 
+    // Address where we'll send AVAX to be staked.
+    address private mpcManagerAddress;
+    IMpcManager private mpcManager;
+
     constructor(
         address lidoFeeAddress,
         address authorFeeAddress,
         address validatorSelectorAddress,
-        address _mpcWalletAddress
+        address _mpcManagerAddress
     ) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        mpcWalletAddress = _mpcWalletAddress;
+        mpcManagerAddress = _mpcManagerAddress;
+        mpcManager = IMpcManager(_mpcManagerAddress);
 
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
 
@@ -262,8 +261,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         uint256 totalToStake = amountPendingAVAX - remaining;
 
-        // Transfer stAVAX from our contract to the MPC wallet and record it as staked.
-        payable(mpcWalletAddress).transfer(totalToStake);
         amountStakedAVAX += totalToStake;
 
         // Our pending AVAX is now whatever we couldn't allocate.
@@ -274,7 +271,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 startTime = block.timestamp + 30 minutes;
         uint256 endTime = startTime + STAKE_PERIOD;
         for (uint256 i = 0; i < ids.length; i++) {
-            emit StakeEvent(amounts[i], ids[i], startTime, endTime);
+            mpcManager.requestStake{value: amounts[i]}(ids[i], amounts[i], startTime, endTime);
         }
 
         return totalToStake;
@@ -420,9 +417,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         protocolFeePercentage = _protocolFeePercentage;
     }
 
-    function setMPCWalletAddress(address _mpcWalletAddress) external onlyAdmin {
-        require(_mpcWalletAddress != address(0), "Cannot set to 0 address");
-        mpcWalletAddress = _mpcWalletAddress;
+    function setMpcManagerAddress(address _mpcManagerAddress) external onlyAdmin {
+        require(_mpcManagerAddress != address(0), "Cannot set to 0 address");
+        mpcManagerAddress = _mpcManagerAddress;
+        mpcManager = IMpcManager(_mpcManagerAddress);
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyAdmin {
