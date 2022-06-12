@@ -5,46 +5,75 @@ CheatCodes constant cheats = CheatCodes(address(0x7109709ECfa91a80626fF3989D68f6
 address constant DEPLOYER_ADDRESS = address(0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84);
 
 interface CheatCodes {
-    // Set block.timestamp
+    // Set block.timestamp (newTimestamp)
     function warp(uint256) external;
 
-    // Set block.number
+    // Set block.height (newHeight)
     function roll(uint256) external;
 
-    // Set block.basefee
+    // Set block.basefee (newBasefee)
     function fee(uint256) external;
 
-    // Loads a storage slot from an address
-    function load(address account, bytes32 slot) external returns (bytes32);
+    // Set block.coinbase (who)
+    function coinbase(address) external;
 
-    // Stores a value to an address' storage slot
+    // Loads a storage slot from an address (who, slot)
+    function load(address, bytes32) external returns (bytes32);
+
+    // Stores a value to an address' storage slot, (who, slot, value)
     function store(
-        address account,
-        bytes32 slot,
-        bytes32 value
+        address,
+        bytes32,
+        bytes32
     ) external;
 
-    // Signs data
-    function sign(uint256 privateKey, bytes32 digest)
+    // Signs data, (privateKey, digest) => (v, r, s)
+    function sign(uint256, bytes32)
         external
         returns (
-            uint8 v,
-            bytes32 r,
-            bytes32 s
+            uint8,
+            bytes32,
+            bytes32
         );
 
-    // Computes address for a given private key
-    function addr(uint256 privateKey) external returns (address);
+    // Gets address for a given private key, (privateKey) => (address)
+    function addr(uint256) external returns (address);
 
-    // Gets the nonce of an account
-    function getNonce(address account) external returns (uint64);
-
-    // Sets the nonce of an account
-    // The new nonce must be higher than the current nonce of the account
-    function getNonce(address account, uint256 nonce) external;
-
-    // Performs a foreign function call via terminal
+    // Performs a foreign function call via terminal, (stringInputs) => (result)
     function ffi(string[] calldata) external returns (bytes memory);
+
+    // Set environment variables, (name, value)
+    function setEnv(string calldata, string calldata) external;
+
+    // Read environment variables, (name) => (value)
+    function envBool(string calldata) external returns (bool);
+
+    function envUint(string calldata) external returns (uint256);
+
+    function envInt(string calldata) external returns (int256);
+
+    function envAddress(string calldata) external returns (address);
+
+    function envBytes32(string calldata) external returns (bytes32);
+
+    function envString(string calldata) external returns (string memory);
+
+    function envBytes(string calldata) external returns (bytes memory);
+
+    // Read environment variables as arrays, (name, delim) => (value[])
+    function envBool(string calldata, string calldata) external returns (bool[] memory);
+
+    function envUint(string calldata, string calldata) external returns (uint256[] memory);
+
+    function envInt(string calldata, string calldata) external returns (int256[] memory);
+
+    function envAddress(string calldata, string calldata) external returns (address[] memory);
+
+    function envBytes32(string calldata, string calldata) external returns (bytes32[] memory);
+
+    function envString(string calldata, string calldata) external returns (string[] memory);
+
+    function envBytes(string calldata, string calldata) external returns (bytes[] memory);
 
     // Sets the *next* call's msg.sender to be the input address
     function prank(address) external;
@@ -61,11 +90,11 @@ interface CheatCodes {
     // Resets subsequent calls' msg.sender to be `address(this)`
     function stopPrank() external;
 
-    // Sets an address' balance
-    function deal(address who, uint256 newBalance) external;
+    // Sets an address' balance, (who, newBalance)
+    function deal(address, uint256) external;
 
-    // Sets an address' code
-    function etch(address who, bytes calldata code) external;
+    // Sets an address' code, (who, newCode)
+    function etch(address, bytes calldata) external;
 
     // Expects an error on next call
     function expectRevert() external;
@@ -82,12 +111,21 @@ interface CheatCodes {
 
     // Prepare an expected log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData).
     // Call this function, then emit an event, then call a function. Internally after the call, we check if
-    // logs were emitted in the expected order with the expected topics and data (as specified by the booleans)
+    // logs were emitted in the expected order with the expected topics and data (as specified by the booleans).
+    // Second form also checks supplied address against emitting contract.
     function expectEmit(
         bool,
         bool,
         bool,
         bool
+    ) external;
+
+    function expectEmit(
+        bool,
+        bool,
+        bool,
+        bool,
+        address
     ) external;
 
     // Mocks a call to an address, returning specified data.
@@ -100,6 +138,15 @@ interface CheatCodes {
         bytes calldata
     ) external;
 
+    // Mocks a call to an address with a specific msg.value, returning specified data.
+    // Calldata match takes precedence over msg.value in case of ambiguity.
+    function mockCall(
+        address,
+        uint256,
+        bytes calldata,
+        bytes calldata
+    ) external;
+
     // Clears all mocked calls
     function clearMockedCalls() external;
 
@@ -107,12 +154,43 @@ interface CheatCodes {
     // Calldata can either be strict or a partial match
     function expectCall(address, bytes calldata) external;
 
-    // Gets the bytecode for a contract in the project given the path to the contract.
+    // Expect a call to an address with the specified msg.value and calldata
+    function expectCall(
+        address,
+        uint256,
+        bytes calldata
+    ) external;
+
+    // Gets the code from an artifact file. Takes in the relative path to the json file
     function getCode(string calldata) external returns (bytes memory);
 
-    // Label an address in test traces
-    function label(address addr, string calldata label) external;
+    // Labels an address in call traces
+    function label(address, string calldata) external;
 
-    // When fuzzing, generate new inputs if conditional not met
+    // If the condition is false, discard this run's fuzz inputs and generate new ones
     function assume(bool) external;
+
+    // Set nonce for an account
+    function setNonce(address, uint64) external;
+
+    // Get nonce for an account
+    function getNonce(address) external returns (uint64);
+
+    // Set block.chainid (newChainId)
+    function chainId(uint256) external;
+
+    // Using the address that calls the test contract, has the next call (at this call depth only) create a transaction that can later be signed and sent onchain
+    function broadcast() external;
+
+    // Has the next call (at this call depth only) create a transaction with the address provided as the sender that can later be signed and sent onchain
+    function broadcast(address) external;
+
+    // Using the address that calls the test contract, has the all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain
+    function startBroadcast() external;
+
+    // Has the all subsequent calls (at this call depth only) create transactions that can later be signed and sent onchain
+    function startBroadcast(address) external;
+
+    // Stops collecting onchain transactions
+    function stopBroadcast() external;
 }
