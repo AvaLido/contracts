@@ -5,7 +5,6 @@ pragma solidity 0.8.10;
 import "ds-test/test.sol";
 import "./cheats.sol";
 import "./helpers.sol";
-import "./console.sol";
 import "../OracleManager.sol";
 import "../Oracle.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";

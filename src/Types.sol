@@ -20,3 +20,44 @@ struct Validator {
     uint64 stakeEndTime; // The Unix timestamp in seconds when the validator expires.
     uint256 freeSpace; // The amount of AVAX free on the given node.
 }
+
+struct MicroValidator {
+    uint24 data;
+}
+
+// Total 24 bits
+// [ u s i i i i i i i i i i i i i i v v v v v v v v v v]
+// u = 1 bit - Does the validator have acceptible uptime?
+// s = 1 bit - Does the validator have more time remaining than our largest stake period?
+// 12 bits - index of node ID in list.
+// v = 10 bits - number of 'hundreds of free avax, rounded down', capped at 256
+
+library ValidatorHelpers {
+    function hasAcceptibleUptime(uint24 data) public returns (bool) {
+        uint24 shifted = data >> 23;
+        uint24 flag = shifted & 1;
+        return flag == 1 ? true : false;
+    }
+
+    function hasTimeRemaining(uint24 data) public returns (bool) {
+        // Data now has first 2 bits in lowest position.
+        uint24 shifted = data >> 22;
+        uint24 flag = shifted & 1;
+        return flag == 1 ? true : false;
+    }
+
+    function getNodeIndex(uint24 data) public returns (uint256) {
+        // Take 12 bits from the middle which represents our index.
+        uint24 value = data & 4193280; // 001111111111110000000000
+        // Shift right 10 places to align
+        uint24 shifted = value >> 10;
+        return uint256(shifted);
+    }
+
+    function freeSpace(uint24 data) public returns (uint256) {
+        // Take the last 10 bits. Already aligned so no need to shift.
+        uint24 hundredsOfAVAX = data & 1792; // 000000000000001111111111
+        // Multiply out into Wei
+        return hundredsOfAVAX * 100 ether;
+    }
+}
