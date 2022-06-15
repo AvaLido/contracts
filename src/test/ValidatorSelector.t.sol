@@ -21,12 +21,12 @@ contract MockHelpers {
 
     function nValidatorsWithFreeSpace(
         uint256 n,
-        uint64 endTime,
+        uint64 endTime, // TODO take bools
         uint256 freeSpace
     ) public pure returns (Validator[] memory) {
         Validator[] memory result = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
-            result[i] = Validator(nodeId(i), endTime, freeSpace);
+            result[i] = ValidatorHelpers.packValidator(uint16(i), true, true, uint16(freeSpace / 100 ether));
         }
         return result;
     }

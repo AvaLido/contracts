@@ -30,6 +30,27 @@ bytes constant MPC_GENERATED_PUBKEY = hex"c6184cd4d6e7eeadd09410fe06a30bc06355c8
 address constant MPC_GENERATED_ADDRESS = 0x24CE57563754DBEc6a92b8bA10af2D2416C237e4;
 
 abstract contract Helpers {
+    // Technically can only use 12 bits for index and 10 for amount.
+    function packValidator(
+        uint16 nodeIndex,
+        bool hasUptime,
+        bool hasSpace,
+        uint16 hundredsOfAvax
+    ) public view returns (Validator memory) {
+        assert(nodeIndex < 4096);
+        assert(hundredsOfAvax < 1024);
+
+        uint24 data = hundredsOfAvax;
+        if (hasUptime) {
+            data = data | (1 << 23);
+        }
+        if (hasSpace) {
+            data = data | (1 << 22);
+        }
+        data = data | (nodeIndex << 10);
+        return Validator(data);
+    }
+
     function validatorSelectMock(
         address validatorSelector,
         string memory node,

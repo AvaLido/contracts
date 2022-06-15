@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../AvaLido.sol";
 import "../interfaces/IOracle.sol";
@@ -34,7 +33,6 @@ contract FakeMpcManager is IMpcManager {
                 Strings.toString(endTime)
             )
         );
-        console.log(logData);
         payable(MPC_GENERATED_ADDRESS).transfer(amount);
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }

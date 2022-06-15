@@ -47,7 +47,7 @@ contract OracleTest is DSTest, Helpers {
     function testReceiveFinalizedReport() public {
         cheats.prank(ORACLE_MANAGER_ADDRESS);
         Validator[] memory reportData = new Validator[](1);
-        reportData[0].nodeId = fakeNodeId;
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
         cheats.expectEmit(false, false, false, true);
         emit OracleReportReceived(epochId);
@@ -61,13 +61,14 @@ contract OracleTest is DSTest, Helpers {
     function testUnauthorizedReceiveFinalizedReport() public {
         cheats.expectRevert(Oracle.OnlyOracleManager.selector);
         Validator[] memory reportData = new Validator[](1);
-        reportData[0].nodeId = fakeNodeId;
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         oracle.receiveFinalizedReport(epochId, reportData);
     }
 
     function testOldReportDoesNotUpdateLatest() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0].nodeId = fakeNodeId;
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
         cheats.startPrank(ORACLE_MANAGER_ADDRESS);
         oracle.receiveFinalizedReport(epochId, reportData);

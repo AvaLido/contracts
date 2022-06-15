@@ -66,7 +66,8 @@ contract ValidatorSelector {
         if (amount <= smallStakeThreshold) {
             uint256 i = uint256(keccak256(abi.encodePacked(block.timestamp))) % validators.length;
             string[] memory vals = new string[](1);
-            vals[0] = validators[i].nodeId;
+            uint256 nodeIndex = ValidatorHelpers.getNodeIndex(validators[i].data);
+            vals[0] = oracle.nodeIdByValidatorIndex(nodeIndex);
             uint256[] memory amounts = new uint256[](1);
             amounts[0] = amount;
             return (vals, amounts, 0);
@@ -77,7 +78,7 @@ contract ValidatorSelector {
         uint256 totalFreeSpace = 0;
         uint256[] memory freeSpaces = new uint256[](validators.length);
         for (uint256 index = 0; index < validators.length; index++) {
-            uint256 free = validators[index].freeSpace;
+            uint256 free = ValidatorHelpers.freeSpace(validators[index].data);
             totalFreeSpace += free;
             freeSpaces[index] = free;
         }
@@ -90,6 +91,10 @@ contract ValidatorSelector {
             remainingUnstaked = amount - newAmount;
             amount = newAmount;
         }
+
+        // TODO: Clamp validators to a certain max length, or otherwise
+        // use some process to select N validators. We don't want to split
+        // evenly across all validators if we're using thousands.
 
         // For larger amounts, we chunk it into N pieces.
         // We then continue to pack validators with each of those chunks in a round-robin
@@ -126,7 +131,8 @@ contract ValidatorSelector {
         // across transactions)
         string[] memory validatorIds = new string[](validators.length);
         for (uint256 i = 0; i < validators.length; i++) {
-            validatorIds[i] = validators[i].nodeId;
+            uint256 nodeIndex = ValidatorHelpers.getNodeIndex(validators[i].data);
+            validatorIds[i] = oracle.nodeIdByValidatorIndex(nodeIndex);
         }
 
         return (validatorIds, resultAmounts, remainingUnstaked);
@@ -140,38 +146,38 @@ contract ValidatorSelector {
      */
     function getAvailableValidatorsWithCapacity(uint256 amount) public view returns (Validator[] memory) {
         // 1. Fetch our Validator from the Oracle
-        Validator[] memory validatorsForEpochId = oracle.getLatestValidator();
+        Validator[] memory validators = oracle.getLatestValidator();
 
-        // TODO: Can we re-think a way to filter this without needing to iterate twice?
-        // We can't do it client-side because it happens at stake-time, and we do not want
-        // clients to control where the stake goes.
-        // Possible idea - store indicies of validators in a bitmask? Would be limited to N validators
-        // where N < 256.
+        // TODO: Pick a 'random' set of validators which can fulfil the total amount instead?
+        // We somehow need to cut the list down to a reasonable number.
+
         uint256 count = 0;
-        for (uint256 index = 0; index < validatorsForEpochId.length; index++) {
-            if (validatorsForEpochId[index].freeSpace < amount) {
+        for (uint256 index = 0; index < validators.length; index++) {
+            if (ValidatorHelpers.freeSpace(validators[index].data) < amount) {
                 continue;
             }
-            if (stakeTimeRemaining(validatorsForEpochId[index]) < minimumRequiredStakeTimeRemaining) {
+            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index].data)) {
+                continue;
+            }
+            if (!ValidatorHelpers.hasTimeRemaining(validators[index].data)) {
                 continue;
             }
             count++;
         }
 
         Validator[] memory result = new Validator[](count);
-        for (uint256 index = 0; index < validatorsForEpochId.length; index++) {
-            if (validatorsForEpochId[index].freeSpace < amount) {
+        for (uint256 index = 0; index < validators.length; index++) {
+            if (ValidatorHelpers.freeSpace(validators[index].data) < amount) {
                 continue;
             }
-            if (stakeTimeRemaining(validatorsForEpochId[index]) < minimumRequiredStakeTimeRemaining) {
+            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index].data)) {
                 continue;
             }
-            result[index] = validatorsForEpochId[index];
+            if (!ValidatorHelpers.hasTimeRemaining(validators[index].data)) {
+                continue;
+            }
+            result[index] = validators[index];
         }
         return result;
-    }
-
-    function stakeTimeRemaining(Validator memory validator) public view returns (uint256) {
-        return validator.stakeEndTime - block.timestamp;
     }
 }

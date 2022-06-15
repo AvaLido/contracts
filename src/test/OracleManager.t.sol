@@ -50,7 +50,8 @@ contract OracleManagerTest is DSTest, Helpers {
 
     function testOracleContractAddressNotSet() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0].nodeId = fakeNodeId;
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         cheats.prank(ORACLE_MEMBERS[0]);
         cheats.expectRevert(OracleManager.OracleContractAddressNotSet.selector);
         oracleManager.receiveMemberReport(epochId, reportData);
@@ -69,7 +70,8 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(address(oracle));
         Validator[] memory reportData = new Validator[](1);
-        reportData[0].nodeId = fakeNodeId;
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportData);
     }
@@ -79,9 +81,10 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0].nodeId = fakeNodeId;
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         Validator[] memory reportDataTwo = new Validator[](1);
-        reportDataTwo[0].nodeId = fakeNodeIdTwo;
+        reportDataTwo[0] = ValidatorHelpers.packValidator(1, true, true, 200);
 
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -102,9 +105,10 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0].nodeId = fakeNodeId;
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         Validator[] memory reportDataTwo = new Validator[](1);
-        reportDataTwo[0].nodeId = fakeNodeIdTwo;
+        reportDataTwo[0] = ValidatorHelpers.packValidator(1, true, true, 200);
 
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -117,25 +121,26 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.receiveMemberReport(epochId, reportDataOne);
     }
 
-    function testCannotReportWithUnwhitelistedValidator() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
-        oracleManager.setOracleAddress(address(oracle));
+    // function testCannotReportWithUnwhitelistedValidator() public {
+    //     cheats.prank(ROLE_ORACLE_MANAGER);
+    //     oracleManager.setOracleAddress(address(oracle));
 
-        Validator[] memory reportDataOne = new Validator[](3);
-        reportDataOne[0].nodeId = fakeNodeId;
-        reportDataOne[1].nodeId = unwhitelistedValidator;
-        reportDataOne[2].nodeId = fakeNodeIdTwo;
-        cheats.prank(ORACLE_MEMBERS[0]);
-        cheats.expectRevert(OracleManager.ValidatorNodeIdNotFound.selector);
-        oracleManager.receiveMemberReport(epochId, reportDataOne);
-    }
+    //     Validator[] memory reportDataOne = new Validator[](3);
+    //     reportDataOne[0].nodeId = fakeNodeId;
+    //     reportDataOne[1].nodeId = unwhitelistedValidator;
+    //     reportDataOne[2].nodeId = fakeNodeIdTwo;
+    //     cheats.prank(ORACLE_MEMBERS[0]);
+    //     cheats.expectRevert(OracleManager.ValidatorNodeIdNotFound.selector);
+    //     oracleManager.receiveMemberReport(epochId, reportDataOne);
+    // }
 
     function testOracleCannotReportTwice() public {
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0].nodeId = fakeNodeId;
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         cheats.startPrank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
         cheats.expectRevert(OracleManager.OracleAlreadyReported.selector);
@@ -148,7 +153,8 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportData = new Validator[](1);
-        reportData[0].nodeId = fakeNodeId;
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
         oracleManager.receiveMemberReport(epochId, reportData);
     }
@@ -157,7 +163,8 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.pause();
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0].nodeId = fakeNodeId;
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
         cheats.prank(ORACLE_MEMBERS[0]);
         cheats.expectRevert("Pausable: paused");
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -304,12 +311,8 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportData = new Validator[](2);
-        reportData[0].nodeId = fakeNodeId;
-        reportData[0].stakeEndTime = 123456789;
-        reportData[0].freeSpace = 800000;
-        reportData[1].nodeId = fakeNodeIdTwo;
-        reportData[1].stakeEndTime = 123456789;
-        reportData[1].freeSpace = 500000;
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[1] = ValidatorHelpers.packValidator(1, true, true, 200);
 
         cheats.prank(ORACLE_MEMBERS[0]);
         cheats.expectEmit(false, false, false, true);

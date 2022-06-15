@@ -31,6 +31,12 @@ contract Oracle is IOracle, AccessControlEnumerable {
     // Mappings
     mapping(uint256 => Validator[]) internal reportsByEpochId; // epochId => array of Validator[] structs
 
+    // A list of all node IDs which is supplied periodically by our service.
+    // We use this as a lookup table (by index) to nodeID, rather than having to write the IDs along side
+    // our oracle report. This means we can store this expensive data on a lower frequency (e.g. once a week/month)
+    // rather than on every report.
+    string[] validatorNodeIds;
+
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER");
 
@@ -90,6 +96,10 @@ contract Oracle is IOracle, AccessControlEnumerable {
         return reportsByEpochId[latestEpochId];
     }
 
+    function nodeIdByValidatorIndex(uint256 index) public view returns (string memory) {
+        return validatorNodeIds[index];
+    }
+
     // -------------------------------------------------------------------------
     //  Role-based functions
     // -------------------------------------------------------------------------
@@ -105,6 +115,11 @@ contract Oracle is IOracle, AccessControlEnumerable {
 
         emit OracleManagerAddressChanged(_newOracleManagerAddress);
     }
+
+    // TODO: Set validator list
+    // Warning: When we update the list, indicies may change as validators are removed/added from avax.
+    // This means that we need to ensure that we also clear out the latest epoch oracle data, becasue
+    // that will be referencing old indicies.
 
     // TODO: function changeRoleOracleManager() {}
 }

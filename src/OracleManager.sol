@@ -129,7 +129,8 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         if (reportedOraclesByEpochId[_epochId][msg.sender]) revert OracleAlreadyReported();
 
         // 4. Check that the data only includes whitelisted validators
-        if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
+        // if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
+        // TODO: Replace with check that the report only contains indicies that we have in our list.
 
         // 5. Log that the oracle has reported for this epoch
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
@@ -173,19 +174,19 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
         return whitelistedValidatorsMapping[_nodeId];
     }
 
-    /**
-     * @notice Checks if all the reported validator node ids exist in our whitelisted validators mapping
-     * @param _reportData Array of Validator structs
-     * @return bool True or false
-     */
-    function _reportContainsOnlyWhitelistedValidators(Validator[] calldata _reportData) internal view returns (bool) {
-        for (uint256 i = 0; i < _reportData.length; i++) {
-            if (!whitelistedValidatorsMapping[_reportData[i].nodeId]) {
-                return false;
-            }
-        }
-        return true;
-    }
+    // /**
+    //  * @notice Checks if all the reported validator node ids exist in our whitelisted validators mapping
+    //  * @param _reportData Array of Validator structs
+    //  * @return bool True or false
+    //  */
+    // function _reportContainsOnlyWhitelistedValidators(Validator[] calldata _reportData) internal view returns (bool) {
+    //     for (uint256 i = 0; i < _reportData.length; i++) {
+    //         if (!whitelistedValidatorsMapping[_reportData[i].nodeId]) {
+    //             return false;
+    //         }
+    //     }
+    //     return true;
+    // }
 
     /**
      * @notice Hashes the report data from an oracle member.
@@ -384,7 +385,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
 
         if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
 
-        if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
+        // if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
 
         bytes32 hashedReportData = _hashReportData(_reportData);
 

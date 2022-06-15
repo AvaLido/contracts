@@ -54,9 +54,23 @@ contract TypesTest is DSTest, Helpers {
         assertEq(res, x);
     }
 
-    function testFreeSpace() public {
+    function testFreeSpaceZero() public {
         uint24 data = 0;
         uint256 space = ValidatorHelpers.freeSpace(data);
         assertEq(space, 0);
+    }
+
+    function testFreeSpace() public {
+        uint24 data = 0 | (42);
+        uint256 space = ValidatorHelpers.freeSpace(data);
+        assertEq(space, 42 * 100 ether);
+    }
+
+    function testPackRoundTrip() public {
+        Validator memory val = ValidatorHelpers.packValidator(129, true, false, 1);
+        assertEq(ValidatorHelpers.getNodeIndex(val.data), 129);
+        assertTrue(ValidatorHelpers.hasAcceptibleUptime(val.data));
+        assertTrue(!ValidatorHelpers.hasTimeRemaining(val.data));
+        assertEq(ValidatorHelpers.freeSpace(val.data), 1 * 100 ether);
     }
 }
