@@ -2,7 +2,9 @@
 pragma solidity 0.8.10;
 
 // Test support
-import "ds-test/test.sol";
+import "forge-std/test.sol";
+import "forge-std/console.sol";
+
 import "../test/helpers.sol";
 
 // Contracts for deploy
@@ -10,7 +12,7 @@ import "../OracleManager.sol";
 import "../Oracle.sol";
 import "../AvaLido.sol";
 
-contract OracleTest is DSTest, Helpers {
+contract Deploy is DSTest, Helpers {
     // Role details
     // TODO: This should be divided into roles rather than used for everything
     address admin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
