@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-// import "ds-test/src/test.sol";
-import "ds-test/test.sol";
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
 import "./cheats.sol";
 import "./helpers.sol";
-import "./console.sol";
+
 import "../Oracle.sol";
 import "../OracleManager.sol";
 
