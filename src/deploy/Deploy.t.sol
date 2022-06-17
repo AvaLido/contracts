@@ -2,7 +2,7 @@
 pragma solidity 0.8.10;
 
 // Test support
-import "forge-std/test.sol";
+import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "../test/helpers.sol";
