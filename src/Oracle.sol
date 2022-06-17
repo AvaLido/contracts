@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "forge-std/console.sol";
 
@@ -16,7 +17,7 @@ import "./Types.sol";
  * achieved quorum. It does not do any oracle or validator-related management. It can only
  * be accessed by the OracleManager contract and ROLE_ORACLE_MANAGER.
  */
-contract Oracle is IOracle, AccessControlEnumerable {
+contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // Errors
     error InvalidAddress();
     error OnlyOracleManager();
@@ -36,7 +37,7 @@ contract Oracle is IOracle, AccessControlEnumerable {
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER");
 
-    constructor(address _roleOracleManager, address _oracleManagerContract) {
+    function initialize(address _roleOracleManager, address _oracleManagerContract) public initializer {
         _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager);
         ORACLE_MANAGER_CONTRACT = _oracleManagerContract;
     }

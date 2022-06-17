@@ -36,6 +36,7 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./Types.sol";
 import "./stAVAX.sol";
@@ -51,7 +52,7 @@ uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
  */
-contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
+contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, Initializable {
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();
@@ -80,26 +81,26 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     UnstakeRequest[] public unstakeRequests;
 
     // Pointer to the head of the unfilled section of the queue.
-    uint256 private unfilledHead = 0;
+    uint256 private unfilledHead;
 
     // Tracks the amount of AVAX being staked.
     // Also includes AVAX pending staking or unstaking.
-    uint256 public amountStakedAVAX = 0;
+    uint256 public amountStakedAVAX;
 
     // Track the amount of AVAX in the contract which is waiting to be staked.
     // When the stake is triggered, this amount will be sent to the MPC system.
-    uint256 public amountPendingAVAX = 0;
+    uint256 public amountPendingAVAX;
 
     // Record the number of unstake requests per user so that we can limit them to our max.
     mapping(address => uint8) public unstakeRequestCount;
 
     // Address which protocol fees are sent to.
     PaymentSplitter public protocolFeeSplitter;
-    uint256 public protocolFeePercentage = 10;
+    uint256 public protocolFeePercentage;
 
     // For gas efficiency, we won't emit staking events if the pending amount is below
     // this value.
-    uint256 public minStakeBatchAmount = 10 ether;
+    uint256 public minStakeBatchAmount;
 
     // Selector used to find validators to stake on.
     IValidatorSelector public validatorSelector;
@@ -108,13 +109,21 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     address private mpcManagerAddress;
     IMpcManager private mpcManager;
 
-    constructor(
+    function initialize(
         address lidoFeeAddress,
         address authorFeeAddress,
         address validatorSelectorAddress,
         address _mpcManagerAddress
-    ) {
+    ) public initializer {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+        // initialize contract variables.
+        unfilledHead = 0;
+        amountStakedAVAX = 0;
+        amountPendingAVAX = 0;
+        protocolFeePercentage = 10;
+        minStakeBatchAmount = 10 ether;
+
         mpcManagerAddress = _mpcManagerAddress;
         mpcManager = IMpcManager(_mpcManagerAddress);
 

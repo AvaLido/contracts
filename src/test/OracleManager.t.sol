@@ -24,8 +24,6 @@ contract OracleManagerTest is DSTest, Helpers {
     event WhitelistedValidatorAdded(string nodeId);
     event WhitelistedValidatorRemoved(string nodeId);
 
-    address ORACLE_MANAGER_CONTRACT_ADDRESS;
-
     string[] WHITELISTED_VALIDATORS = [WHITELISTED_VALIDATOR_1, WHITELISTED_VALIDATOR_2, WHITELISTED_VALIDATOR_3];
     address[] ORACLE_MEMBERS = [
         WHITELISTED_ORACLE_1,
@@ -42,9 +40,13 @@ contract OracleManagerTest is DSTest, Helpers {
     address anotherAddressForTesting = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
 
     function setUp() public {
-        oracleManager = new OracleManager(ROLE_ORACLE_MANAGER, WHITELISTED_VALIDATORS, ORACLE_MEMBERS);
-        ORACLE_MANAGER_CONTRACT_ADDRESS = address(oracleManager);
-        oracle = new Oracle(ROLE_ORACLE_MANAGER, ORACLE_MANAGER_CONTRACT_ADDRESS);
+        OracleManager _oracleManager = new OracleManager();
+        oracleManager = OracleManager(proxyWrapped(address(_oracleManager), ROLE_PROXY_ADMIN));
+        oracleManager.initialize(ROLE_ORACLE_MANAGER, WHITELISTED_VALIDATORS, ORACLE_MEMBERS);
+
+        Oracle _oracle = new Oracle();
+        oracle = Oracle(proxyWrapped(address(_oracle), ROLE_PROXY_ADMIN));
+        oracle.initialize(ROLE_ORACLE_MANAGER, address(oracleManager));
     }
 
     // -------------------------------------------------------------------------

@@ -6,9 +6,12 @@ import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/IOracle.sol";
 import "./Types.sol";
+
+uint256 constant INDEX_NOT_FOUND = type(uint256).max; // index when item is missing from array
 
 /**
  * @title Lido on Avalanche Validator Oracle Manager
@@ -18,7 +21,7 @@ import "./Types.sol";
  * AvaLido.sol can read the latest P-chain state to calculate distribution
  * of stakes to our whitelisted Validators.
  */
-contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
+contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, Initializable {
     IOracle Oracle;
 
     // Errors
@@ -47,8 +50,6 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     address[] public whitelistedOraclesArray; // whitelisted addresses running our oracle daemon.
     address public oracleContractAddress; // the deployed address
 
-    uint256 internal constant INDEX_NOT_FOUND = type(uint256).max; // index when item is missing from array
-
     // Mappings
     mapping(string => bool) public whitelistedValidatorsMapping; // nodeId => true if whitelisted
     mapping(address => bool) public whitelistedOraclesMapping; // address => true if whitelisted
@@ -60,11 +61,11 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable {
     // Roles
     bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER"); // TODO: more granular roles for managing members, changing quorum, etc.
 
-    constructor(
+    function initialize(
         address _roleOracleManager, // Role that can change whitelist of oracles.
         string[] memory _whitelistedValidators, //Whitelist of validators we can stake with.
         address[] memory _whitelistedOracleMembers // Whitelisted oracle member addresses.
-    ) {
+    ) public initializer {
         _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager);
 
         // Set whitelist arrays

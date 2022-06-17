@@ -31,9 +31,16 @@ contract OracleTest is DSTest, Helpers {
     string fakeNodeId = WHITELISTED_VALIDATORS[0];
 
     function setUp() public {
-        oracleManager = new OracleManager(ROLE_ORACLE_MANAGER, WHITELISTED_VALIDATORS, ORACLE_MEMBERS);
+        OracleManager _oracleManager = new OracleManager();
+        oracleManager = OracleManager(proxyWrapped(address(_oracleManager), ROLE_PROXY_ADMIN));
+        oracleManager.initialize(ROLE_ORACLE_MANAGER, WHITELISTED_VALIDATORS, ORACLE_MEMBERS);
+
         ORACLE_MANAGER_ADDRESS = address(oracleManager);
-        oracle = new Oracle(ROLE_ORACLE_MANAGER, ORACLE_MANAGER_ADDRESS);
+
+        Oracle _oracle = new Oracle();
+        oracle = Oracle(proxyWrapped(address(_oracle), ROLE_PROXY_ADMIN));
+        oracle.initialize(ROLE_ORACLE_MANAGER, ORACLE_MANAGER_ADDRESS);
+
         cheats.prank(ROLE_ORACLE_MANAGER);
         oracleManager.setOracleAddress(address(oracle));
     }
