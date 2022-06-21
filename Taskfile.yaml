@@ -23,3 +23,11 @@ tasks:
   init-mpc-fake:
     cmds:
       - ./scripts/init-mpc-fake.sh {{.CLI_ARGS}}
+
+  deposit:
+    cmds:
+      - ./scripts/deposit.sh {{.CLI_ARGS}}
+
+  trigger-staking:
+    cmds:
+      - ./scripts/trigger-staking.sh {{.CLI_ARGS}}
