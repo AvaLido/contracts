@@ -39,7 +39,7 @@ jobs:
           version: nightly
 
       - name: Output version info
-        run: forge version
+        run: forge --version
 
       - name: Run tests
         run: forge test -vv
