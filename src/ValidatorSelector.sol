@@ -130,6 +130,10 @@ contract ValidatorSelector is Initializable {
         // across transactions)
         string[] memory validatorIds = new string[](validators.length);
         for (uint256 i = 0; i < validators.length; i++) {
+            // Don't make the call to get the node index if there's no value on that node.
+            if (resultAmounts[i] == 0) {
+                continue;
+            }
             validatorIds[i] = oracle.nodeIdByValidatorIndex(ValidatorHelpers.getNodeIndex(validators[i]));
         }
 

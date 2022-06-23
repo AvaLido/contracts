@@ -204,9 +204,6 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
         );
         assertEq(vals.length, 1000);
         assertEq(amounts.length, 1000);
-        assertEq(keccak256(bytes(vals[1])), keccak256(bytes("NodeID-1")));
-        assertEq(keccak256(bytes(vals[69])), keccak256(bytes("NodeID-69")));
-        assertEq(keccak256(bytes(vals[420])), keccak256(bytes("NodeID-420")));
 
         // Should have 500 avax staked on one pseudo-random node.
         int256 chosenIndex = -1;
@@ -215,6 +212,10 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
                 chosenIndex = int256(i);
             }
         }
+        assertEq(
+            keccak256(bytes(vals[uint256(chosenIndex)])),
+            keccak256(bytes(string(abi.encodePacked("NodeID-", Strings.toString(uint256(chosenIndex))))))
+        );
 
         assert(chosenIndex != -1);
         assertEq(remaining, 0);
