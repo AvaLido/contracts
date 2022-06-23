@@ -427,7 +427,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
         // Check event emission for staking.
         cheats.expectEmit(false, false, false, true);
-        emit FakeStakeRequested("test", 10 ether, 1801, 1211401);
+        emit FakeStakeRequested("test", 10 ether, 1800, 1211400);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
