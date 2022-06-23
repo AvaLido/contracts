@@ -22,11 +22,6 @@ contract Deploy is DSTest, Helpers {
     address authorFeeAddress = 0x2000000000000000000000000000000000000002;
 
     // Constants
-    string[] validatorAllowlist = [
-        "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
-        "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu",
-        "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN"
-    ];
     address[] oracleAllowlist = [
         0x03C1196617387899390d3a98fdBdfD407121BB67,
         0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413bf,
@@ -51,7 +46,7 @@ contract Deploy is DSTest, Helpers {
         // Oracle manager
         OracleManager _oracleManager = new OracleManager();
         OracleManager oracleManager = OracleManager(address(proxyWrapped(address(_oracleManager), admin)));
-        oracleManager.initialize(admin, validatorAllowlist, oracleAllowlist);
+        oracleManager.initialize(admin, oracleAllowlist);
 
         // Oracle
         Oracle _oracle = new Oracle();

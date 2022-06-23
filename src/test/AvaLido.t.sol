@@ -34,7 +34,6 @@ contract FakeMpcManager is IMpcManager {
                 Strings.toString(endTime)
             )
         );
-        console.log(logData);
         payable(MPC_GENERATED_ADDRESS).transfer(amount);
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }

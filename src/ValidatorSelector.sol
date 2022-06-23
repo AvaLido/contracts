@@ -69,7 +69,7 @@ contract ValidatorSelector is Initializable {
         if (amount <= smallStakeThreshold) {
             uint256 i = uint256(keccak256(abi.encodePacked(block.timestamp))) % validators.length;
             string[] memory vals = new string[](1);
-            vals[0] = validators[i].nodeId;
+            vals[0] = oracle.nodeIdByValidatorIndex(ValidatorHelpers.getNodeIndex(validators[i]));
             uint256[] memory amounts = new uint256[](1);
             amounts[0] = amount;
             return (vals, amounts, 0);
@@ -80,9 +80,9 @@ contract ValidatorSelector is Initializable {
         uint256 totalFreeSpace = 0;
         uint256[] memory freeSpaces = new uint256[](validators.length);
         for (uint256 index = 0; index < validators.length; index++) {
-            uint256 free = validators[index].freeSpace;
-            totalFreeSpace += free;
-            freeSpaces[index] = free;
+            // uint256 free = validators[index].freeSpace;
+            // totalFreeSpace += free;
+            // freeSpaces[index] = free;
         }
 
         // If we have too much to stake, recompute the amount that we _can_ stake.
@@ -129,7 +129,7 @@ contract ValidatorSelector is Initializable {
         // across transactions)
         string[] memory validatorIds = new string[](validators.length);
         for (uint256 i = 0; i < validators.length; i++) {
-            validatorIds[i] = validators[i].nodeId;
+            // validatorIds[i] = validators[i].nodeId;
         }
 
         return (validatorIds, resultAmounts, remainingUnstaked);
@@ -143,7 +143,7 @@ contract ValidatorSelector is Initializable {
      */
     function getAvailableValidatorsWithCapacity(uint256 amount) public view returns (Validator[] memory) {
         // 1. Fetch our Validator from the Oracle
-        Validator[] memory validatorsForEpochId = oracle.getLatestValidator();
+        Validator[] memory validators = oracle.getLatestValidator();
 
         // TODO: Can we re-think a way to filter this without needing to iterate twice?
         // We can't do it client-side because it happens at stake-time, and we do not want
@@ -151,30 +151,26 @@ contract ValidatorSelector is Initializable {
         // Possible idea - store indicies of validators in a bitmask? Would be limited to N validators
         // where N < 256.
         uint256 count = 0;
-        for (uint256 index = 0; index < validatorsForEpochId.length; index++) {
-            if (validatorsForEpochId[index].freeSpace < amount) {
+        for (uint256 index = 0; index < validators.length; index++) {
+            if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
                 continue;
             }
-            if (stakeTimeRemaining(validatorsForEpochId[index]) < minimumRequiredStakeTimeRemaining) {
+            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
                 continue;
             }
             count++;
         }
 
         Validator[] memory result = new Validator[](count);
-        for (uint256 index = 0; index < validatorsForEpochId.length; index++) {
-            if (validatorsForEpochId[index].freeSpace < amount) {
+        for (uint256 index = 0; index < validators.length; index++) {
+            if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
                 continue;
             }
-            if (stakeTimeRemaining(validatorsForEpochId[index]) < minimumRequiredStakeTimeRemaining) {
+            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
                 continue;
             }
-            result[index] = validatorsForEpochId[index];
+            result[index] = validators[index];
         }
         return result;
-    }
-
-    function stakeTimeRemaining(Validator memory validator) public view returns (uint256) {
-        return validator.stakeEndTime - block.timestamp;
     }
 }

@@ -20,7 +20,7 @@ import "./Types.sol";
 contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // Errors
     error InvalidAddress();
-    error OnlyOracleManager();
+    error OnlyOracleManagerContract();
 
     // Events
     event OracleManagerAddressChanged(address newOracleManagerAddress);
@@ -30,6 +30,12 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // State variables
     address public ORACLE_MANAGER_CONTRACT;
     uint256 public latestEpochId;
+
+    // A list of all node IDs which is supplied periodically by our service.
+    // We use this as a lookup table (by index) to nodeID, rather than having to write the IDs along side
+    // our oracle report. This means we can store this expensive data on a lower frequency (e.g. once a week/month)
+    // rather than on every report.
+    string[] validatorNodeIds;
 
     // Mappings
     mapping(uint256 => Validator[]) internal reportsByEpochId; // epochId => array of Validator[] structs
@@ -49,8 +55,8 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     /**
      * @notice Allows function calls only from the OracleManager contract
      */
-    modifier onlyOracleManager() {
-        if (msg.sender != ORACLE_MANAGER_CONTRACT) revert OnlyOracleManager();
+    modifier onlyOracleManagerContract() {
+        if (msg.sender != ORACLE_MANAGER_CONTRACT) revert OnlyOracleManagerContract();
         _;
     }
 
@@ -63,7 +69,10 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
      * @param _epochId The id of the reporting epoch.
      * @param _reportData Array Validator[] structs.
      */
-    function receiveFinalizedReport(uint256 _epochId, Validator[] calldata _reportData) external onlyOracleManager {
+    function receiveFinalizedReport(uint256 _epochId, Validator[] calldata _reportData)
+        external
+        onlyOracleManagerContract
+    {
         for (uint256 i = 0; i < _reportData.length; i++) {
             reportsByEpochId[_epochId].push(_reportData[i]);
         }
@@ -93,6 +102,13 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         return reportsByEpochId[latestEpochId];
     }
 
+    /**
+     * @notice Get the nodeId by validator index.
+     */
+    function nodeIdByValidatorIndex(uint256 index) public view returns (string memory) {
+        return validatorNodeIds[index];
+    }
+
     // -------------------------------------------------------------------------
     //  Role-based functions
     // -------------------------------------------------------------------------
@@ -110,4 +126,15 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     }
 
     // TODO: function changeRoleOracleManager() {}
+
+    function setNodeIDList(string[] calldata nodes) external onlyOracleManagerContract {
+        delete validatorNodeIds;
+        uint256 len = nodes.length;
+        for (uint256 i = 0; i < len; i++) {
+            validatorNodeIds[i] = nodes[i];
+        }
+        // Remove the latest epoch data becasue it will no longer be valid if node indicies
+        // have changed. This will happen if validators are removed from the list.
+        delete reportsByEpochId[latestEpochId];
+    }
 }

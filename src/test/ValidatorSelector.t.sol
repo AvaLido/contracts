@@ -27,7 +27,7 @@ contract MockHelpers {
     ) public pure returns (Validator[] memory) {
         Validator[] memory result = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
-            result[i] = Validator(nodeId(i), endTime, freeSpace);
+            result[i] = ValidatorHelpers.packValidator(uint16(i), true, true, uint16(freeSpace / 100 ether));
         }
         return result;
     }

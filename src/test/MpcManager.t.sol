@@ -109,24 +109,14 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(USER1_ADDRESS);
         cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
         cheats.expectRevert(MpcManager.AvaLidoOnly.selector);
-        mpcManager.requestStake{value: STAKE_AMOUNT}(
-            WHITELISTED_VALIDATOR_1,
-            STAKE_AMOUNT,
-            STAKE_START_TIME,
-            STAKE_END_TIME
-        );
+        mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
 
         // Called before keygen
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
 
         cheats.expectRevert(MpcManager.KeyNotGenerated.selector);
-        mpcManager.requestStake{value: STAKE_AMOUNT}(
-            WHITELISTED_VALIDATOR_1,
-            STAKE_AMOUNT,
-            STAKE_START_TIME,
-            STAKE_END_TIME
-        );
+        mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
 
         setupKey();
 
@@ -134,31 +124,14 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
         cheats.expectRevert(MpcManager.InvalidAmount.selector);
-        mpcManager.requestStake{value: STAKE_AMOUNT - 1}(
-            WHITELISTED_VALIDATOR_1,
-            STAKE_AMOUNT,
-            STAKE_START_TIME,
-            STAKE_END_TIME
-        );
+        mpcManager.requestStake{value: STAKE_AMOUNT - 1}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
 
         // Called with correct sender and after keygen
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
         cheats.expectEmit(false, false, true, true);
-        emit StakeRequestAdded(
-            1,
-            MPC_GENERATED_PUBKEY,
-            WHITELISTED_VALIDATOR_1,
-            STAKE_AMOUNT,
-            STAKE_START_TIME,
-            STAKE_END_TIME
-        );
-        mpcManager.requestStake{value: STAKE_AMOUNT}(
-            WHITELISTED_VALIDATOR_1,
-            STAKE_AMOUNT,
-            STAKE_START_TIME,
-            STAKE_END_TIME
-        );
+        emit StakeRequestAdded(1, MPC_GENERATED_PUBKEY, VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+        mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
         assertEq(address(MPC_GENERATED_ADDRESS).balance, STAKE_AMOUNT);
     }
 
@@ -177,7 +150,7 @@ contract MpcManagerTest is DSTest, Helpers {
             1,
             MPC_GENERATED_PUBKEY,
             indices,
-            WHITELISTED_VALIDATOR_1,
+            VALIDATOR_1,
             STAKE_AMOUNT,
             STAKE_START_TIME,
             STAKE_END_TIME
@@ -213,11 +186,6 @@ contract MpcManagerTest is DSTest, Helpers {
         setupKey();
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
-        mpcManager.requestStake{value: STAKE_AMOUNT}(
-            WHITELISTED_VALIDATOR_1,
-            STAKE_AMOUNT,
-            STAKE_START_TIME,
-            STAKE_END_TIME
-        );
+        mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
     }
 }
