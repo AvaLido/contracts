@@ -33,7 +33,7 @@ contract MockHelpers {
     }
 
     function oracleDataMock(address oracle, Validator[] memory data) public {
-        cheats.mockCall(oracle, abi.encodeWithSelector(IOracle.getLatestValidator.selector), abi.encode(data));
+        cheats.mockCall(oracle, abi.encodeWithSelector(IOracle.getLatestValidators.selector), abi.encode(data));
     }
 
     function mixOfBigAndSmallValidators() public view returns (Validator[] memory) {

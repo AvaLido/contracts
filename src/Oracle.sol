@@ -98,7 +98,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     /**
      * @notice Get all finalized data for all validators for the latest epoch.
      */
-    function getLatestValidator() public view returns (Validator[] memory) {
+    function getLatestValidators() public view returns (Validator[] memory) {
         return reportsByEpochId[latestEpochId];
     }
 

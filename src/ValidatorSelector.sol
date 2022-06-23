@@ -142,8 +142,8 @@ contract ValidatorSelector is Initializable {
      * @return validators The validators which have capacity to handle the given amount of AVAX.
      */
     function getAvailableValidatorsWithCapacity(uint256 amount) public view returns (Validator[] memory) {
-        // 1. Fetch our Validator from the Oracle
-        Validator[] memory validators = oracle.getLatestValidator();
+        // 1. Fetch our validators from the Oracle
+        Validator[] memory validators = oracle.getLatestValidators();
 
         // TODO: Can we re-think a way to filter this without needing to iterate twice?
         // We can't do it client-side because it happens at stake-time, and we do not want

@@ -7,7 +7,7 @@ import "../Types.sol";
 interface IOracle {
     function receiveFinalizedReport(uint256 _epochId, Validator[] calldata _reportData) external;
 
-    function getLatestValidator() external view returns (Validator[] memory);
+    function getLatestValidators() external view returns (Validator[] memory);
 
     function nodeIdByValidatorIndex(uint256 index) external view returns (string memory);
 }
