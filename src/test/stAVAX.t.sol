@@ -133,8 +133,8 @@ contract stAVAXTest is DSTest, Helpers {
     }
 
     function testTransferNoBalance() public {
-        stavax.deposit{value: 10 ether}(DEPLOYER_ADDRESS);
         stavax.deposit{value: 2 ether}(USER1_ADDRESS);
+        stavax.deposit{value: 10 ether}(USER2_ADDRESS);
 
         cheats.prank(USER1_ADDRESS);
         cheats.expectRevert(stAVAX.InsufficientSTAVAXBalance.selector);

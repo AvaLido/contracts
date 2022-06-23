@@ -95,8 +95,10 @@ contract AvaLidoTest is DSTest, Helpers {
     // Deposit
 
     function testStakeBasic() public {
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 1 ether}();
-        assertEq(lido.balanceOf(DEPLOYER_ADDRESS), 1 ether);
+        assertEq(lido.balanceOf(USER1_ADDRESS), 1 ether);
     }
 
     function testStakeZeroDeposit() public {
@@ -110,12 +112,14 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testStakeWithFuzzing(uint256 x) public {
-        cheats.deal(DEPLOYER_ADDRESS, type(uint256).max);
+        cheats.deal(USER1_ADDRESS, type(uint256).max);
 
         cheats.assume(x > MINIMUM_STAKE_AMOUNT);
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
+
+        cheats.prank(USER1_ADDRESS);
         lido.deposit{value: x}();
-        assertEq(lido.balanceOf(DEPLOYER_ADDRESS), x);
+        assertEq(lido.balanceOf(USER1_ADDRESS), x);
     }
 
     function testStakeAlsoFillsUnstakeRequests() public {
@@ -627,18 +631,26 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testPartialClaimSucceeds() public {
+        cheats.deal(USER1_ADDRESS, 10 ether);
+
+        cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 10 ether}();
+
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
+        cheats.prank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(1 ether);
+
         lido.receivePrincipalFromMPC{value: 1 ether}();
 
-        assertEq(lido.unstakeRequestCount(DEPLOYER_ADDRESS), 1);
+        assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
+
+        cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, 0.5 ether);
 
         // Request should still be there.
-        assertEq(lido.unstakeRequestCount(DEPLOYER_ADDRESS), 1);
+        assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
 
         (, , uint256 amountRequested, uint256 amountFilled, uint256 amountClaimed) = lido.unstakeRequests(reqId);
 
@@ -648,18 +660,24 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testMultiplePartialClaims() public {
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 10 ether}();
+
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
+        cheats.prank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(1 ether);
+
         lido.receivePrincipalFromMPC{value: 1 ether}();
 
-        assertEq(lido.unstakeRequestCount(DEPLOYER_ADDRESS), 1);
+        assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
+        cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, 0.5 ether);
 
         // Request should still be there.
-        assertEq(lido.unstakeRequestCount(DEPLOYER_ADDRESS), 1);
+        assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
 
         (, , uint256 amountRequested, uint256 amountFilled, uint256 amountClaimed) = lido.unstakeRequests(reqId);
 
@@ -667,13 +685,15 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountFilled, 1 ether);
         assertEq(amountClaimed, 0.5 ether);
 
+        cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, 0.25 ether);
 
         (, , , , uint256 amountClaimed2) = lido.unstakeRequests(reqId);
         assertEq(amountClaimed2, 0.75 ether);
 
+        cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, 0.25 ether);
-        assertEq(lido.unstakeRequestCount(DEPLOYER_ADDRESS), 0);
+        assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 0);
 
         (address requester, , , , ) = lido.unstakeRequests(reqId);
 
@@ -682,15 +702,18 @@ contract AvaLidoTest is DSTest, Helpers {
     }
 
     function testClaimWithFuzzing(uint256 x) public {
-        cheats.deal(DEPLOYER_ADDRESS, type(uint256).max);
+        cheats.deal(USER1_ADDRESS, type(uint256).max);
 
         cheats.assume(x > lido.minStakeBatchAmount());
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
+        cheats.prank(USER1_ADDRESS);
         lido.deposit{value: x}();
         validatorSelectMock(validatorSelectorAddress, "test", x, 0);
+
         lido.initiateStake();
 
+        cheats.startPrank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(x);
         lido.receivePrincipalFromMPC{value: x}();
 
