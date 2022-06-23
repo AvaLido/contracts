@@ -75,12 +75,20 @@ contract AvaLidoTest is DSTest, Helpers {
     function setUp() public {
         // Not an actual oracle contract, but calls to ValidatorSelector should all be stubbed.
         IOracle oracle = IOracle(0x9000000000000000000000000000000000000001);
-        validatorSelector = new ValidatorSelector(oracle);
-        fakeMpcManager = new FakeMpcManager();
+
+        ValidatorSelector _validatorSelector = new ValidatorSelector();
+        validatorSelector = ValidatorSelector(proxyWrapped(address(_validatorSelector), ROLE_PROXY_ADMIN));
+        validatorSelector.initialize(address(oracle));
+
+        FakeMpcManager _fakeMpcManager = new FakeMpcManager();
+        fakeMpcManager = FakeMpcManager(proxyWrapped(address(_fakeMpcManager), ROLE_PROXY_ADMIN));
+
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
 
-        lido = new AvaLido(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
+        AvaLido _lido = new AvaLido();
+        lido = AvaLido(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN));
+        lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
     }
 
     receive() external payable {}
@@ -232,6 +240,8 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(USER1_ADDRESS, 1 ether);
         cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 1 ether}();
+
+        validatorSelectMock(validatorSelectorAddress, "test", 1 ether, 1 ether);
         uint256 staked = lido.initiateStake();
         assertEq(staked, 0);
         assertEq(lido.amountPendingAVAX(), 1 ether);

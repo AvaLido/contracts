@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "ds-test/test.sol";
 import "forge-std/Test.sol";
+
 import "./cheats.sol";
 import "./helpers.sol";
+
 import "../stAVAX.sol";
 
 contract TestToken is stAVAX {

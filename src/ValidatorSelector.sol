@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./Types.sol";
 import "./interfaces/IOracle.sol";
@@ -12,15 +13,17 @@ import "./interfaces/IOracle.sol";
  * @title Lido on Avalanche Validator Selector
  * @dev This contract helps select validators from the Oracle for staking.
  */
-contract ValidatorSelector {
-    uint256 minimumRequiredStakeTimeRemaining = 15 days;
-    uint256 smallStakeThreshold = 100 ether;
+contract ValidatorSelector is Initializable {
+    uint256 minimumRequiredStakeTimeRemaining;
+    uint256 smallStakeThreshold;
 
     // TODO: needs setter
     IOracle public oracle;
 
-    constructor(IOracle _oracle) {
-        oracle = _oracle;
+    function initialize(address oracleAddress) public initializer {
+        minimumRequiredStakeTimeRemaining = 15 days;
+        smallStakeThreshold = 100 ether;
+        oracle = IOracle(oracleAddress);
     }
 
     /**

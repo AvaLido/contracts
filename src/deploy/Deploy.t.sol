@@ -42,12 +42,33 @@ contract Deploy is DSTest, Helpers {
         // Create a transaction
         cheats.startBroadcast();
 
-        // Create contracts
-        MpcManager mpcManager = new MpcManager();
-        OracleManager oracleManager = new OracleManager(admin, validatorAllowlist, oracleAllowlist);
-        IOracle oracle = new Oracle(admin, address(oracleManager));
-        ValidatorSelector validatorSelector = new ValidatorSelector(oracle);
-        AvaLido lido = new AvaLido(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
+        // MPC manager
+        MpcManager _mpcManager = new MpcManager();
+        MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), admin)));
+        mpcManager.initialize();
+        console.log("MPC Manager", address(mpcManager));
+
+        // Oracle manager
+        OracleManager _oracleManager = new OracleManager();
+        OracleManager oracleManager = OracleManager(address(proxyWrapped(address(_oracleManager), admin)));
+        oracleManager.initialize(admin, validatorAllowlist, oracleAllowlist);
+
+        // Oracle
+        Oracle _oracle = new Oracle();
+        Oracle oracle = Oracle(address(proxyWrapped(address(_oracle), admin)));
+        oracle.initialize(admin, address(oracleManager));
+
+        // Validator selector
+        ValidatorSelector _validatorSelector = new ValidatorSelector();
+        ValidatorSelector validatorSelector = ValidatorSelector(
+            address(proxyWrapped(address(_validatorSelector), admin))
+        );
+        validatorSelector.initialize(address(oracle));
+
+        // AvaLido
+        AvaLido _lido = new AvaLido();
+        AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
+        lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
         cheats.stopBroadcast();
     }

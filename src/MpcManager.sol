@@ -5,9 +5,11 @@ pragma solidity 0.8.10;
 import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
+import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+
 import "./interfaces/IMpcManager.sol";
 
-contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager {
+contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, Initializable {
     // Errors
     error AdminOnly();
     error AvaLidoOnly();
@@ -95,7 +97,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
     uint256 private _lastRequestId;
 
-    constructor() {
+    function initialize() public initializer {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 

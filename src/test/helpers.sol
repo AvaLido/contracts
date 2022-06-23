@@ -2,6 +2,7 @@
 pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../ValidatorSelector.sol";
 import "../MpcManager.sol";
@@ -12,6 +13,7 @@ address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 address constant USER1_ADDRESS = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
 address constant USER2_ADDRESS = 0x220866B1A2219f40e72f5c628B65D54268cA3A9D;
 address constant ROLE_ORACLE_MANAGER = 0xf195179eEaE3c8CAB499b5181721e5C57e4769b2; // Wendy the whale gets to manage the oracle 🐳
+address constant ROLE_PROXY_ADMIN = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2; // Sammy the shrimp gets to manage the proxy 🦐
 string constant WHITELISTED_VALIDATOR_1 = "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5";
 string constant WHITELISTED_VALIDATOR_2 = "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu";
 string constant WHITELISTED_VALIDATOR_3 = "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN";
@@ -73,5 +75,10 @@ abstract contract Helpers {
             }
         }
         return false;
+    }
+
+    function proxyWrapped(address implementation, address admin) public returns (address) {
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(implementation, admin, "");
+        return address(proxy);
     }
 }

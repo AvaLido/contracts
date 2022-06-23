@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "ds-test/test.sol";
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
 import "./cheats.sol";
 import "./helpers.sol";
-import "./console.sol";
+
 import "../interfaces/IMpcManager.sol";
 import "../MpcManager.sol";
 
@@ -45,7 +47,9 @@ contract MpcManagerTest is DSTest, Helpers {
     );
 
     function setUp() public {
-        mpcManager = new MpcManager();
+        MpcManager _mpcManager = new MpcManager();
+        mpcManager = MpcManager(proxyWrapped(address(_mpcManager), ROLE_PROXY_ADMIN));
+        mpcManager.initialize();
         mpcManager.setAvaLidoAddress(AVALIDO_ADDRESS);
         pubKeys[0] = MPC_PLAYER_1_PUBKEY;
         pubKeys[1] = MPC_PLAYER_2_PUBKEY;

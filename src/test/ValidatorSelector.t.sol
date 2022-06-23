@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-// import "ds-test/src/test.sol";
-import "ds-test/test.sol";
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
 import "./cheats.sol";
 import "./helpers.sol";
-import "./console.sol";
 import "../stAVAX.sol";
 
 import "../interfaces/IOracle.sol";
@@ -55,12 +55,14 @@ contract MockHelpers {
 
 contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     ValidatorSelector selector;
+
+    // Actual address irrelevant as function is mocked
     address oracleAddress = address(0x9000000000000000000000000000000000000000);
 
     function setUp() public {
-        // Actual address irrelevant as function is mocked
-        IOracle oracle = IOracle(oracleAddress);
-        selector = new ValidatorSelector(oracle);
+        ValidatorSelector _selector = new ValidatorSelector();
+        selector = ValidatorSelector(proxyWrapped(address(_selector), ROLE_PROXY_ADMIN));
+        selector.initialize(oracleAddress);
     }
 
     function assertSumEq(uint256[] memory amounts, uint256 total) public {
@@ -88,7 +90,6 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
     function testGetByCapacityWithinEndTime() public {
         oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, timeFromNow(10 days), 10 ether));
-
         assertEq(selector.getAvailableValidatorsWithCapacity(1 ether).length, 0);
     }
 
