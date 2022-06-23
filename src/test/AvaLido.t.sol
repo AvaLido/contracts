@@ -426,6 +426,7 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 10 ether}();
 
         // Check event emission for staking.
+        console.log("Block timestamp", block.timestamp);
         cheats.expectEmit(false, false, false, true);
         emit FakeStakeRequested("test", 10 ether, 1800, 1211400);
 
