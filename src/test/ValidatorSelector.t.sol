@@ -11,11 +11,6 @@ import "../stAVAX.sol";
 import "../interfaces/IOracle.sol";
 
 contract MockHelpers {
-    // TODO: Some left-padding or similar to match real-world node IDs would be nice.
-    function nodeId(uint256 num) public pure returns (string memory) {
-        return string(abi.encodePacked("NodeID-", Strings.toString(num)));
-    }
-
     function timeFromNow(uint256 time) public view returns (uint64) {
         return uint64(block.timestamp + time);
     }
@@ -36,6 +31,18 @@ contract MockHelpers {
         cheats.mockCall(oracle, abi.encodeWithSelector(IOracle.getLatestValidators.selector), abi.encode(data));
     }
 
+    function oracleIndexMock(
+        address oracle,
+        uint256 index,
+        string memory nodeId
+    ) public {
+        cheats.mockCall(
+            oracle,
+            abi.encodeWithSelector(IOracle.nodeIdByValidatorIndex.selector, index),
+            abi.encode(nodeId)
+        );
+    }
+
     function mixOfBigAndSmallValidators() public view returns (Validator[] memory) {
         Validator[] memory smallValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 500 ether);
         Validator[] memory bigValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 100000 ether);
@@ -53,13 +60,38 @@ contract MockHelpers {
     }
 }
 
+contract MockOracle is IOracle {
+    // TODO: Some left-padding or similar to match real-world node IDs would be nice.
+    function nodeId(uint256 num) public pure returns (string memory) {
+        return string(abi.encodePacked("NodeID-", Strings.toString(num)));
+    }
+
+    function receiveFinalizedReport(uint256, Validator[] calldata) public pure {
+        revert("Should not be called from ValidatorSelector");
+    }
+
+    function getLatestValidators() public pure returns (Validator[] memory) {
+        revert("Should be mocked");
+    }
+
+    /**
+     * @dev Replace this function to always return `Node-${N}` in tests.
+     * For other cases, this should be mocked.
+     */
+    function nodeIdByValidatorIndex(uint256 index) public pure returns (string memory) {
+        return nodeId(index);
+    }
+}
+
 contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     ValidatorSelector selector;
 
-    // Actual address irrelevant as function is mocked
-    address oracleAddress = address(0x9000000000000000000000000000000000000000);
+    address oracleAddress;
 
     function setUp() public {
+        IOracle oracle = IOracle(new MockOracle());
+        oracleAddress = address(oracle);
+
         ValidatorSelector _selector = new ValidatorSelector();
         selector = ValidatorSelector(proxyWrapped(address(_selector), ROLE_PROXY_ADMIN));
         selector.initialize(oracleAddress);
@@ -81,11 +113,19 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     }
 
     function testGetByCapacity() public {
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, timeFromNow(30 days), 4 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, timeFromNow(30 days), 1000 ether));
 
-        assertEq(selector.getAvailableValidatorsWithCapacity(1 ether).length, 2); // Smaller
-        assertEq(selector.getAvailableValidatorsWithCapacity(4 ether).length, 2); // Exact
-        assertEq(selector.getAvailableValidatorsWithCapacity(10 ether).length, 0); // Too big
+        assertEq(selector.getAvailableValidatorsWithCapacity(100 ether).length, 2); // Smaller
+        assertEq(selector.getAvailableValidatorsWithCapacity(1000 ether).length, 2); // Exact
+        assertEq(selector.getAvailableValidatorsWithCapacity(10000 ether).length, 0); // Too big
+    }
+
+    function testGetByCapacityRounding() public {
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1, timeFromNow(30 days), 1234 ether));
+
+        // Values are rounded down and stored as '100s of free avax'
+        assertEq(selector.getAvailableValidatorsWithCapacity(1100 ether).length, 1); // Smaller
+        assertEq(selector.getAvailableValidatorsWithCapacity(1234 ether).length, 0); // 0 because rounded
     }
 
     function testGetByCapacityWithinEndTime() public {
@@ -163,19 +203,71 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
             500 ether
         );
         assertEq(vals.length, 1000);
+        assertEq(amounts.length, 1000);
         assertEq(keccak256(bytes(vals[1])), keccak256(bytes("NodeID-1")));
         assertEq(keccak256(bytes(vals[69])), keccak256(bytes("NodeID-69")));
         assertEq(keccak256(bytes(vals[420])), keccak256(bytes("NodeID-420")));
 
-        assertEq(amounts.length, 1000);
-        assertEq(amounts[0], 0.5 ether);
-        assertEq(amounts[111], 0.5 ether);
-        assertEq(amounts[222], 0.5 ether);
-        assertEq(amounts[444], 0.5 ether);
-        assertEq(amounts[888], 0.5 ether);
+        // Should have 500 avax staked on one pseudo-random node.
+        int256 chosenIndex = -1;
+        for (uint256 i = 0; i < vals.length; i++) {
+            if (amounts[i] > 0) {
+                chosenIndex = int256(i);
+            }
+        }
 
+        assert(chosenIndex != -1);
         assertEq(remaining, 0);
         assertSumEq(amounts, 500 ether);
+    }
+
+    function testSelectManyValidatorsOverThresholdSmallCapacity() public {
+        // many validators with loads of capacity.
+        // Should get at most `maxChunkSize` on each until the request is filled.
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, timeFromNow(30 days), 500 ether));
+
+        (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
+            50000 ether
+        );
+        assertEq(vals.length, 1000);
+        assertEq(amounts.length, 1000);
+
+        // Should have 500 avax staked on one pseudo-random node.
+        uint256 numAllocated = 0;
+        for (uint256 i = 0; i < vals.length; i++) {
+            if (amounts[i] > 0) {
+                numAllocated++;
+            }
+        }
+
+        // Should fill 500 on 100 nodes
+        assertEq(numAllocated, 100);
+        assertEq(remaining, 0);
+        assertSumEq(amounts, 50000 ether);
+    }
+
+    function testSelectManyValidatorsOverThresholdLargeCapacity() public {
+        // many validators with loads of capacity.
+        // Should get at most `maxChunkSize` on each until the request is filled.
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, timeFromNow(30 days), 50000 ether));
+
+        (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
+            50000 ether
+        );
+        assertEq(vals.length, 1000);
+        assertEq(amounts.length, 1000);
+
+        uint256 numAllocated = 0;
+        for (uint256 i = 0; i < vals.length; i++) {
+            if (amounts[i] > 0) {
+                numAllocated++;
+            }
+        }
+
+        // Should fill 1000 (max) on 50 nodes
+        assertEq(numAllocated, 50);
+        assertEq(remaining, 0);
+        assertSumEq(amounts, 50000 ether);
     }
 
     function testSelectManyValidatorsWithRemainder() public {
