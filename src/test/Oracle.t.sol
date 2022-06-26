@@ -94,7 +94,7 @@ contract OracleTest is DSTest, Helpers {
     function testUnauthorizedChangeOracleManagerAddress() public {
         address newManagerAddress = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
         cheats.expectRevert(
-            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
+            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracle.changeOracleManagerAddress(newManagerAddress);
     }
