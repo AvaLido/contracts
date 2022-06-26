@@ -35,6 +35,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
     //error TooFewOracleMembers();
     error ValidatorAlreadyWhitelisted();
     error ValidatorNodeIdNotFound();
+    error InvalidValidatorIndex();
 
     // Events
     event OracleAddressChanged(address oracleAddress);
@@ -55,13 +56,13 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
     // TODO: when quorum is received for an epoch we can delete it from the mapping oracleMemberReports
 
     // Roles
-    bytes32 internal constant ROLE_ORACLE_MANAGER = keccak256("ROLE_ORACLE_MANAGER"); // TODO: more granular roles for managing members, changing quorum, etc.
+    bytes32 internal constant ROLE_ORACLE_ADMIN = keccak256("ROLE_ORACLE_ADMIN"); // TODO: more granular roles for managing members, changing quorum, etc.
 
     function initialize(
         address _roleOracleManager, // Role that can change whitelist of oracles.
         address[] memory _whitelistedOracleMembers // Whitelisted oracle member addresses.
     ) public initializer {
-        _setupRole(ROLE_ORACLE_MANAGER, _roleOracleManager);
+        _setupRole(ROLE_ORACLE_ADMIN, _roleOracleManager);
 
         // Set whitelist arrays
         whitelistedOraclesArray = _whitelistedOracleMembers;
@@ -78,7 +79,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
      * @notice Set the Oracle contract address that receives finalized reports.
      * @param _oracleAddress Oracle address
      */
-    function setOracleAddress(address _oracleAddress) external onlyRole(ROLE_ORACLE_MANAGER) {
+    function setOracleAddress(address _oracleAddress) external onlyRole(ROLE_ORACLE_ADMIN) {
         oracleContractAddress = _oracleAddress;
         Oracle = IOracle(_oracleAddress);
         emit OracleAddressChanged(_oracleAddress);
@@ -119,6 +120,16 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
         // 4. Check that the data only includes whitelisted validators
         // if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
         // TODO: Replace with check that the report only contains indicies that we have in our list.
+        uint256 numValidators = Oracle.validatorCount();
+        if (numValidators == 0) {
+            return;
+        }
+        for (uint256 i = 0; i < _reportData.length; i++) {
+            uint256 index = ValidatorHelpers.getNodeIndex(_reportData[i]);
+            if (index > numValidators - 1) {
+                revert InvalidValidatorIndex();
+            }
+        }
 
         // 5. Log that the oracle has reported for this epoch
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
@@ -231,10 +242,10 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
     }
 
     /**
-     * @notice Add `_oracleMember` to the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
+     * @notice Add `_oracleMember` to the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_ADMIN
      * @param _oracleMember proposed oracle member address.
      */
-    function addOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
+    function addOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_ADMIN) {
         if (_oracleMember == address(0)) revert InvalidAddress();
         if (_getOracleInWhitelistMapping(_oracleMember)) revert OracleMemberExists();
 
@@ -248,10 +259,10 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
     }
 
     /**
-     * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_MANAGER
+     * @notice Remove `_oracleMember` from the oracleMembers whitelist, allowed to be called only by ROLE_ORACLE_ADMIN
      * @param _oracleMember proposed oracle member address.
      */
-    function removeOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_MANAGER) {
+    function removeOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_ADMIN) {
         if (_oracleMember == address(0)) revert InvalidAddress();
         // TODO: add checks for having too few oracle members. What should the minimum be?
 
@@ -272,11 +283,11 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
     //  Contract management functions
     // -------------------------------------------------------------------------
 
-    function pause() external onlyRole(ROLE_ORACLE_MANAGER) {
+    function pause() external onlyRole(ROLE_ORACLE_ADMIN) {
         _pause();
     }
 
-    function resume() external onlyRole(ROLE_ORACLE_MANAGER) {
+    function resume() external onlyRole(ROLE_ORACLE_ADMIN) {
         _unpause();
     }
 

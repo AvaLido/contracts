@@ -30,18 +30,24 @@ contract OracleManagerTest is DSTest, Helpers {
         WHITELISTED_ORACLE_5
     ];
     uint256 epochId = 123456789;
-    string fakeNodeId = VALIDATOR_1;
-    string fakeNodeIdTwo = VALIDATOR_2;
+    // string fakeNodeId = VALIDATOR_1;
+    // string fakeNodeIdTwo = VALIDATOR_2;
     address anotherAddressForTesting = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
+    string[] nodeIds;
 
     function setUp() public {
         OracleManager _oracleManager = new OracleManager();
         oracleManager = OracleManager(proxyWrapped(address(_oracleManager), ROLE_PROXY_ADMIN));
-        oracleManager.initialize(ROLE_ORACLE_MANAGER, ORACLE_MEMBERS);
+        oracleManager.initialize(ORACLE_ADMIN_ADDRESS, ORACLE_MEMBERS);
 
         Oracle _oracle = new Oracle();
         oracle = Oracle(proxyWrapped(address(_oracle), ROLE_PROXY_ADMIN));
-        oracle.initialize(ROLE_ORACLE_MANAGER, address(oracleManager));
+        oracle.initialize(ORACLE_ADMIN_ADDRESS, address(oracleManager));
+
+        // string[] storage nodeIds;
+        nodeIds.push("Node-0");
+        // nodeIds[1] = "Node-1";
+        oracle.setNodeIDList(nodeIds);
     }
 
     // -------------------------------------------------------------------------
@@ -56,7 +62,7 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.expectRevert(OracleManager.OracleContractAddressNotSet.selector);
         oracleManager.receiveMemberReport(epochId, reportData);
 
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportData);
@@ -68,7 +74,7 @@ contract OracleManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testReceiveMemberReportWithoutQuorum() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportData = new Validator[](1);
@@ -78,7 +84,7 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testReceiveMemberReportWithQuorum() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
@@ -101,7 +107,7 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotReportForFinalizedEpoch() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
@@ -121,7 +127,7 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testOracleCannotReportTwice() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
@@ -134,7 +140,7 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testUnauthorizedReceiveMemberReport() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportData = new Validator[](1);
@@ -144,7 +150,7 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotReceiveReportWhenPaused() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.pause();
         Validator[] memory reportDataOne = new Validator[](1);
         reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
@@ -153,12 +159,17 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.receiveMemberReport(epochId, reportDataOne);
     }
 
+    // function testReportWithInvalidIndex() public {
+    //     cheats.prank(ORACLE_ADMIN_ADDRESS);
+    //     oracleManager.setOracleAddress(address(oracle));
+    // }
+
     // -------------------------------------------------------------------------
     //  Oracle management
     // -------------------------------------------------------------------------
 
     function testAddOracleMember() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         cheats.expectEmit(false, false, false, true);
         emit OracleMemberAdded(anotherAddressForTesting);
         oracleManager.addOracleMember(anotherAddressForTesting);
@@ -178,13 +189,13 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotAddOracleMemberAgain() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         cheats.expectRevert(OracleManager.OracleMemberExists.selector);
         oracleManager.addOracleMember(ORACLE_MEMBERS[0]);
     }
 
     function testRemoveOracleMember() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         cheats.expectEmit(false, false, false, true);
         emit OracleMemberRemoved(ORACLE_MEMBERS[2]);
         oracleManager.removeOracleMember(ORACLE_MEMBERS[2]);
@@ -204,7 +215,7 @@ contract OracleManagerTest is DSTest, Helpers {
     }
 
     function testCannotRemoveOracleMemberIfNotPresent() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
         oracleManager.removeOracleMember(0xf195179eEaE3c8CAB499b5181721e5C57e4769b2);
     }
@@ -214,7 +225,7 @@ contract OracleManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testSetOracleAddress() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         cheats.expectEmit(false, false, false, true);
         emit OracleAddressChanged(anotherAddressForTesting);
         oracleManager.setOracleAddress(anotherAddressForTesting);
@@ -227,14 +238,14 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.setOracleAddress(anotherAddressForTesting);
     }
 
-    // TODO: write and test changing ROLE_ORACLE_MANAGER
+    // TODO: write and test changing ORACLE_ADMIN_ADDRESS
 
     // -------------------------------------------------------------------------
     //  TEMPORARY FUNCTION TEST - REMOVE WHEN FUNCTION IS REMOVED
     // -------------------------------------------------------------------------
 
     function testTemporaryFinalizeReport() public {
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportData = new Validator[](2);

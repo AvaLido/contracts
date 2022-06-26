@@ -74,6 +74,10 @@ contract MockOracle is IOracle {
         revert("Should be mocked");
     }
 
+    function validatorCount() external view returns (uint256) {
+        revert("Should be mocked");
+    }
+
     /**
      * @dev Replace this function to always return `Node-${N}` in tests.
      * For other cases, this should be mocked.

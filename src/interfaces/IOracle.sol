@@ -10,4 +10,6 @@ interface IOracle {
     function getLatestValidators() external view returns (Validator[] memory);
 
     function nodeIdByValidatorIndex(uint256 index) external view returns (string memory);
+
+    function validatorCount() external view returns (uint256);
 }

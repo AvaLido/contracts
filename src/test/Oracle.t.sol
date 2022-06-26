@@ -31,7 +31,7 @@ contract OracleTest is DSTest, Helpers {
     function setUp() public {
         Oracle _oracle = new Oracle();
         oracle = Oracle(proxyWrapped(address(_oracle), ROLE_PROXY_ADMIN));
-        oracle.initialize(ROLE_ORACLE_MANAGER, ORACLE_MANAGER_CONTRACT_ADDRESS);
+        oracle.initialize(ORACLE_ADMIN_ADDRESS, ORACLE_MANAGER_CONTRACT_ADDRESS);
     }
 
     function testOracleConstructor() public {
@@ -87,7 +87,7 @@ contract OracleTest is DSTest, Helpers {
         cheats.expectEmit(false, false, false, true);
         emit OracleManagerAddressChanged(newManagerAddress);
 
-        cheats.prank(ROLE_ORACLE_MANAGER);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracle.changeOracleManagerAddress(newManagerAddress);
     }
 
@@ -99,7 +99,7 @@ contract OracleTest is DSTest, Helpers {
         oracle.changeOracleManagerAddress(newManagerAddress);
     }
 
-    // TODO: write and test changing ROLE_ORACLE_MANAGER
+    // TODO: write and test changing ROLE_ORACLE_ADMIN
 
     // TODO: Test setting node id list
 }
