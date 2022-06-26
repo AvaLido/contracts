@@ -138,7 +138,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         delete validatorNodeIds;
         uint256 len = nodes.length;
         for (uint256 i = 0; i < len; i++) {
-            validatorNodeIds[i] = nodes[i];
+            validatorNodeIds.push(nodes[i]);
         }
         // Remove the latest epoch data becasue it will no longer be valid if node indicies
         // have changed. This will happen if validators are removed from the list.

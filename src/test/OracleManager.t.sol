@@ -30,10 +30,8 @@ contract OracleManagerTest is DSTest, Helpers {
         WHITELISTED_ORACLE_5
     ];
     uint256 epochId = 123456789;
-    // string fakeNodeId = VALIDATOR_1;
-    // string fakeNodeIdTwo = VALIDATOR_2;
     address anotherAddressForTesting = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
-    string[] nodeIds;
+    string[] nodeIds = [VALIDATOR_1, VALIDATOR_2];
 
     function setUp() public {
         OracleManager _oracleManager = new OracleManager();
@@ -44,9 +42,7 @@ contract OracleManagerTest is DSTest, Helpers {
         oracle = Oracle(proxyWrapped(address(_oracle), ROLE_PROXY_ADMIN));
         oracle.initialize(ORACLE_ADMIN_ADDRESS, address(oracleManager));
 
-        // string[] storage nodeIds;
-        nodeIds.push("Node-0");
-        // nodeIds[1] = "Node-1";
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracle.setNodeIDList(nodeIds);
     }
 
@@ -159,6 +155,18 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.receiveMemberReport(epochId, reportDataOne);
     }
 
+    function testCannotReportInvalidIndex() public {
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        oracleManager.setOracleAddress(address(oracle));
+
+        Validator[] memory reportDataInvalid = new Validator[](1);
+        reportDataInvalid[0] = ValidatorHelpers.packValidator(123, true, true, 100);
+
+        cheats.expectRevert(OracleManager.InvalidValidatorIndex.selector);
+        cheats.prank(ORACLE_MEMBERS[0]);
+        oracleManager.receiveMemberReport(epochId, reportDataInvalid);
+    }
+
     // function testReportWithInvalidIndex() public {
     //     cheats.prank(ORACLE_ADMIN_ADDRESS);
     //     oracleManager.setOracleAddress(address(oracle));
@@ -183,7 +191,7 @@ contract OracleManagerTest is DSTest, Helpers {
 
     function testUnauthorizedAddOracleMember() public {
         cheats.expectRevert(
-            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
+            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracleManager.addOracleMember(anotherAddressForTesting);
     }
@@ -209,7 +217,7 @@ contract OracleManagerTest is DSTest, Helpers {
 
     function testUnauthorizedRemoveOracleMember() public {
         cheats.expectRevert(
-            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
+            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracleManager.removeOracleMember(anotherAddressForTesting);
     }
@@ -233,7 +241,7 @@ contract OracleManagerTest is DSTest, Helpers {
 
     function testUnauthorizedSetOracleAddress() public {
         cheats.expectRevert(
-            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x323baab94aa45aaa3cc044271188889aad21b45e0260589722dc9ff769b4b1d8"
+            "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracleManager.setOracleAddress(anotherAddressForTesting);
     }

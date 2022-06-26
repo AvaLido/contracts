@@ -117,9 +117,7 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
         // 3. Check if the oracle member has already reported for the period; reverts if true
         if (reportedOraclesByEpochId[_epochId][msg.sender]) revert OracleAlreadyReported();
 
-        // 4. Check that the data only includes whitelisted validators
-        // if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
-        // TODO: Replace with check that the report only contains indicies that we have in our list.
+        // 4. Check that the data only references indicies within the oracle list.
         uint256 numValidators = Oracle.validatorCount();
         if (numValidators == 0) {
             return;
