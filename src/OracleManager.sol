@@ -59,10 +59,10 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
     bytes32 internal constant ROLE_ORACLE_ADMIN = keccak256("ROLE_ORACLE_ADMIN"); // TODO: more granular roles for managing members, changing quorum, etc.
 
     function initialize(
-        address _roleOracleManager, // Role that can change whitelist of oracles.
+        address _roleOracleAdmin, // Role that can change whitelist of oracles.
         address[] memory _whitelistedOracleMembers // Whitelisted oracle member addresses.
     ) public initializer {
-        _setupRole(ROLE_ORACLE_ADMIN, _roleOracleManager);
+        _setupRole(ROLE_ORACLE_ADMIN, _roleOracleAdmin);
 
         // Set whitelist arrays
         whitelistedOraclesArray = _whitelistedOracleMembers;

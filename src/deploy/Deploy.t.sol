@@ -16,6 +16,7 @@ contract Deploy is DSTest, Helpers {
     // Role details
     // TODO: This should be divided into roles rather than used for everything
     address admin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
+    address oracleAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
 
     // Address constants
     address lidoFeeAddress = 0x2000000000000000000000000000000000000001;
@@ -41,17 +42,16 @@ contract Deploy is DSTest, Helpers {
         MpcManager _mpcManager = new MpcManager();
         MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), admin)));
         mpcManager.initialize();
-        console.log("MPC Manager", address(mpcManager));
 
         // Oracle manager
         OracleManager _oracleManager = new OracleManager();
         OracleManager oracleManager = OracleManager(address(proxyWrapped(address(_oracleManager), admin)));
-        oracleManager.initialize(admin, oracleAllowlist);
+        oracleManager.initialize(oracleAdmin, oracleAllowlist);
 
         // Oracle
         Oracle _oracle = new Oracle();
         Oracle oracle = Oracle(address(proxyWrapped(address(_oracle), admin)));
-        oracle.initialize(admin, address(oracleManager));
+        oracle.initialize(oracleAdmin, address(oracleManager));
 
         // Validator selector
         ValidatorSelector _validatorSelector = new ValidatorSelector();
@@ -66,5 +66,11 @@ contract Deploy is DSTest, Helpers {
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
         cheats.stopBroadcast();
+
+        console.log("Lido", address(lido));
+        console.log("Validator selector", address(validatorSelector));
+        console.log("Oracle", address(oracle));
+        console.log("Oracle Manager", address(oracleManager));
+        console.log("MPC Manager", address(mpcManager));
     }
 }

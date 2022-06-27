@@ -116,6 +116,10 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         return validatorNodeIds.length;
     }
 
+    function allValidatorNodeIds() public view returns (string[] memory) {
+        return validatorNodeIds;
+    }
+
     // -------------------------------------------------------------------------
     //  Role-based functions
     // -------------------------------------------------------------------------

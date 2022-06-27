@@ -27,6 +27,7 @@ contract OracleTest is DSTest, Helpers {
     address ORACLE_MANAGER_CONTRACT_ADDRESS = 0xaFf132430941797A06ae017Ab2E9c5e791D5DF2C;
     uint256 epochId = 123456789;
     string fakeNodeId = VALIDATOR_1;
+    string[] validators = [VALIDATOR_1, VALIDATOR_2];
 
     function setUp() public {
         Oracle _oracle = new Oracle();
@@ -102,4 +103,14 @@ contract OracleTest is DSTest, Helpers {
     // TODO: write and test changing ROLE_ORACLE_ADMIN
 
     // TODO: Test setting node id list
+
+    function testSetNodeIDList() public {
+        assertEq(oracle.validatorCount(), 0);
+
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        oracle.setNodeIDList(validators);
+
+        assertEq(oracle.validatorCount(), 2);
+        assertEq(oracle.nodeIdByValidatorIndex(0), validators[0]);
+    }
 }
