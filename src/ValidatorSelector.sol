@@ -156,7 +156,10 @@ contract ValidatorSelector is Initializable {
         // 1. Fetch our validators from the Oracle
         Validator[] memory validators = oracle.getLatestValidators();
 
+        // Create an array of 16 uint256s. This gives us a total of 4096 bits to use, which is
+        // our max number of validators.
         uint256[] memory masks = new uint256[](16);
+
         uint256 count = 0;
         for (uint256 i = 0; i < validators.length; i++) {
             if (ValidatorHelpers.freeSpace(validators[i]) < amount) {
@@ -168,7 +171,16 @@ contract ValidatorSelector is Initializable {
             if (!ValidatorHelpers.hasAcceptibleUptime(validators[i])) {
                 continue;
             }
+            // If we should include the validator, we will write the value of 'i'
+            // which is the position in the original array, into one of the bits
+            // in our mask.
+            // We figure out which mask to use by dividing by 256 (and removing 1 for the index).
             uint256 maskIndex = i < 256 ? 0 : (i / 256) - 1;
+            // We figure out the bit position within the mask by taking the modulo. For example,
+            // if we have index 1000, then:
+            // 1000 / 256 = 3 (mask index 2)
+            // 1000 % 256 = 232
+            // So we use the 232nd bit in mask index 2.
             uint256 maskPosition = i % 256;
             masks[maskIndex] = masks[maskIndex] | (1 << maskPosition);
             count++;
@@ -177,16 +189,29 @@ contract ValidatorSelector is Initializable {
         Validator[] memory result = new Validator[](count);
 
         uint256 added = 0;
+        // For each mask, while there are any 1 values set in it
         for (uint256 mi = 0; mi < masks.length; mi++) {
             uint256 mask = masks[mi];
-            uint8 bit = 0;
-            while (mask != 0) {
-                console.log(bit, mask);
-                mask &= (mask - 1);
-                bit++;
-                uint256 validatorIndex = mi * 256 + bit - 1;
-                result[added] = validators[validatorIndex];
-                added++;
+
+            // if the value is 0, no bits are set, so short circuit.
+            if (mask == 0) {
+                continue;
+            }
+
+            // Check if each bit in the mask is set.
+            for (uint256 bit = 0; bit < 256; bit++) {
+                // Put a 1 into the bit we want to check
+                uint256 value = 1 << bit;
+                // Test if the bit is set in the mask
+                console.log(bit, value);
+                if (mask & value == 1) {
+                    // console.log("Matched", mi, bit);
+                    // Compute the index by reversing our packing process.
+                    uint256 validatorIndex = mi * 256 + bit;
+                    result[added] = validators[validatorIndex];
+                    added++;
+                }
+                // TODO: check if mask is 0 after removing this bit to short-circuit?
             }
         }
 
