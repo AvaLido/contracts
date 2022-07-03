@@ -157,15 +157,6 @@ contract ValidatorSelector is Initializable {
         Validator[] memory validators = oracle.getLatestValidators();
 
         uint256[] memory masks = new uint256[](16);
-        for (uint256 x = 0; x < 16; x++) {
-            masks[x] = 0;
-        }
-
-        // TODO: Can we re-think a way to filter this without needing to iterate twice?
-        // We can't do it client-side because it happens at stake-time, and we do not want
-        // clients to control where the stake goes.
-        // Possible idea - store indicies of validators in a bitmask? Would be limited to N validators
-        // where N < 256.
         uint256 count = 0;
         for (uint256 i = 0; i < validators.length; i++) {
             if (ValidatorHelpers.freeSpace(validators[i]) < amount) {
