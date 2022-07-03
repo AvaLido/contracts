@@ -233,7 +233,11 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 10 ether}();
 
         validatorSelectMock(validatorSelectorAddress, "test-node", 9 ether, 1 ether);
+
+        cheats.expectEmit(false, false, false, true);
+        emit FakeStakeRequested("test-node", 9 ether, 1801, 1211401);
         uint256 staked = lido.initiateStake();
+
         assertEq(staked, 9 ether);
         assertEq(address(MPC_GENERATED_ADDRESS).balance, 9 ether);
         assertEq(lido.amountPendingAVAX(), 1 ether);
@@ -247,6 +251,21 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectMock(validatorSelectorAddress, "test", 1 ether, 1 ether);
         uint256 staked = lido.initiateStake();
         assertEq(staked, 0);
+        assertEq(lido.amountPendingAVAX(), 1 ether);
+    }
+
+    // NOTE: This is a `testFail` to ensure that an event is *not* emitted.
+    function testFailStakeSparseArray() public {
+        cheats.deal(USER1_ADDRESS, 100 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 100 ether}();
+
+        cheats.expectEmit(false, false, false, false);
+        emit FakeStakeRequested("test-node", 99 ether, 1801, 1211401);
+
+        validatorSelectMock(validatorSelectorAddress, "test", 0 ether, 1 ether);
+        uint256 staked = lido.initiateStake();
+        assertEq(staked, 99 ether);
         assertEq(lido.amountPendingAVAX(), 1 ether);
     }
 
