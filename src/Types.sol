@@ -18,10 +18,10 @@ struct UnstakeRequest {
 type Validator is uint24;
 
 // Total 24 bits
-// [ u s i i i i i i i i i i i i i i v v v v v v v v v v]
+// [ u s i i i i i i i i i i i i i i v v v v v v v v v v ]
 // u = 1 bit - Does the validator have acceptible uptime?
 // s = 1 bit - Does the validator have more time remaining than our largest stake period?
-// 12 bits - index of node ID in list.
+// i = 12 bits - index of node ID in list.
 // v = 10 bits - number of 'hundreds of free avax, rounded down', capped at 256
 
 library ValidatorHelpers {
@@ -70,7 +70,6 @@ library ValidatorHelpers {
             data = data | (1 << 22);
         }
         data = data | (nodeIndex << 10);
-        // data = data | (nodeIndex << 10);
         return Validator.wrap(data);
     }
 }

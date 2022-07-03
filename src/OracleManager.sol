@@ -302,8 +302,6 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
 
         if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
 
-        // if (!_reportContainsOnlyWhitelistedValidators(_reportData)) revert ValidatorNodeIdNotFound();
-
         bytes32 hashedReportData = _hashReportData(_reportData);
 
         _storeHashedDataCount(_epochId, hashedReportData);

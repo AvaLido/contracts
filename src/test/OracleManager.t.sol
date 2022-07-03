@@ -167,11 +167,6 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager.receiveMemberReport(epochId, reportDataInvalid);
     }
 
-    // function testReportWithInvalidIndex() public {
-    //     cheats.prank(ORACLE_ADMIN_ADDRESS);
-    //     oracleManager.setOracleAddress(address(oracle));
-    // }
-
     // -------------------------------------------------------------------------
     //  Oracle management
     // -------------------------------------------------------------------------

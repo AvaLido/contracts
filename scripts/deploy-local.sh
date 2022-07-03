@@ -18,7 +18,6 @@ export AVALIDO=$(task deploy -- AvaLido --constructor-args "0x200000000000000000
 cast send --rpc-url "http://127.0.0.1:9650/ext/bc/C/rpc" --from $ROLE_DEFAULT_ADMIN --private-key $ROLE_DEFAULT_ADMIN_PK -- $MPC_MANAGER "setAvaLidoAddress(address)" $AVALIDO
 
 # set oracle address from oraclemanager
-# task call -- $ORACLE_MANAGER "setOracleAddress(address)" $ORACLE --from $ROLE_ORACLE_ADMIN --private-key $ROLE_ORACLE_ADMIN_PK
 cast send --rpc-url "http://127.0.0.1:9650/ext/bc/C/rpc" --from $ROLE_ORACLE_ADMIN --private-key $ROLE_ORACLE_ADMIN_PK -- $ORACLE_MANAGER "setOracleAddress(address)" $ORACLE
 
 # Print addresses for easy access

@@ -116,6 +116,9 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         return validatorNodeIds.length;
     }
 
+    /**
+     * @notice Get all known validator nodeIds.
+     */
     function allValidatorNodeIds() public view returns (string[] memory) {
         return validatorNodeIds;
     }
