@@ -9,6 +9,8 @@ import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import "./Types.sol";
 import "./interfaces/IOracle.sol";
 
+import "forge-std/console.sol";
+
 /**
  * @title Lido on Avalanche Validator Selector
  * @dev This contract helps select validators from the Oracle for staking.
@@ -154,38 +156,49 @@ contract ValidatorSelector is Initializable {
         // 1. Fetch our validators from the Oracle
         Validator[] memory validators = oracle.getLatestValidators();
 
+        uint256[] memory masks = new uint256[](16);
+        for (uint256 x = 0; x < 16; x++) {
+            masks[x] = 0;
+        }
+
         // TODO: Can we re-think a way to filter this without needing to iterate twice?
         // We can't do it client-side because it happens at stake-time, and we do not want
         // clients to control where the stake goes.
         // Possible idea - store indicies of validators in a bitmask? Would be limited to N validators
         // where N < 256.
         uint256 count = 0;
-        for (uint256 index = 0; index < validators.length; index++) {
-            if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
+        for (uint256 i = 0; i < validators.length; i++) {
+            if (ValidatorHelpers.freeSpace(validators[i]) < amount) {
                 continue;
             }
-            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
+            if (!ValidatorHelpers.hasTimeRemaining(validators[i])) {
                 continue;
             }
-            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index])) {
+            if (!ValidatorHelpers.hasAcceptibleUptime(validators[i])) {
                 continue;
             }
+            uint256 maskIndex = i < 256 ? 0 : (i / 256) - 1;
+            uint256 maskPosition = i % 256;
+            masks[maskIndex] = masks[maskIndex] | (1 << maskPosition);
             count++;
         }
 
         Validator[] memory result = new Validator[](count);
-        for (uint256 index = 0; index < validators.length; index++) {
-            if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
-                continue;
+
+        uint256 added = 0;
+        for (uint256 mi = 0; mi < masks.length; mi++) {
+            uint256 mask = masks[mi];
+            uint8 bit = 0;
+            while (mask != 0) {
+                console.log(bit, mask);
+                mask &= (mask - 1);
+                bit++;
+                uint256 validatorIndex = mi * 256 + bit - 1;
+                result[added] = validators[validatorIndex];
+                added++;
             }
-            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
-                continue;
-            }
-            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index])) {
-                continue;
-            }
-            result[index] = validators[index];
         }
+
         return result;
     }
 }
