@@ -2,8 +2,6 @@ pragma solidity 0.8.10;
 
 CheatCodes constant cheats = CheatCodes(address(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D));
 
-address constant DEPLOYER_ADDRESS = address(0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84);
-
 // SPDX-License-Identifier: Unlicense
 pragma solidity >=0.8.0;
 
