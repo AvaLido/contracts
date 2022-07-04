@@ -29,7 +29,7 @@ contract MockAvaLido {
     }
 
     function initiateStake() external returns (uint256) {
-        uint256 startTime = block.timestamp + 30 seconds;
+        uint256 startTime = block.timestamp + 300 seconds;
         uint256 endTime = startTime + STAKE_PERIOD;
         mpcManager.requestStake{value: amount}(NODE_ID, amount, startTime, endTime);
 
