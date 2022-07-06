@@ -39,7 +39,7 @@ import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./Types.sol";
-import "./stAVAX.sol";
+import "./StAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
 
@@ -52,7 +52,7 @@ uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
  */
-contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, Initializable {
+contract AvaLido is Pausable, ReentrancyGuard, StAVAX, AccessControlEnumerable, Initializable {
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();

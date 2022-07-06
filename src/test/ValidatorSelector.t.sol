@@ -6,7 +6,7 @@ import "forge-std/console.sol";
 
 import "./cheats.sol";
 import "./helpers.sol";
-import "../stAVAX.sol";
+import "../StAVAX.sol";
 
 import "../interfaces/IOracle.sol";
 

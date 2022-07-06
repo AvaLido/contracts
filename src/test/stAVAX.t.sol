@@ -6,9 +6,9 @@ import "forge-std/Test.sol";
 import "./cheats.sol";
 import "./helpers.sol";
 
-import "../stAVAX.sol";
+import "../StAVAX.sol";
 
-contract TestToken is stAVAX {
+contract TestToken is StAVAX {
     uint256 public totalControlled = 0;
 
     function _setTotalControlled(uint256 _totalControlled) public {
