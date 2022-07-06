@@ -40,6 +40,7 @@ import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./Types.sol";
 import "./StAVAX.sol";
+import "./WstAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
 
