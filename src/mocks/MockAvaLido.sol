@@ -7,7 +7,12 @@ uint256 constant STAKE_PERIOD = 14 days;
 string constant NODE_ID = "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5";
 
 interface IMpcManagerSimple {
-    function requestStake(string calldata nodeID, uint256 amount, uint256 startTime, uint256 endTime) external payable;
+    function requestStake(
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) external payable;
 }
 
 // This version of AvaLido contract is simplified for testing of MPC-Manager stake feature.
@@ -15,14 +20,11 @@ interface IMpcManagerSimple {
 contract MockAvaLido {
     IMpcManager public mpcManager;
 
-    constructor(
-        address _mpcManagerAddress
-    ) payable {
+    constructor(address _mpcManagerAddress) payable {
         mpcManager = IMpcManager(_mpcManagerAddress);
     }
 
-    receive() payable external {
-    }
+    receive() external payable {}
 
     function getBalance() public view returns (uint256) {
         return address(this).balance;
