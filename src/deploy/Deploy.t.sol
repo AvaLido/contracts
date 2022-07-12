@@ -65,9 +65,13 @@ contract Deploy is DSTest, Helpers {
         AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
+        // MPC manager setup
+        mpcManager.setAvaLidoAddress(address(lido));
+
+        // End transaction
         cheats.stopBroadcast();
 
-        console.log("Lido", address(lido));
+        console.log("AvaLido", address(lido));
         console.log("Validator selector", address(validatorSelector));
         console.log("Oracle", address(oracle));
         console.log("Oracle Manager", address(oracleManager));
