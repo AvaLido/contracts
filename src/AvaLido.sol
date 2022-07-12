@@ -280,7 +280,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         uint256 startTime = block.timestamp + 30 minutes;
         uint256 endTime = startTime + STAKE_PERIOD;
         for (uint256 i = 0; i < ids.length; i++) {
-            // TODO: Account for zero values in array!
+            // The array from selectValidatorsForStake may be sparse, so we need to ignore any validators
+            // which are set with 0 amounts.
+            if (amounts[i] == 0) {
+                continue;
+            }
             mpcManager.requestStake{value: amounts[i]}(ids[i], amounts[i], startTime, endTime);
         }
 
