@@ -16,6 +16,7 @@ import "./interfaces/IOracle.sol";
 contract ValidatorSelector is Initializable {
     uint256 minimumRequiredStakeTimeRemaining;
     uint256 smallStakeThreshold;
+    uint256 maxChunkSize;
 
     // TODO: needs setter
     IOracle public oracle;
@@ -23,6 +24,7 @@ contract ValidatorSelector is Initializable {
     function initialize(address oracleAddress) public initializer {
         minimumRequiredStakeTimeRemaining = 15 days;
         smallStakeThreshold = 100 ether;
+        maxChunkSize = 1000 ether;
         oracle = IOracle(oracleAddress);
     }
 
@@ -35,10 +37,8 @@ contract ValidatorSelector is Initializable {
      * we want to a pseudo-even distribution of stake across all validators.
      * To be pragmatic, we use a greatly simplified option for small stakes where we just allocate
      * everything to a single pseudo-random validator.
-     * For larger stakes, we use a packing-esque algorithm to allocate each validator a portion
-     * of the total stake. This is clearly more expensive in gas, but only applies to people with more
-     * capital anyway. They are free to use many transactions under the threshold which will have the same
-     * distribution effect (assuming they are in different blocks).
+     * For larger stakes, we use a packing-esque algorithm to allocate multiple validators a portion
+     * of the total stake.
      * @param amount The amount of stake to distribute.
      * @return validators The validator node ids to distribute the stake to.
      * @return allocations The amount of AVAX to allocate to each validator
@@ -63,13 +63,14 @@ contract ValidatorSelector is Initializable {
             return (new string[](0), new uint256[](0), amount);
         }
 
+        uint256 startIndex = pseudoRandomIndex(validators.length);
+
         // For cases where we're staking < 100, we just shove everything on one pseudo-random node.
         // This is significantly simpler and cheaper than spreading it out, and 100 will not be enough
         // to skew the distribution across the network.
         if (amount <= smallStakeThreshold) {
-            uint256 i = uint256(keccak256(abi.encodePacked(block.timestamp))) % validators.length;
             string[] memory vals = new string[](1);
-            vals[0] = validators[i].nodeId;
+            vals[0] = oracle.nodeIdByValidatorIndex(ValidatorHelpers.getNodeIndex(validators[startIndex]));
             uint256[] memory amounts = new uint256[](1);
             amounts[0] = amount;
             return (vals, amounts, 0);
@@ -80,7 +81,7 @@ contract ValidatorSelector is Initializable {
         uint256 totalFreeSpace = 0;
         uint256[] memory freeSpaces = new uint256[](validators.length);
         for (uint256 index = 0; index < validators.length; index++) {
-            uint256 free = validators[index].freeSpace;
+            uint256 free = ValidatorHelpers.freeSpace(validators[index]);
             totalFreeSpace += free;
             freeSpaces[index] = free;
         }
@@ -97,14 +98,14 @@ contract ValidatorSelector is Initializable {
         // For larger amounts, we chunk it into N pieces.
         // We then continue to pack validators with each of those chunks in a round-robin
         // fashion, until we have nothing left to stake.
-        uint256 chunkSize = amount / validators.length;
+        uint256 chunkSize = Math.min(amount, maxChunkSize);
 
         // Because we need to create a fixed size array, we use every validator, and we set the amount to 0
         // if we can't stake anything on it. Callers must check this when using the result.
         uint256[] memory resultAmounts = new uint256[](validators.length);
 
         // Keep track of the amount we've staked
-        uint256 n = 0;
+        uint256 n = startIndex;
         uint256 amountStaked = 0;
         while (amountStaked < amount) {
             uint256 remaining = amount - amountStaked;
@@ -129,10 +130,18 @@ contract ValidatorSelector is Initializable {
         // across transactions)
         string[] memory validatorIds = new string[](validators.length);
         for (uint256 i = 0; i < validators.length; i++) {
-            validatorIds[i] = validators[i].nodeId;
+            // Don't make the call to get the node index if there's no value on that node.
+            if (resultAmounts[i] == 0) {
+                continue;
+            }
+            validatorIds[i] = oracle.nodeIdByValidatorIndex(ValidatorHelpers.getNodeIndex(validators[i]));
         }
 
         return (validatorIds, resultAmounts, remainingUnstaked);
+    }
+
+    function pseudoRandomIndex(uint256 length) internal view returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(block.timestamp))) % length;
     }
 
     /**
@@ -142,8 +151,8 @@ contract ValidatorSelector is Initializable {
      * @return validators The validators which have capacity to handle the given amount of AVAX.
      */
     function getAvailableValidatorsWithCapacity(uint256 amount) public view returns (Validator[] memory) {
-        // 1. Fetch our Validator from the Oracle
-        Validator[] memory validatorsForEpochId = oracle.getLatestValidator();
+        // 1. Fetch our validators from the Oracle
+        Validator[] memory validators = oracle.getLatestValidators();
 
         // TODO: Can we re-think a way to filter this without needing to iterate twice?
         // We can't do it client-side because it happens at stake-time, and we do not want
@@ -151,30 +160,32 @@ contract ValidatorSelector is Initializable {
         // Possible idea - store indicies of validators in a bitmask? Would be limited to N validators
         // where N < 256.
         uint256 count = 0;
-        for (uint256 index = 0; index < validatorsForEpochId.length; index++) {
-            if (validatorsForEpochId[index].freeSpace < amount) {
+        for (uint256 index = 0; index < validators.length; index++) {
+            if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
                 continue;
             }
-            if (stakeTimeRemaining(validatorsForEpochId[index]) < minimumRequiredStakeTimeRemaining) {
+            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
+                continue;
+            }
+            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index])) {
                 continue;
             }
             count++;
         }
 
         Validator[] memory result = new Validator[](count);
-        for (uint256 index = 0; index < validatorsForEpochId.length; index++) {
-            if (validatorsForEpochId[index].freeSpace < amount) {
+        for (uint256 index = 0; index < validators.length; index++) {
+            if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
                 continue;
             }
-            if (stakeTimeRemaining(validatorsForEpochId[index]) < minimumRequiredStakeTimeRemaining) {
+            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
                 continue;
             }
-            result[index] = validatorsForEpochId[index];
+            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index])) {
+                continue;
+            }
+            result[index] = validators[index];
         }
         return result;
-    }
-
-    function stakeTimeRemaining(Validator memory validator) public view returns (uint256) {
-        return validator.stakeEndTime - block.timestamp;
     }
 }

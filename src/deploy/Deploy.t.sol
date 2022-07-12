@@ -16,17 +16,13 @@ contract Deploy is DSTest, Helpers {
     // Role details
     // TODO: This should be divided into roles rather than used for everything
     address admin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
+    address oracleAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
 
     // Address constants
     address lidoFeeAddress = 0x2000000000000000000000000000000000000001;
     address authorFeeAddress = 0x2000000000000000000000000000000000000002;
 
     // Constants
-    string[] validatorAllowlist = [
-        "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
-        "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu",
-        "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN"
-    ];
     address[] oracleAllowlist = [
         0x03C1196617387899390d3a98fdBdfD407121BB67,
         0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413bf,
@@ -46,17 +42,16 @@ contract Deploy is DSTest, Helpers {
         MpcManager _mpcManager = new MpcManager();
         MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), admin)));
         mpcManager.initialize();
-        console.log("MPC Manager", address(mpcManager));
 
         // Oracle manager
         OracleManager _oracleManager = new OracleManager();
         OracleManager oracleManager = OracleManager(address(proxyWrapped(address(_oracleManager), admin)));
-        oracleManager.initialize(admin, validatorAllowlist, oracleAllowlist);
+        oracleManager.initialize(oracleAdmin, oracleAllowlist);
 
         // Oracle
         Oracle _oracle = new Oracle();
         Oracle oracle = Oracle(address(proxyWrapped(address(_oracle), admin)));
-        oracle.initialize(admin, address(oracleManager));
+        oracle.initialize(oracleAdmin, address(oracleManager));
 
         // Validator selector
         ValidatorSelector _validatorSelector = new ValidatorSelector();
@@ -70,6 +65,16 @@ contract Deploy is DSTest, Helpers {
         AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
+        // MPC manager setup
+        mpcManager.setAvaLidoAddress(address(lido));
+
+        // End transaction
         cheats.stopBroadcast();
+
+        console.log("AvaLido", address(lido));
+        console.log("Validator selector", address(validatorSelector));
+        console.log("Oracle", address(oracle));
+        console.log("Oracle Manager", address(oracleManager));
+        console.log("MPC Manager", address(mpcManager));
     }
 }
