@@ -23,8 +23,8 @@ contract MpcManagerTest is DSTest, Helpers {
 
     address AVALIDO_ADDRESS = 0x1000000000000000000000000000000000000001;
 
-    address RECEIVE_PRINCIPAL_ADDR = 0xd94fc5fd8812dde061f420d4146bc88e03b6787c;
-    address RECEIVE_REWARD_ADDR = 0xe8025f13e6bf0db21212b0dd6aebc4f3d1fb03ce;
+    address RECEIVE_PRINCIPAL_ADDR = 0xd94fC5fd8812ddE061F420D4146bc88e03b6787c;
+    address RECEIVE_REWARD_ADDR = 0xe8025f13E6bF0Db21212b0Dd6AEBc4F3d1FB03ce;
 
     MpcManager mpcManager;
     bytes[] pubKeys = new bytes[](3);
@@ -196,7 +196,6 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 3, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
         cheats.expectEmit(false, false, true, true);
-        uint256[] memory indices = new uint256[](2);
         indices[0] = 3;
         indices[1] = 1;
         emit ExportUTXORequest(
