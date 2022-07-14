@@ -62,7 +62,13 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     enum RequestType {
         UNKNOWN,
         STAKE
-    } // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
+    }
+    enum UTXOutputIndex {
+        PRINCIPAL,  // 0 in Avalanche network
+        REWARD  // 1 in Avalanche network
+    }
+
+    // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
     struct Request {
         bytes publicKey;
         RequestType requestType;
