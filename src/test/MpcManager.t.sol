@@ -19,7 +19,12 @@ contract MpcManagerTest is DSTest, Helpers {
     uint256 constant STAKE_START_TIME = 1640966400; // 2022-01-01
     uint256 constant STAKE_END_TIME = 1642176000; // 2022-01-15
 
+    bytes32 constant UTXO_TX_ID = hex"5245afb3ad9c5c3c9430a7034464f42cee023f228d46ebcae7544759d2779caa";
+
     address AVALIDO_ADDRESS = 0x1000000000000000000000000000000000000001;
+
+    address RECEIVE_PRINCIPAL_ADDR = 0xd94fc5fd8812dde061f420d4146bc88e03b6787c;
+    address RECEIVE_REWARD_ADDR = 0xe8025f13e6bf0db21212b0dd6aebc4f3d1fb03ce;
 
     MpcManager mpcManager;
     bytes[] pubKeys = new bytes[](3);
@@ -45,12 +50,15 @@ contract MpcManagerTest is DSTest, Helpers {
         uint256 startTime,
         uint256 endTime
     );
+    event ExportUTXORequest(bytes32 txId, uint32 outputIndex, address to, bytes indexed genPubKey, uint256[] participantIndices);
 
     function setUp() public {
         MpcManager _mpcManager = new MpcManager();
         mpcManager = MpcManager(proxyWrapped(address(_mpcManager), ROLE_PROXY_ADMIN));
         mpcManager.initialize();
         mpcManager.setAvaLidoAddress(AVALIDO_ADDRESS);
+        mpcManager.setReceivePrincipalAddr(RECEIVE_PRINCIPAL_ADDR);
+        mpcManager.setReceiveRewardAddr(RECEIVE_REWARD_ADDR);
         pubKeys[0] = MPC_PLAYER_1_PUBKEY;
         pubKeys[1] = MPC_PLAYER_2_PUBKEY;
         pubKeys[2] = MPC_PLAYER_3_PUBKEY;
@@ -162,6 +170,44 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         cheats.expectRevert(MpcManager.QuorumAlreadyReached.selector);
         mpcManager.joinRequest(1, 3);
+    }
+
+    function testReportUTXO() public {
+        setupKey();
+
+        // Event ExportUTXORequest emitted for after required t+1 participants have reported the same reward UTXO
+        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
+        cheats.expectEmit(false, false, true, true);
+        uint256[] memory indices = new uint256[](2);
+        indices[0] = 1;
+        indices[1] = 2;
+        emit ExportUTXORequest(
+            UTXO_TX_ID,
+            0,
+            RECEIVE_PRINCIPAL_ADDR,
+            MPC_GENERATED_PUBKEY,
+            indices
+        );
+        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 2, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
+
+        // Event ExportUTXORequest emitted for after required t+1 participants have reported the same principal UTXO
+        cheats.prank(MPC_PLAYER_3_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 3, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
+        cheats.expectEmit(false, false, true, true);
+        uint256[] memory indices = new uint256[](2);
+        indices[0] = 3;
+        indices[1] = 1;
+        emit ExportUTXORequest(
+            UTXO_TX_ID,
+            0,
+            RECEIVE_REWARD_ADDR,
+            MPC_GENERATED_PUBKEY,
+            indices
+        );
+        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
     }
 
     // -------------------------------------------------------------------------
