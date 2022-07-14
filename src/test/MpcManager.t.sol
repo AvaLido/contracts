@@ -178,7 +178,7 @@ contract MpcManagerTest is DSTest, Helpers {
         // Event ExportUTXORequest emitted for after required t+1 participants have reported the same reward UTXO
         cheats.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
-        cheats.expectEmit(false, false, true, true);
+        cheats.expectEmit(true, false, false, true);
         uint256[] memory indices = new uint256[](2);
         indices[0] = 1;
         indices[1] = 2;
@@ -195,12 +195,12 @@ contract MpcManagerTest is DSTest, Helpers {
         // Event ExportUTXORequest emitted for after required t+1 participants have reported the same principal UTXO
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 3, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
-        cheats.expectEmit(false, false, true, true);
+        cheats.expectEmit(true, false, false, true);
         indices[0] = 3;
         indices[1] = 1;
         emit ExportUTXORequest(
             UTXO_TX_ID,
-            0,
+            1,
             RECEIVE_REWARD_ADDR,
             MPC_GENERATED_PUBKEY,
             indices
