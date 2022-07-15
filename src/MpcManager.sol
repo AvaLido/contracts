@@ -264,6 +264,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
             }
         }
     }
+
     /**
      * @notice Moves tokens from p-chain to c-chain.
      */
@@ -402,5 +403,4 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
 
         if (msg.sender != member) revert InvalidGroupMembership();
     }
-
 }
