@@ -17,6 +17,7 @@ contract Deploy is DSTest, Helpers {
     // TODO: This should be divided into roles rather than used for everything
     address admin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
     address oracleAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
+    address mpcAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
 
     // Address constants
     address lidoFeeAddress = 0x2000000000000000000000000000000000000001;
@@ -74,7 +75,7 @@ contract Deploy is DSTest, Helpers {
         rTreasury.setAvaLidoAddress(address(lido));
 
         // MPC manager setup
-        mpcManager.initialize(address(lido), address(pTreasury), address(rTreasury));
+        mpcManager.initialize(mpcAdmin, address(lido), address(pTreasury), address(rTreasury));
 
         // End transaction
         cheats.stopBroadcast();

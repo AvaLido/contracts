@@ -93,9 +93,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     address public lastGenAddress;
 
     address public avaLidoAddress;
-
     address public principalTreasuryAddress;
-    address private rewardTreasuryAddress;
+    address public rewardTreasuryAddress;
 
     // groupId -> number of participants in the group
     mapping(bytes32 => uint256) private _groupParticipantCount;
@@ -118,12 +117,16 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     // utxoTxId -> utxoOutputIndex -> joinExportUTXOParticipantIndices
     mapping(bytes32 => mapping(uint32 => uint256[])) private _joinExportUTXOParticipantIndices;
 
+    // Roles
+    bytes32 internal constant ROLE_MPC_ADMIN = keccak256("ROLE_MPC_ADMIN"); // TODO: more granular roles for managing members, changing quorum, etc.
+
     function initialize(
+        address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
         address _avaLidoAddress,
         address _principalTreasuryAddress,
         address _rewardTreasuryAddress
     ) public initializer {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(ROLE_MPC_ADMIN, _roleMpcAdmin);
         avaLidoAddress = _avaLidoAddress;
         principalTreasuryAddress = _principalTreasuryAddress;
         rewardTreasuryAddress = _rewardTreasuryAddress;
@@ -287,7 +290,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
 
     modifier onlyAdmin() {
         // TODO: Define proper RBAC. For now just use deployer as admin.
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert AdminOnly();
+        if (!hasRole(ROLE_MPC_ADMIN, msg.sender)) revert AdminOnly();
         _;
     }
 

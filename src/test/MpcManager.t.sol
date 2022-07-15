@@ -61,7 +61,7 @@ contract MpcManagerTest is DSTest, Helpers {
     function setUp() public {
         MpcManager _mpcManager = new MpcManager();
         mpcManager = MpcManager(proxyWrapped(address(_mpcManager), ROLE_PROXY_ADMIN));
-        mpcManager.initialize(AVALIDO_ADDRESS, PRINCIPAL_TREASURY_ADDR, REWARD_TREASURY_ADDR);
+        mpcManager.initialize(MPC_ADMIN_ADDRESS, AVALIDO_ADDRESS, PRINCIPAL_TREASURY_ADDR, REWARD_TREASURY_ADDR);
         pubKeys[0] = MPC_PLAYER_1_PUBKEY;
         pubKeys[1] = MPC_PLAYER_2_PUBKEY;
         pubKeys[2] = MPC_PLAYER_3_PUBKEY;
@@ -72,6 +72,10 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testCreateGroup() public {
+        cheats.prank(USER1_ADDRESS);
+        cheats.expectRevert(MpcManager.AdminOnly.selector);
+        mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
+        cheats.prank(MPC_ADMIN_ADDRESS);
         cheats.expectEmit(false, false, true, true);
         emit ParticipantAdded(MPC_PLAYER_1_PUBKEY, MPC_GROUP_ID, 1);
         emit ParticipantAdded(MPC_PLAYER_2_PUBKEY, MPC_GROUP_ID, 2);
@@ -205,6 +209,7 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function setupGroup() private {
+        cheats.prank(MPC_ADMIN_ADDRESS);
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
     }
 

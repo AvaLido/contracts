@@ -111,7 +111,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
 
     // Address where we'll send AVAX to be staked.
     address private mpcManagerAddress;
-    IMpcManager private mpcManager;
+    IMpcManager public mpcManager;
     ITreasury public pricipalTreasury;
     ITreasury public rewardTreasury;
 
@@ -130,9 +130,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         protocolFeePercentage = 10;
         minStakeBatchAmount = 10 ether;
 
-        mpcManagerAddress = _mpcManagerAddress;
         mpcManager = IMpcManager(_mpcManagerAddress);
-
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
 
         address[] memory paymentAddresses = new address[](2);
@@ -442,12 +440,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         protocolFeePercentage = _protocolFeePercentage;
     }
 
-    function setMpcManagerAddress(address _mpcManagerAddress) external onlyAdmin {
-        if (_mpcManagerAddress == address(0)) revert InvalidAddress();
-        mpcManagerAddress = _mpcManagerAddress;
-        mpcManager = IMpcManager(_mpcManagerAddress);
-    }
-
+    /**
+     * @dev The two treasury addresses should be set in intialize. Separate them due to
+     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
+     * struct to hold all the arguments of initialize call?
+     */
     function setPrincipalTreasuryAddress(address _address) external onlyAdmin {
         if (_address == address(0)) revert InvalidAddress();
         if (address(pricipalTreasury) != address(0)) revert AlreadySet();
@@ -455,6 +452,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         pricipalTreasury = ITreasury(_address);
     }
 
+    /**
+     * @dev The two treasury addresses should be set in intialize. Separate them due to
+     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
+     * struct to hold all the arguments of initialize call?
+     */
     function setRewardTreasuryAddress(address _address) external onlyAdmin {
         if (_address == address(0)) revert InvalidAddress();
         if (address(rewardTreasury) != address(0)) revert AlreadySet();
