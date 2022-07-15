@@ -37,11 +37,13 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import "forge-std/console.sol";
 
 import "./Types.sol";
 import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
+import "./interfaces/ITreasury.sol";
 
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
@@ -60,6 +62,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     error ClaimTooLarge();
     error InsufficientBalance();
     error NoAvailableValidators();
+    error NoFundInTreasury();
+    error InvalidAddress();
+    error AlreadySet();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
@@ -108,6 +113,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     // Address where we'll send AVAX to be staked.
     address private mpcManagerAddress;
     IMpcManager private mpcManager;
+    ITreasury public pricipalTreasury;
+    ITreasury public rewardTreasury;
 
     function initialize(
         address lidoFeeAddress,
@@ -320,41 +327,46 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     }
 
     /**
-     * @notice You should not call this funciton.
+     * @notice Claims the value in treasury.
      * @dev A payable function which receives AVAX from the MPC wallet and
      * uses it to fill unstake requests. Any remaining funds after all requests
      * are filled are re-staked.
      */
-    function receivePrincipalFromMPC() external payable {
-        if (amountStakedAVAX == 0 || amountStakedAVAX < msg.value) revert InvalidStakeAmount();
+    function receivePrincipalFromMPC() external {
+        uint256 val = address(pricipalTreasury).balance;
+        if (val == 0) revert NoFundInTreasury();
+        pricipalTreasury.claim(val);
+        if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
         // We received this from an unstake, so remove from our count.
         // Anything restaked will be counted again on the way out.
         // Note: This avoids double counting, as the total count includes AVAX held by
         // the contract.
-        amountStakedAVAX -= msg.value;
+        amountStakedAVAX -= val;
 
         // Fill unstake requests
-        uint256 remaining = fillUnstakeRequests(msg.value);
+        uint256 remaining = fillUnstakeRequests(val);
 
         // Allocate excess for restaking.
         amountPendingAVAX += remaining;
     }
 
     /**
-     * @notice You should not call this funciton.
+     * @notice Claims the value in treasury and distribute.
      * @dev this function takes the protocol fee from the rewards, distributes
      * it to the protocol fee splitters, and then retains the rest.
      * We then kick off our stAVAX rebase.
      */
-    function receiveRewardsFromMPC() external payable {
-        if (msg.value == 0) return;
+    function receiveRewardsFromMPC() external {
+        uint256 val = address(rewardTreasury).balance;
+        if (val == 0) revert NoFundInTreasury();
+        rewardTreasury.claim(val);
 
-        uint256 protocolFee = (msg.value * protocolFeePercentage) / 100;
+        uint256 protocolFee = (val * protocolFeePercentage) / 100;
         payable(protocolFeeSplitter).transfer(protocolFee);
         emit ProtocolFeeEvent(protocolFee);
 
-        uint256 afterFee = msg.value - protocolFee;
+        uint256 afterFee = val - protocolFee;
         emit RewardsCollectedEvent(afterFee);
 
         // Fill unstake requests
@@ -432,12 +444,30 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     }
 
     function setMpcManagerAddress(address _mpcManagerAddress) external onlyAdmin {
-        require(_mpcManagerAddress != address(0), "Cannot set to 0 address");
+        if (_mpcManagerAddress == address(0)) revert InvalidAddress();
         mpcManagerAddress = _mpcManagerAddress;
         mpcManager = IMpcManager(_mpcManagerAddress);
+    }
+
+    function setPrincipalTreasuryAddress(address _address) external onlyAdmin {
+        if (_address == address(0)) revert InvalidAddress();
+        if (address(pricipalTreasury) != address(0)) revert AlreadySet();
+
+        pricipalTreasury = ITreasury(_address);
+    }
+
+    function setRewardTreasuryAddress(address _address) external onlyAdmin {
+        if (_address == address(0)) revert InvalidAddress();
+        if (address(rewardTreasury) != address(0)) revert AlreadySet();
+
+        rewardTreasury = ITreasury(_address);
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyAdmin {
         minStakeBatchAmount = _minStakeBatchAmount;
     }
+}
+
+contract PayableAvaLido is AvaLido {
+    receive() external payable {}
 }

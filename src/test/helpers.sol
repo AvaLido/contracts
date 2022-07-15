@@ -6,6 +6,7 @@ import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeabl
 
 import "../ValidatorSelector.sol";
 import "../MpcManager.sol";
+import "../Treasury.sol";
 
 import "./cheats.sol";
 
