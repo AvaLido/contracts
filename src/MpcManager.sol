@@ -28,6 +28,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     error RequestNotFound();
     error QuorumAlreadyReached();
     error AttemptToRejoin();
+    error Unrecognized();
 
     // Events
     event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
@@ -114,7 +115,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
     uint256 private _lastRequestId;
 
-    // utxoTxId -> utxoOutputIndex -> joinExportUTXOParticipantIndices
+    // utxoTxId -> utxoIndex -> joinExportUTXOParticipantIndices
     mapping(bytes32 => mapping(uint32 => uint256[])) private _joinExportUTXOParticipantIndices;
 
     // Roles
@@ -263,6 +264,30 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
             }
         }
     }
+    /**
+     * @notice Moves tokens from p-chain to c-chain.
+     */
+    function reportUTXO(
+        bytes32 groupId,
+        uint256 myIndex,
+        bytes calldata genPubKey,
+        bytes32 utxoTxID,
+        uint32 utxoIndex
+    ) external onlyGroupMember(groupId, myIndex) {
+        if (utxoIndex > 1) revert Unrecognized();
+        uint256 threshold = _groupThreshold[groupId];
+        uint256 countBeforeMyself = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].length;
+        if (countBeforeMyself > threshold) revert QuorumAlreadyReached();
+
+        _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].push(myIndex);
+
+        if (countBeforeMyself == threshold) {
+            uint256[] memory joinedIndices = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex];
+            address destAddress = utxoIndex == 0 ? principalTreasuryAddress : rewardTreasuryAddress;
+            emit ExportUTXORequest(utxoTxID, utxoIndex, destAddress, genPubKey, joinedIndices);
+            delete _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex];
+        }
+    }
 
     // -------------------------------------------------------------------------
     //  External view functions
@@ -378,38 +403,4 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         if (msg.sender != member) revert InvalidGroupMembership();
     }
 
-    // -------------------------------------------------------------------------
-    //  Reward functions
-    // -------------------------------------------------------------------------
-
-    function reportUTXO(
-        bytes32 groupId,
-        uint256 partiIndex,
-        bytes calldata genPubKey,
-        bytes32 utxoTxID,
-        uint32 utxoOutputIndex
-    ) external onlyGroupMember(groupId, partiIndex) {
-        uint256 threshold = _groupThreshold[groupId];
-        uint256 joinedCount = _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex].length;
-        if (joinedCount < threshold + 1) {
-            _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex].push(partiIndex);
-            if (joinedCount + 1 == threshold + 1) {
-                uint256[] memory joinedIndices = _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex];
-                if (utxoOutputIndex == 0) {
-                    address ArrToAcceptPrincipal = principalTreasuryAddress;
-                    if (ArrToAcceptPrincipal == address(0)) {
-                        ArrToAcceptPrincipal = lastGenAddress;
-                    }
-                    emit ExportUTXORequest(utxoTxID, utxoOutputIndex, ArrToAcceptPrincipal, genPubKey, joinedIndices);
-                } else if (utxoOutputIndex == 1) {
-                    address ArrToAcceptReward = rewardTreasuryAddress;
-                    if (ArrToAcceptReward == address(0)) {
-                        ArrToAcceptReward = lastGenAddress;
-                    }
-                    emit ExportUTXORequest(utxoTxID, utxoOutputIndex, ArrToAcceptReward, genPubKey, joinedIndices);
-                }
-                delete _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex];
-            }
-        }
-    }
 }
