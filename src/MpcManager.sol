@@ -92,10 +92,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     bytes public lastGenPubKey;
     address public lastGenAddress;
 
-    address private _avaLidoAddress;
+    address public avaLidoAddress;
 
-    address private _receivePrincipalAddr;
-    address private _receiveRewardAddr;
+    address public principalTreasuryAddress;
+    address private rewardTreasuryAddress;
 
     // groupId -> number of participants in the group
     mapping(bytes32 => uint256) private _groupParticipantCount;
@@ -118,8 +118,15 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     // utxoTxId -> utxoOutputIndex -> joinExportUTXOParticipantIndices
     mapping(bytes32 => mapping(uint32 => uint256[])) private _joinExportUTXOParticipantIndices;
 
-    function initialize() public initializer {
+    function initialize(
+        address _avaLidoAddress,
+        address _principalTreasuryAddress,
+        address _rewardTreasuryAddress
+    ) public initializer {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        avaLidoAddress = _avaLidoAddress;
+        principalTreasuryAddress = _principalTreasuryAddress;
+        rewardTreasuryAddress = _rewardTreasuryAddress;
     }
 
     // -------------------------------------------------------------------------
@@ -255,22 +262,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     }
 
     // -------------------------------------------------------------------------
-    //  Admin functions
-    // -------------------------------------------------------------------------
-
-    function setAvaLidoAddress(address avaLidoAddress) external onlyAdmin {
-        _avaLidoAddress = avaLidoAddress;
-    }
-
-    function setReceivePrincipalAddr(address receivePrincipalAddr) external onlyAdmin {
-        _receivePrincipalAddr = receivePrincipalAddr;
-    }
-
-    function setReceiveRewardAddr(address receiveRewardAddr) external onlyAdmin {
-        _receiveRewardAddr = receiveRewardAddr;
-    }
-
-    // -------------------------------------------------------------------------
     //  External view functions
     // -------------------------------------------------------------------------
 
@@ -301,7 +292,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     }
 
     modifier onlyAvaLido() {
-        if (msg.sender != _avaLidoAddress) revert AvaLidoOnly();
+        if (msg.sender != avaLidoAddress) revert AvaLidoOnly();
         _;
     }
 
@@ -402,13 +393,13 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
             if (joinedCount + 1 == threshold + 1) {
                 uint256[] memory joinedIndices = _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex];
                 if (utxoOutputIndex == 0) {
-                    address ArrToAcceptPrincipal = _receivePrincipalAddr;
+                    address ArrToAcceptPrincipal = principalTreasuryAddress;
                     if (ArrToAcceptPrincipal == address(0)) {
                         ArrToAcceptPrincipal = lastGenAddress;
                     }
                     emit ExportUTXORequest(utxoTxID, utxoOutputIndex, ArrToAcceptPrincipal, genPubKey, joinedIndices);
                 } else if (utxoOutputIndex == 1) {
-                    address ArrToAcceptReward = _receiveRewardAddr;
+                    address ArrToAcceptReward = rewardTreasuryAddress;
                     if (ArrToAcceptReward == address(0)) {
                         ArrToAcceptReward = lastGenAddress;
                     }

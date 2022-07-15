@@ -41,7 +41,6 @@ contract Deploy is DSTest, Helpers {
         // MPC manager
         MpcManager _mpcManager = new MpcManager();
         MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), admin)));
-        mpcManager.initialize();
 
         // Treasuries
         PrincipalTreasury pTreasury = new PrincipalTreasury();
@@ -75,7 +74,7 @@ contract Deploy is DSTest, Helpers {
         rTreasury.setAvaLidoAddress(address(lido));
 
         // MPC manager setup
-        mpcManager.setAvaLidoAddress(address(lido));
+        mpcManager.initialize(address(lido), address(pTreasury), address(rTreasury));
 
         // End transaction
         cheats.stopBroadcast();

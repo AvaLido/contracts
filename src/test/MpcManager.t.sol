@@ -23,8 +23,8 @@ contract MpcManagerTest is DSTest, Helpers {
 
     address AVALIDO_ADDRESS = 0x1000000000000000000000000000000000000001;
 
-    address RECEIVE_PRINCIPAL_ADDR = 0xd94fC5fd8812ddE061F420D4146bc88e03b6787c;
-    address RECEIVE_REWARD_ADDR = 0xe8025f13E6bF0Db21212b0Dd6AEBc4F3d1FB03ce;
+    address PRINCIPAL_TREASURY_ADDR = 0xd94fC5fd8812ddE061F420D4146bc88e03b6787c;
+    address REWARD_TREASURY_ADDR = 0xe8025f13E6bF0Db21212b0Dd6AEBc4F3d1FB03ce;
 
     MpcManager mpcManager;
     bytes[] pubKeys = new bytes[](3);
@@ -61,10 +61,7 @@ contract MpcManagerTest is DSTest, Helpers {
     function setUp() public {
         MpcManager _mpcManager = new MpcManager();
         mpcManager = MpcManager(proxyWrapped(address(_mpcManager), ROLE_PROXY_ADMIN));
-        mpcManager.initialize();
-        mpcManager.setAvaLidoAddress(AVALIDO_ADDRESS);
-        mpcManager.setReceivePrincipalAddr(RECEIVE_PRINCIPAL_ADDR);
-        mpcManager.setReceiveRewardAddr(RECEIVE_REWARD_ADDR);
+        mpcManager.initialize(AVALIDO_ADDRESS, PRINCIPAL_TREASURY_ADDR, REWARD_TREASURY_ADDR);
         pubKeys[0] = MPC_PLAYER_1_PUBKEY;
         pubKeys[1] = MPC_PLAYER_2_PUBKEY;
         pubKeys[2] = MPC_PLAYER_3_PUBKEY;
@@ -188,7 +185,7 @@ contract MpcManagerTest is DSTest, Helpers {
         uint256[] memory indices = new uint256[](2);
         indices[0] = 1;
         indices[1] = 2;
-        emit ExportUTXORequest(UTXO_TX_ID, 0, RECEIVE_PRINCIPAL_ADDR, MPC_GENERATED_PUBKEY, indices);
+        emit ExportUTXORequest(UTXO_TX_ID, 0, PRINCIPAL_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
         cheats.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 2, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
 
@@ -198,7 +195,7 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.expectEmit(true, false, false, true);
         indices[0] = 3;
         indices[1] = 1;
-        emit ExportUTXORequest(UTXO_TX_ID, 1, RECEIVE_REWARD_ADDR, MPC_GENERATED_PUBKEY, indices);
+        emit ExportUTXORequest(UTXO_TX_ID, 1, REWARD_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
         cheats.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
     }
