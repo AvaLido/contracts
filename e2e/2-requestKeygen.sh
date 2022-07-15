@@ -15,8 +15,8 @@ MPC_PLAYER_PUBKEYS=["0xc20e0c088bb20027a77b1d23ad75058df5349c7a2bfafff7516c44c6f
 MPC_GROUP_ID="3726383e52fd4cb603498459e8a4a15d148566a51b3f5bfbbf3cac7b61647d04"
 
 echo "creating group"
-cast send --rpc-url $C_CHAIN_RPC_URL --from $ROLE_DEFAULT_ADMIN --private-key $ROLE_DEFAULT_ADMIN_PK $MPC_MANAGER_ADDRESS "createGroup(bytes[],uint256)" $MPC_PLAYER_PUBKEYS 1 
+cast send --gas-limit 900000 --rpc-url $C_CHAIN_RPC_URL --from $ROLE_DEFAULT_ADMIN --private-key $ROLE_DEFAULT_ADMIN_PK $MPC_MANAGER_ADDRESS "createGroup(bytes[],uint256)" $MPC_PLAYER_PUBKEYS 1 
 
 echo "creating key"
-cast send --rpc-url $C_CHAIN_RPC_URL --from $ROLE_DEFAULT_ADMIN --private-key $ROLE_DEFAULT_ADMIN_PK $MPC_MANAGER_ADDRESS "requestKeygen(bytes32)" $MPC_GROUP_ID
+cast send --gas-limit 900000 --rpc-url $C_CHAIN_RPC_URL --from $ROLE_DEFAULT_ADMIN --private-key $ROLE_DEFAULT_ADMIN_PK $MPC_MANAGER_ADDRESS "requestKeygen(bytes32)" $MPC_GROUP_ID
  
