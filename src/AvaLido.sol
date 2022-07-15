@@ -154,33 +154,36 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Return your stAVAX to receive the equivalent amount of AVAX.
+     * @notice Return your stAVAX to receive the equivalent amount of AVAX at the current exchange rate.
      * @dev We limit users to some maximum number of concurrent unstake requests to prevent
      * people flooding the queue. The amount for each unstake request is unbounded.
      * @param amount The amount of stAVAX to unstake.
      */
-    function requestWithdrawal(uint256 amount) external whenNotPaused nonReentrant returns (uint256) {
-        if (amount == 0 || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+    function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
+        if (stAVAXAmount == 0 || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
             revert TooManyConcurrentUnstakeRequests();
         }
         unstakeRequestCount[msg.sender]++;
 
-        if (balanceOf(msg.sender) < amount) {
+        if (balanceOf(msg.sender) < stAVAXAmount) {
             revert InsufficientBalance();
         }
 
         // Transfer stAVAX from user to our contract.
-        // We use the internal call to avoid double-reentrancy issues.
-        Shares256 sharesAmount = getSharesByAmount(amount);
-        _transferShares(msg.sender, address(this), sharesAmount);
+        // TODO: should I keep an internal _transfer to avoid double-reentrancy issues
+        // both here and in deposit?
+        transferFrom(msg.sender, address(this), stAVAXAmount);
+        uint256 avaxAmount = stAVAXToAVAX(protocolControlledAVAX(), stAVAXAmount);
 
         // Create the request and store in our queue.
-        unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amount, 0, 0));
+        // Should be unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amountInAvaxToClaim, 0, 0, amountOfStAVAXSent));
+        unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), avaxAmount, 0, 0, stAVAXAmount));
 
         uint256 requestIndex = unstakeRequests.length - 1;
-        emit WithdrawRequestSubmittedEvent(msg.sender, amount, block.timestamp, requestIndex);
+        // TODO: how does avax and stavax amount change this event
+        emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, block.timestamp, requestIndex);
 
         return requestIndex;
     }
@@ -198,10 +201,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     /**
      * @notice Claim your AVAX from a completed unstake requested.
      * @dev This allows users to claim their AVAX back. We burn the stAVAX that we've been holding
-     * at this point, so that the amount of AVAX in the protocol aligns with the amount of stAVAX
-     * in circulation, and rebases can be computed properly.
+     * at this point.
      * Note that we also allow partial claims of unstake requests so that users don't need to wait
-     * for the entire request to be filled to get some liquidity.
+     * for the entire request to be filled to get some liquidity. This is the reason we set the
+     * exchange rate in requestWithdrawal instead of at claim time.
      */
     function claim(uint256 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
         UnstakeRequest memory request = requestByIndex(requestIndex);
@@ -214,9 +217,18 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         request.amountClaimed += amount;
         unstakeRequests[requestIndex] = request;
 
-        // Burn stAVAX and send AVAX to the user.
-        Shares256 shares = getSharesByAmount(amount);
-        _burnShares(address(this), shares);
+        //Burn the stAVAX in the UnstakeRequest
+        // If it's a partial claim we need to burn a proportional amount of the original stAVAX
+        // using the stAVAX and AVAX amounts in the unstake request
+        // (x / amountLocked) = (amountClaimed / amountRequested)
+        // amountRequested * x = amountLocked * amountClaimed
+        // x = (amountLocked * amountClaimed) / amountRequested
+        uint256 amountOfStAVAXToBurn = (amountLocked * amountClaimed) / amountRequested;
+        burn(address(this), amountOfStAVAXToBurn);
+
+        // -= from the protocolControlledAvax?
+
+        // Transfer the AVAX to the user
         payable(msg.sender).transfer(amount);
 
         // Emit claim event.
@@ -227,11 +239,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
             unstakeRequestCount[msg.sender]--;
             delete unstakeRequests[requestIndex];
 
+            // TODO: add separate stAVAX and AVAX amounts to this event.
             emit ClaimEvent(msg.sender, amount, true, requestIndex);
 
             return;
         }
 
+        // TODO: add separate stAVAX and AVAX amounts to this event.
         // Emit an event which describes the partial claim.
         emit ClaimEvent(msg.sender, amount, false, requestIndex);
     }
@@ -296,8 +310,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Depsoit your AXAV to receive Staked AVAX (stAVAX) in return.
-     * You will always receive stAVAX in a 1:1 ratio.
+     * @notice Deposit your AXAV to receive Staked AVAX (stAVAX) in return.
      * @dev Receives AVAX and mints StAVAX to msg.sender. We attempt to fill
      * any outstanding requests with the incoming AVAX for instant liquidity.
      */
@@ -305,9 +318,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         uint256 amount = msg.value;
         if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
-        // Mint stAVAX for user
-        Shares256 shares = _getDepositSharesByAmount(amount);
-        _mintShares(msg.sender, shares);
+        // Mint stAVAX for user at the currently calculated exchange rate
+        uint256 amountOfStAVAXToMint = avaxToStAVAX(protocolControlledAVAX(), amount);
+        mint(msg.sender, amount);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
