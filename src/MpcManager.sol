@@ -51,7 +51,13 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 endTime
     );
 
-    event ExportUTXORequest(bytes32 txId, uint32 outputIndex, address to, bytes indexed genPubKey, uint256[] participantIndices);
+    event ExportUTXORequest(
+        bytes32 txId,
+        uint32 outputIndex,
+        address to,
+        bytes indexed genPubKey,
+        uint256[] participantIndices
+    );
 
     // Types
     enum RequestStatus {
@@ -64,8 +70,8 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         STAKE
     }
     enum UTXOutputIndex {
-        PRINCIPAL,  // 0 in Avalanche network
-        REWARD  // 1 in Avalanche network
+        PRINCIPAL, // 0 in Avalanche network
+        REWARD // 1 in Avalanche network
     }
 
     // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
@@ -391,9 +397,9 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     ) external onlyGroupMember(groupId, partiIndex) {
         uint256 threshold = _groupThreshold[groupId];
         uint256 joinedCount = _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex].length;
-        if (joinedCount < threshold+1) {
+        if (joinedCount < threshold + 1) {
             _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex].push(partiIndex);
-            if (joinedCount+1 == threshold+1) {
+            if (joinedCount + 1 == threshold + 1) {
                 uint256[] memory joinedIndices = _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex];
                 if (utxoOutputIndex == 0) {
                     address ArrToAcceptPrincipal = _receivePrincipalAddr;
@@ -408,7 +414,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
                     }
                     emit ExportUTXORequest(utxoTxID, utxoOutputIndex, ArrToAcceptReward, genPubKey, joinedIndices);
                 }
-                delete  _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex];
+                delete _joinExportUTXOParticipantIndices[utxoTxID][utxoOutputIndex];
             }
         }
     }
