@@ -278,7 +278,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         if (utxoIndex > 1) revert Unrecognized();
         uint256 threshold = _groupThreshold[groupId];
         uint256 countBeforeMyself = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].length;
-        if (countBeforeMyself > threshold) revert QuorumAlreadyReached();
+        if (countBeforeMyself > threshold) return;
 
         _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].push(myIndex);
 
