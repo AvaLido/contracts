@@ -33,7 +33,6 @@ contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasu
         avaLidoAddress.transfer(amount);
     }
 
-    
     // -------------------------------------------------------------------------
     //  Modifiers
     // -------------------------------------------------------------------------
@@ -51,4 +50,5 @@ contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasu
 }
 
 contract PrincipalTreasury is Treasury {}
+
 contract RewardTreasury is Treasury {}

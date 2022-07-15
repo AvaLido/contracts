@@ -37,7 +37,6 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
-import "forge-std/console.sol";
 
 import "./Types.sol";
 import "./stAVAX.sol";
