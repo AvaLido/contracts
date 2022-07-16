@@ -450,11 +450,4 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_MPC_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
     }
-
-    function setNewPaymentSplitter(address[] calldata paymentAddresses, uint256[] calldata paymentSplit)
-        external
-        onlyAdmin
-    {
-        protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
-    }
 }

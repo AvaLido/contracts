@@ -824,7 +824,7 @@ contract AvaLidoTest is DSTest, Helpers {
         // If I set no cheats.prank it passes, I assume the default caller is the admin
         // But if I specifically set ROLE_PROXY_ADMIN, it errors: FAIL. Reason: TransparentUpgradeableProxy: admin cannot fallback to proxy target
         //cheats.prank(ROLE_PROXY_ADMIN);
-        lido.setNewPaymentSplitter(paymentAddresses, paymentSplit);
+        lido.setProtocolFeeSplit(paymentAddresses, paymentSplit);
         lido.receiveRewardsFromMPC{value: 1 ether}();
         assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
 
