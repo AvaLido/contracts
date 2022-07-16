@@ -43,6 +43,8 @@ import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
 
+import "forge-std/console2.sol";
+
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint256 constant STAKE_PERIOD = 14 days;
@@ -157,10 +159,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * @notice Return your stAVAX to receive the equivalent amount of AVAX at the current exchange rate.
      * @dev We limit users to some maximum number of concurrent unstake requests to prevent
      * people flooding the queue. The amount for each unstake request is unbounded.
-     * @param amount The amount of stAVAX to unstake.
+     * @param stAVAXAmount The amount of stAVAX to unstake.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
-        if (stAVAXAmount == 0 || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (stAVAXAmount == 0 || stAVAXAmount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
             revert TooManyConcurrentUnstakeRequests();
@@ -223,8 +225,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         // (x / amountLocked) = (amountClaimed / amountRequested)
         // amountRequested * x = amountLocked * amountClaimed
         // x = (amountLocked * amountClaimed) / amountRequested
-        uint256 amountOfStAVAXToBurn = (amountLocked * amountClaimed) / amountRequested;
-        burn(address(this), amountOfStAVAXToBurn);
+        uint256 amountOfStAVAXToBurn = (request.amountLocked * request.amountClaimed) / request.amountRequested;
+        _burn(address(this), amountOfStAVAXToBurn);
 
         // -= from the protocolControlledAvax?
 
@@ -310,7 +312,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Deposit your AXAV to receive Staked AVAX (stAVAX) in return.
+     * @notice Deposit your AVAX to receive Staked AVAX (stAVAX) in return.
      * @dev Receives AVAX and mints StAVAX to msg.sender. We attempt to fill
      * any outstanding requests with the incoming AVAX for instant liquidity.
      */
@@ -319,8 +321,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         // Mint stAVAX for user at the currently calculated exchange rate
-        uint256 amountOfStAVAXToMint = avaxToStAVAX(protocolControlledAVAX(), amount);
-        mint(msg.sender, amount);
+        uint256 amountOfStAVAXToMint = avaxToStAVAX(amountStakedAVAX, amount);
+        console2.log("amountOfStAVAXToMint");
+        console2.log(amountOfStAVAXToMint);
+        _mint(msg.sender, amountOfStAVAXToMint);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
@@ -329,7 +333,14 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         // Note that we explcitly do not subsequently use this pending amount to fill unstake requests.
         // This intentionally removes the ability to instantly stake and unstake, which makes the
         // arb opportunity around trying to collect rebase value significantly riskier/impractical.
+        // TODO: this is probably different because of non-rebasing now?
         amountPendingAVAX += remaining;
+
+        console2.log(protocolControlledAVAX());
+
+        // MAYBE We now need to increase the total protocolControlledAvax by the full amount staked
+        // Come back to this
+        //amountPendingAVAX += amount;
     }
 
     /**
@@ -433,6 +444,14 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
 
     function isFullyClaimed(UnstakeRequest memory request) private pure returns (bool) {
         return request.amountClaimed >= request.amountRequested;
+    }
+
+    function exchangeRateAVAXToStAVAX() external view returns (uint256) {
+        return avaxToStAVAX(protocolControlledAVAX(), 1 ether);
+    }
+
+    function exchangeRateStAVAXToAVAX() external view returns (uint256) {
+        return stAVAXToAVAX(protocolControlledAVAX(), 1 ether);
     }
 
     // -------------------------------------------------------------------------

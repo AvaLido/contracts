@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+
+import "forge-std/console2.sol";
 
 /**
  * @notice stAVAX tokens are liquid staked AVAX tokens.
@@ -12,29 +13,8 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
  * This contract is abstract, and must be implemented by something which
  * knows the total amount of controlled AVAX.
  */
-abstract contract stAVAX is IERC20, IERC20Metadata, ReentrancyGuard {
-    mapping(address => mapping(address => uint256)) private allowances;
-
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() external pure returns (string memory) {
-        return "Staked AVAX";
-    }
-
-    /**
-     * @dev Returns the symbol of the token.
-     */
-    function symbol() external pure returns (string memory) {
-        return "stAVAX";
-    }
-
-    /**
-     * @dev Returns the decimals places of the token.
-     */
-    function decimals() external pure returns (uint8) {
-        return 18;
-    }
+abstract contract stAVAX is ERC20, ReentrancyGuard {
+    constructor() ERC20("Staked AVAX", "stAVAX") {}
 
     /**
      * @notice Converts an amount of stAVAX to its equivalent in AVAX.
@@ -44,13 +24,13 @@ abstract contract stAVAX is IERC20, IERC20Metadata, ReentrancyGuard {
      * @return UnstakeRequest Its amount of equivalent AVAX.
      */
     function stAVAXToAVAX(uint256 totalControlled, uint256 stAvaxAmount) public view returns (uint256) {
-        if (totalSupply == 0) {
+        if (totalSupply() == 0) {
             return 0;
         }
         if (totalControlled == 0) {
             return stAvaxAmount;
         }
-        return (stAvaxAmount * totalControlled * 1 ether) / totalSupply / 1 ether;
+        return (stAvaxAmount * totalControlled * 1 ether) / totalSupply() / 1 ether;
     }
 
     /**
@@ -61,11 +41,16 @@ abstract contract stAVAX is IERC20, IERC20Metadata, ReentrancyGuard {
      * @return UnstakeRequest Its equivalent amount of stAVAX.
      */
     function avaxToStAVAX(uint256 totalControlled, uint256 avaxAmount) public view returns (uint256) {
+        console2.log("totalcontrolled");
+        console2.log(totalControlled);
         // The result is always 1:1 on the first deposit.
-        if (totalSupply == 0 || totalControlled == 0) {
+        if (totalSupply() == 0 || totalControlled == 0) {
             return avaxAmount;
         }
-        return (avaxAmount * totalSupply * 1 ether) / totalControlled / 1 ether;
+        uint256 supply = totalSupply();
+        console2.log("total supply of stavax");
+        console2.log(supply);
+        return (avaxAmount * totalSupply() * 1 ether) / totalControlled / 1 ether;
     }
 
     /**
