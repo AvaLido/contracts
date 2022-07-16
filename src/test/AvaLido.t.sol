@@ -797,4 +797,47 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountFilled, 0.9 ether);
         assertEq(amountClaimed, 0 ether);
     }
+
+    function testNewPaymentSplitter() public {
+        lido.receiveRewardsFromMPC{value: 5 ether}();
+        assertEq(address(lido.protocolFeeSplitter()).balance, 0.5 ether);
+
+        PaymentSplitter splitter = PaymentSplitter(lido.protocolFeeSplitter());
+
+        splitter.release(payable(feeAddressAuthor));
+        splitter.release(payable(feeAddressLido));
+
+        assertEq(address(feeAddressAuthor).balance, 0.1 ether);
+        assertEq(address(feeAddressLido).balance, 0.4 ether);
+
+        // Test that new PS can be deployed and new rewards received go to it
+        address[] memory paymentAddresses = new address[](2);
+        paymentAddresses[0] = USER1_ADDRESS;
+        paymentAddresses[1] = USER2_ADDRESS;
+
+        uint256[] memory paymentSplit = new uint256[](2);
+        paymentSplit[0] = 60;
+        paymentSplit[1] = 40;
+
+        // TODO: interesting, when i set a clear non-admin address, it errors: FAIL. Reason: Caller is not admin
+        //cheats.prank(ORACLE_ADMIN_ADDRESS);
+        // If I set no cheats.prank it passes, I assume the default caller is the admin
+        // But if I specifically set ROLE_PROXY_ADMIN, it errors: FAIL. Reason: TransparentUpgradeableProxy: admin cannot fallback to proxy target
+        //cheats.prank(ROLE_PROXY_ADMIN);
+        lido.setNewPaymentSplitter(paymentAddresses, paymentSplit);
+        lido.receiveRewardsFromMPC{value: 1 ether}();
+        assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
+
+        PaymentSplitter newSplitter = PaymentSplitter(lido.protocolFeeSplitter());
+
+        newSplitter.release(payable(USER1_ADDRESS));
+        newSplitter.release(payable(USER2_ADDRESS));
+
+        assertEq(address(USER1_ADDRESS).balance, 0.06 ether);
+        assertEq(address(USER2_ADDRESS).balance, 0.04 ether);
+
+        // Also test that old PS can still be accessed and rewards pulled from it?
+
+        // Test that new PS can only be deployed by admin
+    }
 }
