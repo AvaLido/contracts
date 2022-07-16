@@ -9,6 +9,7 @@ import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/IOracle.sol";
+import "./Roles.sol";
 import "./Types.sol";
 
 uint256 constant INDEX_NOT_FOUND = type(uint256).max; // index when item is missing from array
@@ -53,15 +54,15 @@ contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, In
     mapping(uint256 => mapping(bytes32 => uint256)) internal reportHashesByEpochId; // epochId => (hashOfOracleData => countofThisHash)
     mapping(uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
     mapping(uint256 => bool) public finalizedReportsByEpochId; // epochId => true/false
-    // TODO: when quorum is received for an epoch we can delete it from the mapping oracleMemberReports
 
-    // Roles
-    bytes32 internal constant ROLE_ORACLE_ADMIN = keccak256("ROLE_ORACLE_ADMIN"); // TODO: more granular roles for managing members, changing quorum, etc.
+    // TODO: when quorum is received for an epoch we can delete it from the mapping oracleMemberReports
 
     function initialize(
         address _roleOracleAdmin, // Role that can change whitelist of oracles.
         address[] memory _whitelistedOracleMembers // Whitelisted oracle member addresses.
     ) public initializer {
+        // Roles
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ROLE_ORACLE_ADMIN, _roleOracleAdmin);
 
         // Set whitelist arrays

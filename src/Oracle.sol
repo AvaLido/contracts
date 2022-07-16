@@ -6,9 +6,8 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
-import "forge-std/console.sol";
-
 import "./interfaces/IOracle.sol";
+import "./Roles.sol";
 import "./Types.sol";
 
 /**
@@ -28,7 +27,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     // State variables
-    address public ORACLE_MANAGER_CONTRACT;
+    address public oracleManagerContract;
     uint256 public latestEpochId;
 
     // A list of all node IDs which is supplied periodically by our service.
@@ -40,12 +39,12 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // Mappings
     mapping(uint256 => Validator[]) internal reportsByEpochId; // epochId => array of Validator[] structs
 
-    // Roles
-    bytes32 internal constant ROLE_ORACLE_ADMIN = keccak256("ROLE_ORACLE_ADMIN");
-
     function initialize(address _roleOracleAdmin, address _oracleManagerContract) public initializer {
+        // Roles
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ROLE_ORACLE_ADMIN, _roleOracleAdmin);
-        ORACLE_MANAGER_CONTRACT = _oracleManagerContract;
+
+        oracleManagerContract = _oracleManagerContract;
     }
 
     // -------------------------------------------------------------------------
@@ -56,7 +55,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
      * @notice Allows function calls only from the OracleManager contract
      */
     modifier onlyOracleManagerContract() {
-        if (msg.sender != ORACLE_MANAGER_CONTRACT) revert OnlyOracleManagerContract();
+        if (msg.sender != oracleManagerContract) revert OnlyOracleManagerContract();
         _;
     }
 
@@ -129,14 +128,14 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
 
     /**
      * @notice Change address of the OracleManager contract, allowed to call only by ROLE_ORACLE_ADMIN
-     * @param _newOracleManagerAddress Proposed new OracleManager address.
+     * @param _oracleManagerAddress New OracleManager address.
      */
-    function changeOracleManagerAddress(address _newOracleManagerAddress) external onlyRole(ROLE_ORACLE_ADMIN) {
-        if (_newOracleManagerAddress == address(0)) revert InvalidAddress();
+    function setOracleManagerAddress(address _oracleManagerAddress) external onlyRole(ROLE_ORACLE_ADMIN) {
+        if (_oracleManagerAddress == address(0)) revert InvalidAddress();
 
-        ORACLE_MANAGER_CONTRACT = _newOracleManagerAddress;
+        oracleManagerContract = _oracleManagerAddress;
 
-        emit OracleManagerAddressChanged(_newOracleManagerAddress);
+        emit OracleManagerAddressChanged(_oracleManagerAddress);
     }
 
     // TODO: function changeRoleOracleManager() {}

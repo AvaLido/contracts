@@ -6,6 +6,7 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
+import "./Roles.sol";
 import "./Types.sol";
 import "./interfaces/IOracle.sol";
 
@@ -13,15 +14,22 @@ import "./interfaces/IOracle.sol";
  * @title Lido on Avalanche Validator Selector
  * @dev This contract helps select validators from the Oracle for staking.
  */
-contract ValidatorSelector is Initializable {
+contract ValidatorSelector is Initializable, AccessControlEnumerable {
+    // Errors
+    error InvalidAddress();
+
     uint256 minimumRequiredStakeTimeRemaining;
     uint256 smallStakeThreshold;
     uint256 maxChunkSize;
 
-    // TODO: needs setter
     IOracle public oracle;
 
     function initialize(address oracleAddress) public initializer {
+        // Roles
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(ROLE_VALIDATOR_MANAGER, msg.sender);
+
+        // Initialize contract variables
         minimumRequiredStakeTimeRemaining = 15 days;
         smallStakeThreshold = 100 ether;
         maxChunkSize = 1000 ether;
@@ -187,5 +195,30 @@ contract ValidatorSelector is Initializable {
             result[index] = validators[index];
         }
         return result;
+    }
+
+    // -------------------------------------------------------------------------
+    //  Role-based functions
+    // -------------------------------------------------------------------------
+
+    function setOracleAddress(address oracleAddress) public onlyRole(ROLE_VALIDATOR_MANAGER) {
+        if (oracleAddress == address(0)) revert InvalidAddress();
+
+        oracle = IOracle(oracleAddress);
+    }
+
+    function setMinimumRequiredStakeTimeRemaining(uint256 _minimumRequiredStakeTimeRemaining)
+        external
+        onlyRole(ROLE_VALIDATOR_MANAGER)
+    {
+        minimumRequiredStakeTimeRemaining = _minimumRequiredStakeTimeRemaining;
+    }
+
+    function setSmallStakeThreshold(uint256 _smallStakeThreshold) external onlyRole(ROLE_VALIDATOR_MANAGER) {
+        smallStakeThreshold = _smallStakeThreshold;
+    }
+
+    function setMaxChunkSize(uint256 _maxChunkSize) external onlyRole(ROLE_VALIDATOR_MANAGER) {
+        maxChunkSize = _maxChunkSize;
     }
 }
