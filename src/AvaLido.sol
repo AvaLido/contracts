@@ -65,7 +65,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
-    event WithdrawRequestSubmittedEvent(address indexed from, uint256 amount, uint256 timestamp, uint256 requestIndex);
+    event WithdrawRequestSubmittedEvent(
+        address indexed from,
+        uint256 avaxAmount,
+        uint256 stAvaxAmount,
+        uint256 timestamp,
+        uint256 requestIndex
+    );
     event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
     event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
     event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 requestIndex);
@@ -162,6 +168,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * @param stAVAXAmount The amount of stAVAX to unstake.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
+        console2.log("amount requested to be withdrawn");
+        console2.log(stAVAXAmount);
         if (stAVAXAmount == 0 || stAVAXAmount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
@@ -174,18 +182,23 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         }
 
         // Transfer stAVAX from user to our contract.
-        // TODO: should I keep an internal _transfer to avoid double-reentrancy issues
-        // both here and in deposit?
+        // TODO: should I keep an internal _transfer to avoid double-reentrancy issues both here and in deposit?
+        console2.log("requestWithdrawal msg.sender is sender in transferFrom");
+        console2.log(msg.sender);
+        console2.log("address(this)");
+        console2.log(address(this));
+        console2.log("alowance");
+        console2.log(allowance(msg.sender, address(this)));
         transferFrom(msg.sender, address(this), stAVAXAmount);
-        uint256 avaxAmount = stAVAXToAVAX(protocolControlledAVAX(), stAVAXAmount);
+        uint256 avaxAmount = stAVAXToAVAX(amountPendingAVAX, stAVAXAmount);
 
         // Create the request and store in our queue.
-        // Should be unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amountInAvaxToClaim, 0, 0, amountOfStAVAXSent));
+        // Should be unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amountInAvaxToClaim, 0, 0, amountOfStAVAXLocked));
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), avaxAmount, 0, 0, stAVAXAmount));
 
         uint256 requestIndex = unstakeRequests.length - 1;
         // TODO: how does avax and stavax amount change this event
-        emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, block.timestamp, requestIndex);
+        emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, stAVAXAmount, block.timestamp, requestIndex);
 
         return requestIndex;
     }
@@ -447,11 +460,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     }
 
     function exchangeRateAVAXToStAVAX() external view returns (uint256) {
-        return avaxToStAVAX(protocolControlledAVAX(), 1 ether);
+        return avaxToStAVAX(amountPendingAVAX, 1 ether);
     }
 
     function exchangeRateStAVAXToAVAX() external view returns (uint256) {
-        return stAVAXToAVAX(protocolControlledAVAX(), 1 ether);
+        return stAVAXToAVAX(amountPendingAVAX, 1 ether);
     }
 
     // -------------------------------------------------------------------------
