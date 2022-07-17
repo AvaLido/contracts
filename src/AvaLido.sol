@@ -193,7 +193,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), avaxAmount, 0, 0, stAVAXAmount));
 
         uint256 requestIndex = unstakeRequests.length - 1;
-        // TODO: how does avax and stavax amount change this event
         emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, stAVAXAmount, block.timestamp, requestIndex);
 
         return requestIndex;
@@ -235,6 +234,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         // amountRequested * x = amountLocked * amountClaimed
         // x = (amountLocked * amountClaimed) / amountRequested
         uint256 amountOfStAVAXToBurn = (request.amountLocked * request.amountClaimed) / request.amountRequested;
+        console2.log("amountOfStAVAXToBurn");
+        console2.log(amountOfStAVAXToBurn);
         _burn(address(this), amountOfStAVAXToBurn);
 
         // -= from the protocolControlledAvax?
@@ -344,8 +345,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         // arb opportunity around trying to collect rebase value significantly riskier/impractical.
         // TODO: this is probably different because of non-rebasing now?
         amountPendingAVAX += remaining;
-
-        console2.log(protocolControlledAVAX());
 
         // MAYBE We now need to increase the total protocolControlledAvax by the full amount staked
         // Come back to this
