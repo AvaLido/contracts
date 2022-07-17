@@ -3,10 +3,9 @@
 pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/security/Pausable.sol";
-import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
-import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/IOracle.sol";
 import "./Types.sol";
@@ -21,7 +20,7 @@ uint256 constant INDEX_NOT_FOUND = type(uint256).max; // index when item is miss
  * AvaLido.sol can read the latest P-chain state to calculate distribution
  * of stakes to our whitelisted Validators.
  */
-contract OracleManager is Pausable, ReentrancyGuard, AccessControlEnumerable, Initializable {
+contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
     IOracle Oracle;
 
     // Errors

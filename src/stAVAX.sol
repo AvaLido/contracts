@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 import "forge-std/console2.sol";
 
@@ -13,9 +12,7 @@ import "forge-std/console2.sol";
  * This contract is abstract, and must be implemented by something which
  * knows the total amount of controlled AVAX.
  */
-abstract contract stAVAX is ERC20, ReentrancyGuard {
-    constructor() ERC20("Staked AVAX", "stAVAX") {}
-
+abstract contract stAVAX is ERC20Upgradeable {
     /**
      * @notice Converts an amount of stAVAX to its equivalent in AVAX.
      * @dev We multiply and then divide by 1 ether (1e18) to avoid rounding errors.

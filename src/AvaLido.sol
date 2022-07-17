@@ -36,7 +36,7 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
-import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./Types.sol";
 import "./stAVAX.sol";
@@ -54,7 +54,7 @@ uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
  */
-contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, Initializable {
+contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Errors
     error InvalidStakeAmount();
     error TooManyConcurrentUnstakeRequests();
@@ -123,6 +123,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         address validatorSelectorAddress,
         address _mpcManagerAddress
     ) public initializer {
+        __ERC20_init("Staked AVAX", "stAVAX");
+
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         // initialize contract variables.
@@ -479,5 +481,19 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyAdmin {
         minStakeBatchAmount = _minStakeBatchAmount;
+    }
+
+    // -------------------------------------------------------------------------
+    // Overrides
+    // -------------------------------------------------------------------------
+
+    // Necessary overrides to handle conflict between `Context` and `ContextUpgradeable`.
+
+    function _msgSender() internal view override(Context, ContextUpgradeable) returns (address) {
+        return Context._msgSender();
+    }
+
+    function _msgData() internal view override(Context, ContextUpgradeable) returns (bytes calldata) {
+        return Context._msgData();
     }
 }
