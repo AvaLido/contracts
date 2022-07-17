@@ -168,7 +168,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * @param stAVAXAmount The amount of stAVAX to unstake.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
-        console2.log("amount requested to be withdrawn");
+        console2.log("stavacamount");
         console2.log(stAVAXAmount);
         if (stAVAXAmount == 0 || stAVAXAmount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
@@ -183,14 +183,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
 
         // Transfer stAVAX from user to our contract.
         // TODO: should I keep an internal _transfer to avoid double-reentrancy issues both here and in deposit?
-        console2.log("requestWithdrawal msg.sender is sender in transferFrom");
-        console2.log(msg.sender);
-        console2.log("address(this)");
-        console2.log(address(this));
-        console2.log("alowance");
-        console2.log(allowance(msg.sender, address(this)));
-        transferFrom(msg.sender, address(this), stAVAXAmount);
-        uint256 avaxAmount = stAVAXToAVAX(amountPendingAVAX, stAVAXAmount);
+        _transfer(msg.sender, address(this), stAVAXAmount);
+        uint256 avaxAmount = stAVAXToAVAX(protocolControlledAVAX(), stAVAXAmount);
+        console2.log("AVAX AMOUNT!");
+        console2.log(avaxAmount);
 
         // Create the request and store in our queue.
         // Should be unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amountInAvaxToClaim, 0, 0, amountOfStAVAXLocked));
@@ -460,11 +456,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     }
 
     function exchangeRateAVAXToStAVAX() external view returns (uint256) {
-        return avaxToStAVAX(amountPendingAVAX, 1 ether);
+        return avaxToStAVAX(protocolControlledAVAX(), 1 ether);
     }
 
     function exchangeRateStAVAXToAVAX() external view returns (uint256) {
-        return stAVAXToAVAX(amountPendingAVAX, 1 ether);
+        return stAVAXToAVAX(protocolControlledAVAX(), 1 ether);
     }
 
     // -------------------------------------------------------------------------
