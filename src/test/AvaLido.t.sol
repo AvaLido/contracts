@@ -115,7 +115,7 @@ contract AvaLidoTest is DSTest, Helpers {
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
 
-        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x > lido.minStakeAmount());
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         cheats.prank(USER1_ADDRESS);
@@ -284,7 +284,7 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(USER1_ADDRESS, 100 ether);
         lido.deposit{value: 100 ether}();
         // Do all the allowed requests
-        for (uint256 i = 1; i <= MAXIMUM_UNSTAKE_REQUESTS; i++) {
+        for (uint256 i = 1; i <= lido.maxUnstakeRequests(); i++) {
             lido.requestWithdrawal(1 ether);
         }
         // Try one more
@@ -868,5 +868,20 @@ contract AvaLidoTest is DSTest, Helpers {
 
         // User 2 now has a role 🎉
         assertTrue(lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
+    }
+
+    function testMaxProtocolControlledAVAX() public {
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        assertTrue(lido.hasRole(ROLE_PROTOCOL_MANAGER, DEPLOYER_ADDRESS));
+
+        cheats.prank(DEPLOYER_ADDRESS);
+        lido.setMaxProtocolControlledAVAX(2 ether);
+
+        cheats.expectRevert(AvaLido.ProtocolStakedAmountTooLarge.selector);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1.1 ether}();
     }
 }
