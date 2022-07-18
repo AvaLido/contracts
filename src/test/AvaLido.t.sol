@@ -10,6 +10,7 @@ import "./helpers.sol";
 
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 
 contract FakeMpcManager is IMpcManager {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
@@ -839,5 +840,33 @@ contract AvaLidoTest is DSTest, Helpers {
         // Also test that old PS can still be accessed and rewards pulled from it?
 
         // Test that new PS can only be deployed by admin
+    }
+
+    function testAccessControl() public {
+        // Role admin should be contract deployer by default.
+        bytes32 admin = lido.getRoleAdmin(ROLE_MPC_MANAGER);
+        bytes32 DEFAULT_ADMIN_ROLE = 0x00; // AccessControl.sol
+        assertEq(admin, DEFAULT_ADMIN_ROLE);
+
+        // Other roles also default to this.
+        assertTrue(lido.hasRole(ROLE_MPC_MANAGER, DEPLOYER_ADDRESS));
+
+        // User 2 has no roles.
+        assertTrue(!lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
+
+        // User 2 doesn't have permission to grant roles, so this should revert.
+        cheats.expectRevert(
+            "AccessControl: account 0x220866b1a2219f40e72f5c628b65d54268ca3a9d is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
+        );
+        cheats.prank(USER2_ADDRESS);
+        lido.grantRole(ROLE_MPC_MANAGER, USER2_ADDRESS);
+
+        // But the contract deployer does have permission.
+        cheats.prank(DEPLOYER_ADDRESS);
+        lido.grantRole(ROLE_MPC_MANAGER, USER2_ADDRESS);
+        assertTrue(lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
+
+        // User 2 now has a role 🎉
+        assertTrue(lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
     }
 }
