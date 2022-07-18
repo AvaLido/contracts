@@ -7,6 +7,7 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
+import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, Initializable {
@@ -98,7 +99,9 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     uint256 private _lastRequestId;
 
     function initialize() public initializer {
+        // Roles
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(ROLE_MPC_MANAGER, msg.sender);
     }
 
     // -------------------------------------------------------------------------
@@ -130,7 +133,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
      * @param threshold The threshold t. Note: t + 1 participants are required to complete a
      * signing.
      */
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyAdmin {
+    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyRole(ROLE_MPC_MANAGER) {
         // TODO: Refine ACL
         // TODO: Check public keys are valid
         if (publicKeys.length < 2) revert InvalidGroupSize();
@@ -159,7 +162,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
      * @param groupId The id of the group which is deterministically derived from the public keys
      * of the ordered group members and the threshold.
      */
-    function requestKeygen(bytes32 groupId) external onlyAdmin {
+    function requestKeygen(bytes32 groupId) external onlyRole(ROLE_MPC_MANAGER) {
         // TODO: Refine ACL
         emit KeygenRequestAdded(groupId);
     }
@@ -237,7 +240,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     //  Admin functions
     // -------------------------------------------------------------------------
 
-    function setAvaLidoAddress(address avaLidoAddress) external onlyAdmin {
+    function setAvaLidoAddress(address avaLidoAddress) external onlyRole(ROLE_MPC_MANAGER) {
         _avaLidoAddress = avaLidoAddress;
     }
 
@@ -264,12 +267,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     // -------------------------------------------------------------------------
     //  Modifiers
     // -------------------------------------------------------------------------
-
-    modifier onlyAdmin() {
-        // TODO: Define proper RBAC. For now just use deployer as admin.
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert AdminOnly();
-        _;
-    }
 
     modifier onlyAvaLido() {
         if (msg.sender != _avaLidoAddress) revert AvaLidoOnly();

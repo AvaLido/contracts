@@ -10,6 +10,7 @@ import "../MpcManager.sol";
 import "./cheats.sol";
 
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+address constant DEPLOYER_ADDRESS = 0x62d69f6867A0A084C6d313943dC22023Bc263691;
 address constant USER1_ADDRESS = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
 address constant USER2_ADDRESS = 0x220866B1A2219f40e72f5c628B65D54268cA3A9D;
 address constant ORACLE_ADMIN_ADDRESS = 0xf195179eEaE3c8CAB499b5181721e5C57e4769b2; // Wendy the whale gets to manage the oracle 🐳

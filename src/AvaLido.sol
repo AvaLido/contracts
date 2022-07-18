@@ -39,6 +39,7 @@ import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./Types.sol";
+import "./Roles.sol";
 import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
@@ -115,12 +116,14 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         address validatorSelectorAddress,
         address _mpcManagerAddress
     ) public initializer {
+        // Roles
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(ROLE_PAUSE_MANAGER, msg.sender);
+        _setupRole(ROLE_FEE_MANAGER, msg.sender);
+        _setupRole(ROLE_TREASURY_MANAGER, msg.sender);
+        _setupRole(ROLE_MPC_MANAGER, msg.sender);
 
-        // initialize contract variables.
-        unfilledHead = 0;
-        amountStakedAVAX = 0;
-        amountPendingAVAX = 0;
+        // Initialize contract variables.
         protocolFeePercentage = 10;
         minStakeBatchAmount = 10 ether;
 
@@ -129,6 +132,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
 
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
 
+        // Initial payment addresses and fee split.
         address[] memory paymentAddresses = new address[](2);
         paymentAddresses[0] = lidoFeeAddress;
         paymentAddresses[1] = authorFeeAddress;
@@ -136,17 +140,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         uint256[] memory paymentSplit = new uint256[](2);
         paymentSplit[0] = 80;
         paymentSplit[1] = 20;
-        protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
-    }
 
-    // -------------------------------------------------------------------------
-    //  Modifiers
-    // -------------------------------------------------------------------------
-
-    modifier onlyAdmin() {
-        // TODO: Define proper RBAC. For now just use deployer as admin.
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin");
-        _;
+        setProtocolFeeSplit(paymentAddresses, paymentSplit);
     }
 
     // -------------------------------------------------------------------------
@@ -426,25 +421,33 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     //  Admin functions
     // -------------------------------------------------------------------------
 
-    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
+    function pause() external onlyRole(ROLE_PAUSE_MANAGER) {
+        _pause();
+    }
+
+    function resume() external onlyRole(ROLE_PAUSE_MANAGER) {
+        _unpause();
+    }
+
+    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyRole(ROLE_FEE_MANAGER) {
         require(_protocolFeePercentage >= 0 && _protocolFeePercentage <= 100);
         protocolFeePercentage = _protocolFeePercentage;
     }
 
-    function setMpcManagerAddress(address _mpcManagerAddress) external onlyAdmin {
+    function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
+        public
+        onlyRole(ROLE_TREASURY_MANAGER)
+    {
+        protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
+    }
+
+    function setMpcManagerAddress(address _mpcManagerAddress) external onlyRole(ROLE_MPC_MANAGER) {
         require(_mpcManagerAddress != address(0), "Cannot set to 0 address");
         mpcManagerAddress = _mpcManagerAddress;
         mpcManager = IMpcManager(_mpcManagerAddress);
     }
 
-    function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyAdmin {
+    function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_MPC_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
-    }
-
-    function setNewPaymentSplitter(address[] calldata paymentAddresses, uint256[] calldata paymentSplit)
-        external
-        onlyAdmin
-    {
-        protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
     }
 }
