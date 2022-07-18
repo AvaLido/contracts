@@ -81,10 +81,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // State variables
 
-    // The array of all unstake requests.
-    // This acts as a queue, and we maintain a separate pointer
-    // to point to the head of the queue rather than removing state
-    // from the array. This allows us to:
+    // The array of all unstake requests. This acts as a queue, and we maintain a separate pointer
+    // to point to the head of the queue rather than removing state from the array. This allows us to:
     // - maintain an immutable order of requests.
     // - find the next requests to fill in constant time.
     UnstakeRequest[] public unstakeRequests;
@@ -92,8 +90,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Pointer to the head of the unfilled section of the queue.
     uint256 private unfilledHead;
 
-    // Tracks the amount of AVAX being staked.
-    // Also includes AVAX pending staking or unstaking.
+    // Tracks the amount of AVAX being staked. Also includes AVAX pending staking or unstaking.
     uint256 public amountStakedAVAX;
 
     // Track the amount of AVAX in the contract which is waiting to be staked.
@@ -107,8 +104,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     PaymentSplitter public protocolFeeSplitter;
     uint256 public protocolFeePercentage;
 
-    // For gas efficiency, we won't emit staking events if the pending amount is below
-    // this value.
+    // For gas efficiency, we won't emit staking events if the pending amount is below this value.
     uint256 public minStakeBatchAmount;
 
     // Selector used to find validators to stake on.
@@ -165,8 +161,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * @param stAVAXAmount The amount of stAVAX to unstake.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
-        console2.log("stavacamount");
-        console2.log(stAVAXAmount);
         if (stAVAXAmount == 0 || stAVAXAmount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
@@ -179,14 +173,15 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         }
 
         // Transfer stAVAX from user to our contract.
-        // TODO: should I keep an internal _transfer to avoid double-reentrancy issues both here and in deposit?
         _transfer(msg.sender, address(this), stAVAXAmount);
         uint256 avaxAmount = stAVAXToAVAX(protocolControlledAVAX(), stAVAXAmount);
-        console2.log("AVAX AMOUNT!");
+
+        console2.log("stavax amt");
+        console2.log(stAVAXAmount);
+        console2.log("avax amt");
         console2.log(avaxAmount);
 
         // Create the request and store in our queue.
-        // Should be unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), amountInAvaxToClaim, 0, 0, amountOfStAVAXLocked));
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), avaxAmount, 0, 0, stAVAXAmount));
 
         uint256 requestIndex = unstakeRequests.length - 1;
@@ -214,6 +209,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * exchange rate in requestWithdrawal instead of at claim time.
      */
     function claim(uint256 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
+        console2.log("function claim, amount = ");
+        console2.log(amount);
         UnstakeRequest memory request = requestByIndex(requestIndex);
 
         if (request.requester != msg.sender) revert NotAuthorized();
@@ -222,39 +219,44 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Partial claim, update amounts.
         request.amountClaimed += amount;
+        console2.log("request.amountClaimed cumulative");
+        console2.log(request.amountClaimed);
         unstakeRequests[requestIndex] = request;
 
-        //Burn the stAVAX in the UnstakeRequest
-        // If it's a partial claim we need to burn a proportional amount of the original stAVAX
-        // using the stAVAX and AVAX amounts in the unstake request
-        // (x / amountLocked) = (amountClaimed / amountRequested)
-        // amountRequested * x = amountLocked * amountClaimed
-        // x = (amountLocked * amountClaimed) / amountRequested
-        uint256 amountOfStAVAXToBurn = (request.amountLocked * request.amountClaimed) / request.amountRequested;
+        // Burn the stAVAX in the UnstakeRequest. If it's a partial claim we need to burn a proportional amount
+        // of the original stAVAX using the stAVAX and AVAX amounts in the unstake request.
+        uint256 amountOfStAVAXToBurn = (request.stAVAXLocked * amount * 1 ether) / request.amountRequested / 1 ether;
+        console2.log("request.stAVAXLocked");
+        console2.log(request.stAVAXLocked);
+        console2.log("amount to claim");
+        console2.log(amount);
+        console2.log("request.amountRequested");
+        console2.log(request.amountRequested);
         console2.log("amountOfStAVAXToBurn");
         console2.log(amountOfStAVAXToBurn);
         _burn(address(this), amountOfStAVAXToBurn);
-
-        // -= from the protocolControlledAvax?
 
         // Transfer the AVAX to the user
         payable(msg.sender).transfer(amount);
 
         // Emit claim event.
         if (isFullyClaimed(request)) {
+            console2.log("isFullyClaimed");
             // Final claim, remove this request.
-            // Note that we just delete for gas refunds, this doesn't alter the indicies of
-            // the other requests.
+            // Note that we just delete for gas refunds, this doesn't alter the indicies of the other requests.
             unstakeRequestCount[msg.sender]--;
             delete unstakeRequests[requestIndex];
 
-            // TODO: add separate stAVAX and AVAX amounts to this event.
             emit ClaimEvent(msg.sender, amount, true, requestIndex);
 
             return;
         }
 
-        // TODO: add separate stAVAX and AVAX amounts to this event.
+        console2.log("is not FullyClaimed");
+
+        console2.log("request.amountRequested");
+        console2.log(request.amountRequested);
+
         // Emit an event which describes the partial claim.
         emit ClaimEvent(msg.sender, amount, false, requestIndex);
     }
@@ -328,24 +330,18 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
         // Mint stAVAX for user at the currently calculated exchange rate
-        uint256 amountOfStAVAXToMint = avaxToStAVAX(amountStakedAVAX, amount);
-        console2.log("amountOfStAVAXToMint");
-        console2.log(amountOfStAVAXToMint);
+        // We don't want to count this deposit in protocolControlledAVAX()
+        uint256 amountOfStAVAXToMint = avaxToStAVAX(protocolControlledAVAX() - amount, amount);
         _mint(msg.sender, amountOfStAVAXToMint);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
         uint256 remaining = fillUnstakeRequests(amount);
 
         // Take the remaining amount and stash it to be staked at a later time.
-        // Note that we explcitly do not subsequently use this pending amount to fill unstake requests.
+        // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.
         // This intentionally removes the ability to instantly stake and unstake, which makes the
         // arb opportunity around trying to collect rebase value significantly riskier/impractical.
-        // TODO: this is probably different because of non-rebasing now?
         amountPendingAVAX += remaining;
-
-        // MAYBE We now need to increase the total protocolControlledAvax by the full amount staked
-        // Come back to this
-        //amountPendingAVAX += amount;
     }
 
     /**

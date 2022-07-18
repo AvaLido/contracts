@@ -4,8 +4,6 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
-import "forge-std/console2.sol";
-
 /**
  * @notice stAVAX tokens are liquid staked AVAX tokens.
  * @dev ERC-20 implementation of a non-rebasing token.
@@ -38,15 +36,11 @@ abstract contract stAVAX is ERC20Upgradeable {
      * @return UnstakeRequest Its equivalent amount of stAVAX.
      */
     function avaxToStAVAX(uint256 totalControlled, uint256 avaxAmount) public view returns (uint256) {
-        console2.log("totalcontrolled");
-        console2.log(totalControlled);
         // The result is always 1:1 on the first deposit.
         if (totalSupply() == 0 || totalControlled == 0) {
             return avaxAmount;
         }
         uint256 supply = totalSupply();
-        console2.log("total supply of stavax");
-        console2.log(supply);
         return (avaxAmount * totalSupply() * 1 ether) / totalControlled / 1 ether;
     }
 
