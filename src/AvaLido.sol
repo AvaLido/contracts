@@ -463,7 +463,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
      * struct to hold all the arguments of initialize call?
      */
-    function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+    function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
         if (address(pricipalTreasury) != address(0)) revert AlreadySet();
 
