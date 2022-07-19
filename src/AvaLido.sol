@@ -60,7 +60,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     error ClaimTooLarge();
     error InsufficientBalance();
     error NoAvailableValidators();
-    error NoFundInTreasury();
     error InvalidAddress();
     error AlreadySet();
 
@@ -342,7 +341,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      */
     function claimUnstakedPrincipals() external {
         uint256 val = address(pricipalTreasury).balance;
-        if (val == 0) revert NoFundInTreasury();
+        if (val == 0) return;
         pricipalTreasury.claim(val);
         if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
@@ -367,7 +366,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      */
     function claimRewards() external {
         uint256 val = address(rewardTreasury).balance;
-        if (val == 0) revert NoFundInTreasury();
+        if (val == 0) return;
         rewardTreasury.claim(val);
 
         uint256 protocolFee = (val * protocolFeePercentage) / 100;
