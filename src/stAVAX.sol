@@ -3,6 +3,7 @@
 pragma solidity 0.8.10;
 
 import "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /**
  * @notice stAVAX tokens are liquid staked AVAX tokens.
@@ -13,7 +14,6 @@ import "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeabl
 abstract contract stAVAX is ERC20Upgradeable {
     /**
      * @notice Converts an amount of stAVAX to its equivalent in AVAX.
-     * @dev We multiply and then divide by 1 ether (1e18) to avoid rounding errors.
      * @param totalControlled The amount of AVAX controlled by the protocol.
      * @param stAvaxAmount The amount of stAVAX to convert.
      * @return UnstakeRequest Its amount of equivalent AVAX.
@@ -25,12 +25,12 @@ abstract contract stAVAX is ERC20Upgradeable {
         if (totalControlled == 0) {
             return stAvaxAmount;
         }
-        return (stAvaxAmount * totalControlled * 1 ether) / totalSupply() / 1 ether;
+
+        return Math.mulDiv(stAvaxAmount, totalControlled, totalSupply());
     }
 
     /**
      * @notice Converts an amount of AVAX to its equivalent in stAVAX.
-     * @dev We multiply and then divide by 1 ether (1e18) to avoid rounding errors.
      * @param totalControlled The amount of AVAX controlled by the protocol.
      * @param avaxAmount The amount of AVAX to convert.
      * @return UnstakeRequest Its equivalent amount of stAVAX.
@@ -40,8 +40,8 @@ abstract contract stAVAX is ERC20Upgradeable {
         if (totalSupply() == 0 || totalControlled == 0) {
             return avaxAmount;
         }
-        uint256 supply = totalSupply();
-        return (avaxAmount * totalSupply() * 1 ether) / totalControlled / 1 ether;
+
+        return Math.mulDiv(avaxAmount, totalSupply(), totalControlled);
     }
 
     /**

@@ -1027,10 +1027,14 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(USER1_ADDRESS, 11 ether);
         cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 10 ether}();
+
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
         lido.receiveRewardsFromMPC{value: 0.1 ether}();
-        assertEq(lido.exchangeRateAVAXToStAVAX(), 991080277502477700);
+
+        uint256 EXCHANGE_RATE = 991080277502477700; // 1 ether / 1.009;
+
+        assertEq(lido.exchangeRateAVAXToStAVAX(), EXCHANGE_RATE);
         assertEq(lido.exchangeRateStAVAXToAVAX(), 1.009 ether);
         assertEq(lido.protocolControlledAVAX(), 10.09 ether);
 
@@ -1039,7 +1043,7 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.prank(USER2_ADDRESS);
         lido.deposit{value: 1 ether}();
         uint256 user2StAVAXBalance = lido.balanceOf(USER2_ADDRESS);
-        assertEq(user2StAVAXBalance, 991080277502477700);
+        assertEq(user2StAVAXBalance, EXCHANGE_RATE);
 
         // Do some stuff that isn't rewards like deposit and receive principle
         cheats.prank(USER1_ADDRESS);
@@ -1052,7 +1056,7 @@ contract AvaLidoTest is DSTest, Helpers {
         (, , uint256 amountRequested, , , uint256 stAVAXLocked) = lido.unstakeRequests(0);
 
         assertEq(amountRequested, 1 ether);
-        assertEq(stAVAXLocked, 991080277502477700);
+        assertEq(stAVAXLocked, EXCHANGE_RATE);
     }
 
     // Payment splitter
