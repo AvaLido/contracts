@@ -9,6 +9,7 @@ import "./helpers.sol";
 
 import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 
 contract FakeMpcManager is IMpcManager {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
@@ -130,7 +131,7 @@ contract AvaLidoTest is DSTest, Helpers {
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
 
-        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x > lido.minStakeAmount());
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         cheats.prank(USER1_ADDRESS);
@@ -300,7 +301,7 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(USER1_ADDRESS, 100 ether);
         lido.deposit{value: 100 ether}();
         // Do all the allowed requests
-        for (uint256 i = 1; i <= MAXIMUM_UNSTAKE_REQUESTS; i++) {
+        for (uint256 i = 1; i <= lido.maxUnstakeRequests(); i++) {
             lido.requestWithdrawal(1 ether);
         }
         // Try one more
@@ -833,5 +834,93 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountRequested, 5 ether);
         assertEq(amountFilled, 0.9 ether);
         assertEq(amountClaimed, 0 ether);
+    }
+
+    function testNewPaymentSplitter() public {
+        cheats.deal(rTreasuryAddress, 5 ether);
+        lido.receiveRewardsFromMPC();
+        assertEq(address(lido.protocolFeeSplitter()).balance, 0.5 ether);
+
+        PaymentSplitter splitter = PaymentSplitter(lido.protocolFeeSplitter());
+
+        splitter.release(payable(feeAddressAuthor));
+        splitter.release(payable(feeAddressLido));
+
+        assertEq(address(feeAddressAuthor).balance, 0.1 ether);
+        assertEq(address(feeAddressLido).balance, 0.4 ether);
+
+        // Test that new PS can be deployed and new rewards received go to it
+        address[] memory paymentAddresses = new address[](2);
+        paymentAddresses[0] = USER1_ADDRESS;
+        paymentAddresses[1] = USER2_ADDRESS;
+
+        uint256[] memory paymentSplit = new uint256[](2);
+        paymentSplit[0] = 60;
+        paymentSplit[1] = 40;
+
+        // TODO: interesting, when i set a clear non-admin address, it errors: FAIL. Reason: Caller is not admin
+        //cheats.prank(ORACLE_ADMIN_ADDRESS);
+        // If I set no cheats.prank it passes, I assume the default caller is the admin
+        // But if I specifically set ROLE_PROXY_ADMIN, it errors: FAIL. Reason: TransparentUpgradeableProxy: admin cannot fallback to proxy target
+        //cheats.prank(ROLE_PROXY_ADMIN);
+        lido.setProtocolFeeSplit(paymentAddresses, paymentSplit);
+        cheats.deal(rTreasuryAddress, 1 ether);
+        lido.receiveRewardsFromMPC();
+        assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
+
+        PaymentSplitter newSplitter = PaymentSplitter(lido.protocolFeeSplitter());
+
+        newSplitter.release(payable(USER1_ADDRESS));
+        newSplitter.release(payable(USER2_ADDRESS));
+
+        assertEq(address(USER1_ADDRESS).balance, 0.06 ether);
+        assertEq(address(USER2_ADDRESS).balance, 0.04 ether);
+
+        // Also test that old PS can still be accessed and rewards pulled from it?
+
+        // Test that new PS can only be deployed by admin
+    }
+
+    function testAccessControl() public {
+        // Role admin should be contract deployer by default.
+        bytes32 admin = lido.getRoleAdmin(ROLE_MPC_MANAGER);
+        bytes32 DEFAULT_ADMIN_ROLE = 0x00; // AccessControl.sol
+        assertEq(admin, DEFAULT_ADMIN_ROLE);
+
+        // Other roles also default to this.
+        assertTrue(lido.hasRole(ROLE_MPC_MANAGER, DEPLOYER_ADDRESS));
+
+        // User 2 has no roles.
+        assertTrue(!lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
+
+        // User 2 doesn't have permission to grant roles, so this should revert.
+        cheats.expectRevert(
+            "AccessControl: account 0x220866b1a2219f40e72f5c628b65d54268ca3a9d is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
+        );
+        cheats.prank(USER2_ADDRESS);
+        lido.grantRole(ROLE_MPC_MANAGER, USER2_ADDRESS);
+
+        // But the contract deployer does have permission.
+        cheats.prank(DEPLOYER_ADDRESS);
+        lido.grantRole(ROLE_MPC_MANAGER, USER2_ADDRESS);
+        assertTrue(lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
+
+        // User 2 now has a role 🎉
+        assertTrue(lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
+    }
+
+    function testMaxProtocolControlledAVAX() public {
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        assertTrue(lido.hasRole(ROLE_PROTOCOL_MANAGER, DEPLOYER_ADDRESS));
+
+        cheats.prank(DEPLOYER_ADDRESS);
+        lido.setMaxProtocolControlledAVAX(2 ether);
+
+        cheats.expectRevert(AvaLido.ProtocolStakedAmountTooLarge.selector);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1.1 ether}();
     }
 }

@@ -39,15 +39,13 @@ import "openzeppelin-contracts/contracts/finance/PaymentSplitter.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 import "./Types.sol";
+import "./Roles.sol";
 import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
 import "./interfaces/ITreasury.sol";
 
-uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
-uint256 constant STAKE_PERIOD = 14 days;
-uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 
 /**
  * @title Lido on Avalanche
@@ -56,6 +54,7 @@ uint8 constant MAXIMUM_UNSTAKE_REQUESTS = 10;
 contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, Initializable {
     // Errors
     error InvalidStakeAmount();
+    error ProtocolStakedAmountTooLarge();
     error TooManyConcurrentUnstakeRequests();
     error NotAuthorized();
     error ClaimTooLarge();
@@ -106,6 +105,18 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     // this value.
     uint256 public minStakeBatchAmount;
 
+    // Smallest amount a user can stake.
+    uint256 public minStakeAmount;
+
+    // Period over which AVAX is staked.
+    uint256 public stakePeriod;
+
+    // Control in the case that we want to slow rollout.
+    uint256 public maxProtocolControlledAVAX;
+
+    // Maximum unstake requests a user can open at once (prevents spamming).
+    uint8 public maxUnstakeRequests;
+
     // Selector used to find validators to stake on.
     IValidatorSelector public validatorSelector;
 
@@ -121,18 +132,26 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         address validatorSelectorAddress,
         address _mpcManagerAddress
     ) public initializer {
+        // Roles
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(ROLE_PAUSE_MANAGER, msg.sender);
+        _setupRole(ROLE_FEE_MANAGER, msg.sender);
+        _setupRole(ROLE_TREASURY_MANAGER, msg.sender);
+        _setupRole(ROLE_MPC_MANAGER, msg.sender);
+        _setupRole(ROLE_PROTOCOL_MANAGER, msg.sender);
 
-        // initialize contract variables.
-        unfilledHead = 0;
-        amountStakedAVAX = 0;
-        amountPendingAVAX = 0;
+        // Initialize contract variables.
         protocolFeePercentage = 10;
         minStakeBatchAmount = 10 ether;
+        minStakeAmount = 0.1 ether;
+        stakePeriod = 14 days;
+        maxUnstakeRequests = 10;
+        maxProtocolControlledAVAX = type(uint256).max; // Unlimited by default.
 
         mpcManager = IMpcManager(_mpcManagerAddress);
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
 
+        // Initial payment addresses and fee split.
         address[] memory paymentAddresses = new address[](2);
         paymentAddresses[0] = lidoFeeAddress;
         paymentAddresses[1] = authorFeeAddress;
@@ -140,17 +159,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         uint256[] memory paymentSplit = new uint256[](2);
         paymentSplit[0] = 80;
         paymentSplit[1] = 20;
-        protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
-    }
 
-    // -------------------------------------------------------------------------
-    //  Modifiers
-    // -------------------------------------------------------------------------
-
-    modifier onlyAdmin() {
-        // TODO: Define proper RBAC. For now just use deployer as admin.
-        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not admin");
-        _;
+        setProtocolFeeSplit(paymentAddresses, paymentSplit);
     }
 
     // -------------------------------------------------------------------------
@@ -166,7 +176,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     function requestWithdrawal(uint256 amount) external whenNotPaused nonReentrant returns (uint256) {
         if (amount == 0 || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
 
-        if (unstakeRequestCount[msg.sender] == MAXIMUM_UNSTAKE_REQUESTS) {
+        if (unstakeRequestCount[msg.sender] >= maxUnstakeRequests) {
             revert TooManyConcurrentUnstakeRequests();
         }
         unstakeRequestCount[msg.sender]++;
@@ -282,7 +292,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         // Add some buffer to account for delay in exporting to P-chain and MPC consensus.
         // TODO: Make configurable?
         uint256 startTime = block.timestamp + 30 minutes;
-        uint256 endTime = startTime + STAKE_PERIOD;
+        uint256 endTime = startTime + stakePeriod;
         for (uint256 i = 0; i < ids.length; i++) {
             // The array from selectValidatorsForStake may be sparse, so we need to ignore any validators
             // which are set with 0 amounts.
@@ -307,7 +317,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      */
     function deposit() external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
-        if (amount < MINIMUM_STAKE_AMOUNT || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (amount < minStakeAmount || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
 
         // Mint stAVAX for user
         Shares256 shares = _getDepositSharesByAmount(amount);
@@ -435,7 +446,15 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     //  Admin functions
     // -------------------------------------------------------------------------
 
-    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyAdmin {
+    function pause() external onlyRole(ROLE_PAUSE_MANAGER) {
+        _pause();
+    }
+
+    function resume() external onlyRole(ROLE_PAUSE_MANAGER) {
+        _unpause();
+    }
+
+    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyRole(ROLE_FEE_MANAGER) {
         require(_protocolFeePercentage >= 0 && _protocolFeePercentage <= 100);
         protocolFeePercentage = _protocolFeePercentage;
     }
@@ -445,7 +464,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
      * struct to hold all the arguments of initialize call?
      */
-    function setPrincipalTreasuryAddress(address _address) external onlyAdmin {
+    function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
         if (address(pricipalTreasury) != address(0)) revert AlreadySet();
 
@@ -457,15 +476,38 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
      * struct to hold all the arguments of initialize call?
      */
-    function setRewardTreasuryAddress(address _address) external onlyAdmin {
+    function setRewardTreasuryAddress(address _address) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
         if (address(rewardTreasury) != address(0)) revert AlreadySet();
 
         rewardTreasury = ITreasury(_address);
     }
 
-    function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyAdmin {
+    function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
+        public
+        onlyRole(ROLE_TREASURY_MANAGER)
+    {
+        protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
+    }
+
+    function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
+    }
+
+    function setMinStakeAmount(uint256 _minStakeAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        minStakeAmount = _minStakeAmount;
+    }
+
+    function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        stakePeriod = _stakePeriod;
+    }
+
+    function setMaxUnstakeRequests(uint8 _maxUnstakeRequests) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        maxUnstakeRequests = _maxUnstakeRequests;
+    }
+
+    function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
     }
 }
 

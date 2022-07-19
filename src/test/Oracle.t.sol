@@ -36,7 +36,7 @@ contract OracleTest is DSTest, Helpers {
     }
 
     function testOracleConstructor() public {
-        assertEq(oracle.ORACLE_MANAGER_CONTRACT(), ORACLE_MANAGER_CONTRACT_ADDRESS);
+        assertEq(oracle.oracleManagerContract(), ORACLE_MANAGER_CONTRACT_ADDRESS);
     }
 
     // -------------------------------------------------------------------------
@@ -89,7 +89,7 @@ contract OracleTest is DSTest, Helpers {
         emit OracleManagerAddressChanged(newManagerAddress);
 
         cheats.prank(ORACLE_ADMIN_ADDRESS);
-        oracle.changeOracleManagerAddress(newManagerAddress);
+        oracle.setOracleManagerAddress(newManagerAddress);
     }
 
     function testUnauthorizedChangeOracleManagerAddress() public {
@@ -97,7 +97,7 @@ contract OracleTest is DSTest, Helpers {
         cheats.expectRevert(
             "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
-        oracle.changeOracleManagerAddress(newManagerAddress);
+        oracle.setOracleManagerAddress(newManagerAddress);
     }
 
     // TODO: write and test changing ROLE_ORACLE_ADMIN

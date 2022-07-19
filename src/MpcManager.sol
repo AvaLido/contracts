@@ -7,11 +7,11 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
+import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, Initializable {
     // Errors
-    error AdminOnly();
     error AvaLidoOnly();
 
     error InvalidGroupSize(); // A group requires 2 or more participants.
@@ -118,16 +118,13 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     // utxoTxId -> utxoIndex -> joinExportUTXOParticipantIndices
     mapping(bytes32 => mapping(uint32 => uint256[])) private _joinExportUTXOParticipantIndices;
 
-    // Roles
-    bytes32 internal constant ROLE_MPC_ADMIN = keccak256("ROLE_MPC_ADMIN"); // TODO: more granular roles for managing members, changing quorum, etc.
-
     function initialize(
         address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
         address _avaLidoAddress,
         address _principalTreasuryAddress,
         address _rewardTreasuryAddress
     ) public initializer {
-        _setupRole(ROLE_MPC_ADMIN, _roleMpcAdmin);
+        _setupRole(ROLE_MPC_MANAGER, _roleMpcAdmin);
         avaLidoAddress = _avaLidoAddress;
         principalTreasuryAddress = _principalTreasuryAddress;
         rewardTreasuryAddress = _rewardTreasuryAddress;
@@ -162,7 +159,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
      * @param threshold The threshold t. Note: t + 1 participants are required to complete a
      * signing.
      */
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyAdmin {
+    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyRole(ROLE_MPC_MANAGER) {
         // TODO: Refine ACL
         // TODO: Check public keys are valid
         if (publicKeys.length < 2) revert InvalidGroupSize();
@@ -191,7 +188,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
      * @param groupId The id of the group which is deterministically derived from the public keys
      * of the ordered group members and the threshold.
      */
-    function requestKeygen(bytes32 groupId) external onlyAdmin {
+    function requestKeygen(bytes32 groupId) external onlyRole(ROLE_MPC_MANAGER) {
         // TODO: Refine ACL
         emit KeygenRequestAdded(groupId);
     }
@@ -313,12 +310,6 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     // -------------------------------------------------------------------------
     //  Modifiers
     // -------------------------------------------------------------------------
-
-    modifier onlyAdmin() {
-        // TODO: Define proper RBAC. For now just use deployer as admin.
-        if (!hasRole(ROLE_MPC_ADMIN, msg.sender)) revert AdminOnly();
-        _;
-    }
 
     modifier onlyAvaLido() {
         if (msg.sender != avaLidoAddress) revert AvaLidoOnly();

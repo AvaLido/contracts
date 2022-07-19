@@ -73,7 +73,9 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testCreateGroup() public {
         cheats.prank(USER1_ADDRESS);
-        cheats.expectRevert(MpcManager.AdminOnly.selector);
+        cheats.expectRevert(
+            "AccessControl: account 0xd8da6bf26964af9d7eed9e03e53415d37aa96045 is missing role 0x9fece4792c7ff5d25a4f6041da7db799a6228be21fcb6358ef0b12f1dd685cb6"
+        );
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
         cheats.prank(MPC_ADMIN_ADDRESS);
         cheats.expectEmit(false, false, true, true);
