@@ -10,9 +10,10 @@ interface Empty {
 struct UnstakeRequest {
     address requester; // The user who requested the unstake.
     uint64 requestedAt; // The block.timestamp when the unstake request was made.
-    uint256 amountRequested; // The amount of stAVAX requested to be unstaked.
+    uint256 amountRequested; // The amount of AVAX equal to the stAVAX the user had at request time.
     uint256 amountFilled; // The amount of free'd AVAX that has been allocated to this request.
     uint256 amountClaimed; // The amount of AVAX that has been claimed by the requester.
+    uint256 stAVAXLocked; // The amount of stAVAX requested to be unstaked.
 }
 
 type Validator is uint24;
