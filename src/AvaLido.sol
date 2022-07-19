@@ -340,7 +340,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * uses it to fill unstake requests. Any remaining funds after all requests
      * are filled are re-staked.
      */
-    function receivePrincipalFromMPC() external {
+    function claimUnstakedPrincipals() external {
         uint256 val = address(pricipalTreasury).balance;
         if (val == 0) revert NoFundInTreasury();
         pricipalTreasury.claim(val);
@@ -365,7 +365,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
      * it to the protocol fee splitters, and then retains the rest.
      * We then kick off our stAVAX rebase.
      */
-    function receiveRewardsFromMPC() external {
+    function claimRewards() external {
         uint256 val = address(rewardTreasury).balance;
         if (val == 0) revert NoFundInTreasury();
         rewardTreasury.claim(val);
