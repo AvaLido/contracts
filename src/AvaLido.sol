@@ -44,8 +44,6 @@ import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
 
-import "forge-std/console2.sol";
-
 uint256 constant MINIMUM_STAKE_AMOUNT = 0.1 ether;
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 uint256 constant STAKE_PERIOD = 14 days;
@@ -176,11 +174,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _transfer(msg.sender, address(this), stAVAXAmount);
         uint256 avaxAmount = stAVAXToAVAX(protocolControlledAVAX(), stAVAXAmount);
 
-        console2.log("stavax amt");
-        console2.log(stAVAXAmount);
-        console2.log("avax amt");
-        console2.log(avaxAmount);
-
         // Create the request and store in our queue.
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), avaxAmount, 0, 0, stAVAXAmount));
 
@@ -209,8 +202,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * exchange rate in requestWithdrawal instead of at claim time.
      */
     function claim(uint256 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
-        console2.log("function claim, amount = ");
-        console2.log(amount);
         UnstakeRequest memory request = requestByIndex(requestIndex);
 
         if (request.requester != msg.sender) revert NotAuthorized();
@@ -219,21 +210,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Partial claim, update amounts.
         request.amountClaimed += amount;
-        console2.log("request.amountClaimed cumulative");
-        console2.log(request.amountClaimed);
         unstakeRequests[requestIndex] = request;
 
         // Burn the stAVAX in the UnstakeRequest. If it's a partial claim we need to burn a proportional amount
         // of the original stAVAX using the stAVAX and AVAX amounts in the unstake request.
         uint256 amountOfStAVAXToBurn = Math.mulDiv(request.stAVAXLocked, amount, request.amountRequested);
-        console2.log("request.stAVAXLocked");
-        console2.log(request.stAVAXLocked);
-        console2.log("amount to claim");
-        console2.log(amount);
-        console2.log("request.amountRequested");
-        console2.log(request.amountRequested);
-        console2.log("amountOfStAVAXToBurn");
-        console2.log(amountOfStAVAXToBurn);
         _burn(address(this), amountOfStAVAXToBurn);
 
         // Transfer the AVAX to the user
@@ -241,7 +222,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Emit claim event.
         if (isFullyClaimed(request)) {
-            console2.log("isFullyClaimed");
             // Final claim, remove this request.
             // Note that we just delete for gas refunds, this doesn't alter the indicies of the other requests.
             unstakeRequestCount[msg.sender]--;
@@ -251,11 +231,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
             return;
         }
-
-        console2.log("is not FullyClaimed");
-
-        console2.log("request.amountRequested");
-        console2.log(request.amountRequested);
 
         // Emit an event which describes the partial claim.
         emit ClaimEvent(msg.sender, amount, false, requestIndex);
