@@ -225,7 +225,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Burn the stAVAX in the UnstakeRequest. If it's a partial claim we need to burn a proportional amount
         // of the original stAVAX using the stAVAX and AVAX amounts in the unstake request.
-        uint256 amountOfStAVAXToBurn = (request.stAVAXLocked * amount * 1 ether) / request.amountRequested / 1 ether;
+        uint256 amountOfStAVAXToBurn = Math.mulDiv(request.stAVAXLocked, amount, request.amountRequested);
         console2.log("request.stAVAXLocked");
         console2.log(request.stAVAXLocked);
         console2.log("amount to claim");
