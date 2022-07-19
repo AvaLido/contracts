@@ -548,7 +548,55 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountFilled3, 0.1 ether);
     }
 
-    // function testMultipleFillUnstakeRequestsSingleFillAfterRewards() public {}
+    // TODO!!!
+    function testMultipleFillUnstakeRequestsSingleFillAfterRewards() public {
+        // Deposit as user.
+        cheats.prank(USER1_ADDRESS);
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        lido.deposit{value: 10 ether}();
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // 10.09 AVAX for 10 stAVAX = 1 AVAX for 0.99108 stAVAX
+        lido.receiveRewardsFromMPC{value: 0.1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 10.09 ether);
+
+        console2.log("exchange rate avax to stavax");
+        console2.log(lido.exchangeRateAVAXToStAVAX());
+        assertEq(lido.exchangeRateAVAXToStAVAX(), 991080277502477700);
+        console2.log("exchange rate stavax to avax");
+        console2.log(lido.exchangeRateStAVAXToAVAX());
+        assertEq(lido.exchangeRateStAVAXToAVAX(), 1.009 ether);
+
+        // So we withdraw 1 AVAX and lock 0.99108... stAVAX
+        // Multiple withdrawal requests as user.
+        cheats.startPrank(USER1_ADDRESS);
+        // lido.requestWithdrawal(0.5 ether);
+        // lido.requestWithdrawal(0.25 ether);
+        lido.requestWithdrawal(1 ether);
+        cheats.stopPrank();
+
+        cheats.deal(pTreasuryAddress, 1 ether);
+        lido.claimUnstakedPrincipals();
+
+        //lido.receivePrincipalFromMPC{value: 1 ether}();
+
+        // (, , uint256 amountRequested, uint256 amountFilled, , ) = lido.unstakeRequests(0);
+        // assertEq(amountRequested, 0.5 ether);
+        // assertEq(amountFilled, 0.5 ether);
+
+        // (, , uint256 amountRequested2, uint256 amountFilled2, , ) = lido.unstakeRequests(1);
+        // assertEq(amountRequested2, 0.25 ether);
+        // assertEq(amountFilled2, 0.25 ether);
+
+        (, , uint256 amountRequested3, uint256 amountFilled3, , uint256 amountLocked3) = lido.unstakeRequests(2);
+        assertEq(amountRequested3, 1 ether);
+        assertEq(amountFilled3, 1 ether);
+        assertEq(amountLocked3, 1 ether);
+    }
 
     function testFillUnstakeRequestPartial() public {
         // Deposit as user.
@@ -572,7 +620,40 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountFilled, 0.1 ether);
     }
 
-    // function testFillUnstakeRequestPartialAfterRewards() public {}
+    // TODO!!!
+    function testFillUnstakeRequestPartialAfterRewards() public {
+        // Deposit as user.
+        cheats.prank(USER1_ADDRESS);
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        lido.deposit{value: 10 ether}();
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // 10.09 AVAX for 10 stAVAX = 1 AVAX for 0.99108 stAVAX
+        lido.receiveRewardsFromMPC{value: 0.1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 10.09 ether);
+
+        console2.log("exchange rate avax to stavax");
+        console2.log(lido.exchangeRateAVAXToStAVAX());
+        assertEq(lido.exchangeRateAVAXToStAVAX(), 991080277502477700);
+        console2.log("exchange rate stavax to avax");
+        console2.log(lido.exchangeRateStAVAXToAVAX());
+        assertEq(lido.exchangeRateStAVAXToAVAX(), 1.009 ether);
+
+        // So we withdraw 1 AVAX and lock 0.99108... stAVAX
+        cheats.prank(USER1_ADDRESS);
+        lido.requestWithdrawal(1 ether);
+        lido.receivePrincipalFromMPC{value: 0.1 ether}();
+
+        (, , uint256 amountRequested, uint256 amountFilled, , uint256 amountLocked) = lido.unstakeRequests(reqId);
+
+        assertEq(amountRequested, 1.009 ether);
+        assertEq(amountFilled, 0.1 ether);
+        assertEq(amountLocked, 1 ether);
+    }
 
     function testFillUnstakeRequestPartialMultiple() public {
         // Deposit as user.
@@ -599,7 +680,40 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(stAVAXLocked, 0.5 ether);
     }
 
-    // function testFillUnstakeRequestPartialMultipleAfterRewards() public {}
+    function testFillUnstakeRequestPartialMultipleAfterRewards() public {
+        // Deposit as user.
+        cheats.prank(USER1_ADDRESS);
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        lido.deposit{value: 10 ether}();
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // 10.09 AVAX for 10 stAVAX = 1 AVAX for 0.99108 stAVAX
+        lido.receiveRewardsFromMPC{value: 0.1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 10.09 ether);
+
+        console2.log("exchange rate avax to stavax");
+        console2.log(lido.exchangeRateAVAXToStAVAX());
+        assertEq(lido.exchangeRateAVAXToStAVAX(), 991080277502477700);
+        console2.log("exchange rate stavax to avax");
+        console2.log(lido.exchangeRateStAVAXToAVAX());
+        assertEq(lido.exchangeRateStAVAXToAVAX(), 1.009 ether);
+
+        // So we withdraw 1 AVAX and lock 0.99108... stAVAX
+        cheats.prank(USER1_ADDRESS);
+        lido.requestWithdrawal(1 ether);
+        lido.receivePrincipalFromMPC{value: 0.1 ether}();
+        lido.receivePrincipalFromMPC{value: 0.1 ether}();
+
+        (, , uint256 amountRequested, uint256 amountFilled, , uint256 stAVAXLocked) = lido.unstakeRequests(0);
+
+        assertEq(amountRequested, 1.009 ether);
+        assertEq(amountFilled, 0.2 ether);
+        assertEq(stAVAXLocked, 1 ether);
+    }
 
     function testFillUnstakeRequestPartialMultipleFilled() public {
         // Deposit as user.
@@ -635,7 +749,7 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(stAVAXLocked, 0.5 ether);
     }
 
-    // function testFillUnstakeRequestPartialMultipleFilled() public {}
+    // TODO!!!: function testFillUnstakeRequestPartialMultipleFilledAfterRewards() public {}
 
     function testFillUnstakeRequestMultiRequestSingleFill() public {
         // Deposit as user.
