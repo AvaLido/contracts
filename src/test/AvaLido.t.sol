@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../AvaLido.sol";
 import "../interfaces/IOracle.sol";
@@ -66,11 +65,15 @@ contract AvaLidoTest is DSTest, Helpers {
     AvaLido lido;
     ValidatorSelector validatorSelector;
     FakeMpcManager fakeMpcManager;
+    PrincipalTreasury pTreasury;
+    RewardTreasury rTreasury;
 
     address feeAddressAuthor = 0x1000000000000000000000000000000000000001;
     address feeAddressLido = 0x1000000000000000000000000000000000000002;
     address mpcManagerAddress;
     address validatorSelectorAddress;
+    address pTreasuryAddress;
+    address rTreasuryAddress;
 
     function setUp() public {
         // Not an actual oracle contract, but calls to ValidatorSelector should all be stubbed.
@@ -83,12 +86,25 @@ contract AvaLidoTest is DSTest, Helpers {
         FakeMpcManager _fakeMpcManager = new FakeMpcManager();
         fakeMpcManager = FakeMpcManager(proxyWrapped(address(_fakeMpcManager), ROLE_PROXY_ADMIN));
 
+        PrincipalTreasury _pTreasury = new PrincipalTreasury();
+        pTreasury = PrincipalTreasury(proxyWrapped(address(_pTreasury), ROLE_PROXY_ADMIN));
+        RewardTreasury _rTreasury = new RewardTreasury();
+        rTreasury = RewardTreasury(proxyWrapped(address(_rTreasury), ROLE_PROXY_ADMIN));
+        pTreasury.initialize();
+        rTreasury.initialize();
+
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
+        pTreasuryAddress = address(pTreasury);
+        rTreasuryAddress = address(rTreasury);
 
-        AvaLido _lido = new AvaLido();
-        lido = AvaLido(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN));
+        AvaLido _lido = new PayableAvaLido();
+        lido = PayableAvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
         lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
+        lido.setPrincipalTreasuryAddress(pTreasuryAddress);
+        lido.setRewardTreasuryAddress(rTreasuryAddress);
+        pTreasury.setAvaLidoAddress(address(lido));
+        rTreasury.setAvaLidoAddress(address(lido));
     }
 
     receive() external payable {}
@@ -115,7 +131,7 @@ contract AvaLidoTest is DSTest, Helpers {
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
 
-        cheats.assume(x > MINIMUM_STAKE_AMOUNT);
+        cheats.assume(x > lido.minStakeAmount());
         cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
 
         cheats.prank(USER1_ADDRESS);
@@ -144,7 +160,8 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.requestWithdrawal(2 ether);
         cheats.expectEmit(true, false, false, true);
         emit RequestPartiallyFilledEvent(1 ether, uint64(block.timestamp), 0);
-        lido.receivePrincipalFromMPC{value: 1 ether}();
+        cheats.deal(pTreasuryAddress, 1 ether);
+        lido.claimUnstakedPrincipals();
 
         // Test that user 1's request has been partially filled
         (
@@ -163,7 +180,7 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountClaimed, 0 ether);
         assertEq(stAVAXLocked, 2 ether);
 
-        // Test the amountPendingAVAX the contract has - should be 0 since 1/2 is partilly filled from receivePrincipalFromMPC
+        // Test the amountPendingAVAX the contract has - should be 0 since 1/2 is partilly filled from claimUnstakedPrincipals
         assertEq(lido.amountPendingAVAX(), 0 ether);
 
         // User 1 requests another withdrawal
@@ -288,7 +305,7 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(USER1_ADDRESS, 100 ether);
         lido.deposit{value: 100 ether}();
         // Do all the allowed requests
-        for (uint256 i = 1; i <= MAXIMUM_UNSTAKE_REQUESTS; i++) {
+        for (uint256 i = 1; i <= lido.maxUnstakeRequests(); i++) {
             lido.requestWithdrawal(1 ether);
         }
         // Try one more
@@ -454,7 +471,8 @@ contract AvaLidoTest is DSTest, Helpers {
 
         cheats.prank(USER1_ADDRESS);
         lido.requestWithdrawal(0.5 ether);
-        lido.receivePrincipalFromMPC{value: 0.5 ether}();
+        cheats.deal(pTreasuryAddress, 0.5 ether);
+        lido.claimUnstakedPrincipals();
 
         (, , uint256 amountRequested, uint256 amountFilled, , uint256 stAVAXLocked) = lido.unstakeRequests(0);
 
@@ -514,7 +532,8 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.requestWithdrawal(0.1 ether);
         cheats.stopPrank();
 
-        lido.receivePrincipalFromMPC{value: 1 ether}();
+        cheats.deal(pTreasuryAddress, 1 ether);
+        lido.claimUnstakedPrincipals();
 
         (, , uint256 amountRequested, uint256 amountFilled, , ) = lido.unstakeRequests(0);
         assertEq(amountRequested, 0.5 ether);
@@ -544,7 +563,8 @@ contract AvaLidoTest is DSTest, Helpers {
         // Withdraw.
         cheats.prank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
-        lido.receivePrincipalFromMPC{value: 0.1 ether}();
+        cheats.deal(pTreasuryAddress, 0.1 ether);
+        lido.claimUnstakedPrincipals();
 
         (, , uint256 amountRequested, uint256 amountFilled, , ) = lido.unstakeRequests(reqId);
 
@@ -567,8 +587,10 @@ contract AvaLidoTest is DSTest, Helpers {
         // Withdraw.
         cheats.prank(USER1_ADDRESS);
         lido.requestWithdrawal(0.5 ether);
-        lido.receivePrincipalFromMPC{value: 0.1 ether}();
-        lido.receivePrincipalFromMPC{value: 0.1 ether}();
+        cheats.deal(pTreasuryAddress, 0.1 ether);
+        lido.claimUnstakedPrincipals();
+        cheats.deal(pTreasuryAddress, 0.1 ether);
+        lido.claimUnstakedPrincipals();
 
         (, , uint256 amountRequested, uint256 amountFilled, , uint256 stAVAXLocked) = lido.unstakeRequests(0);
 
@@ -601,8 +623,10 @@ contract AvaLidoTest is DSTest, Helpers {
         // cheats.startPrank(MPC_GENERATED_ADDRESS);
 
         // Receive principal back from MPC for unstaking.
-        lido.receivePrincipalFromMPC{value: 0.1 ether}();
-        lido.receivePrincipalFromMPC{value: 0.9 ether}();
+        cheats.deal(pTreasuryAddress, 0.1 ether);
+        lido.claimUnstakedPrincipals();
+        cheats.deal(pTreasuryAddress, 0.9 ether);
+        lido.claimUnstakedPrincipals();
 
         (, , uint256 amountRequested, uint256 amountFilled, , uint256 stAVAXLocked) = lido.unstakeRequests(0);
 
@@ -630,7 +654,8 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.stopPrank();
 
         // Receive principal back from MPC for unstaking.
-        lido.receivePrincipalFromMPC{value: 0.5 ether}();
+        cheats.deal(pTreasuryAddress, 0.5 ether);
+        lido.claimUnstakedPrincipals();
 
         (, , uint256 amountRequested, uint256 amountFilled, , ) = lido.unstakeRequests(req1);
         assertEq(amountRequested, 0.5 ether);
@@ -691,7 +716,8 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(ZERO_ADDRESS, type(uint256).max);
 
         cheats.prank(ZERO_ADDRESS);
-        lido.receivePrincipalFromMPC{value: x}();
+        cheats.deal(pTreasuryAddress, x);
+        lido.claimUnstakedPrincipals();
 
         (, , uint256 amountRequested, uint256 amountFilled, , uint256 stAVAXLocked) = lido.unstakeRequests(0);
 
@@ -769,7 +795,8 @@ contract AvaLidoTest is DSTest, Helpers {
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
 
         // Receive principal back from MPC for unstaking.
-        lido.receivePrincipalFromMPC{value: 0.5 ether}();
+        cheats.deal(pTreasuryAddress, 0.5 ether);
+        lido.claimUnstakedPrincipals();
 
         // Attempt to make a request as somebody else (which should fail).
         cheats.prank(ZERO_ADDRESS);
@@ -792,7 +819,8 @@ contract AvaLidoTest is DSTest, Helpers {
         uint256 reqId = lido.requestWithdrawal(0.5 ether);
 
         // Receive a small amount back from MPC for unstaking.
-        lido.receivePrincipalFromMPC{value: 0.5 ether}();
+        cheats.deal(pTreasuryAddress, 0.5 ether);
+        lido.claimUnstakedPrincipals();
 
         // Attempt to claim more than we're received.
         cheats.expectRevert(AvaLido.ClaimTooLarge.selector);
@@ -824,7 +852,9 @@ contract AvaLidoTest is DSTest, Helpers {
         // Receive from MPC for unstaking
         cheats.deal(MPC_GENERATED_ADDRESS, 5 ether);
         cheats.prank(MPC_GENERATED_ADDRESS);
-        lido.receivePrincipalFromMPC{value: 5 ether}();
+
+        cheats.deal(pTreasuryAddress, 5 ether);
+        lido.claimUnstakedPrincipals();
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -981,8 +1011,8 @@ contract AvaLidoTest is DSTest, Helpers {
 
         cheats.prank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(1 ether);
-
-        lido.receivePrincipalFromMPC{value: 1 ether}();
+        cheats.deal(pTreasuryAddress, 1 ether);
+        lido.claimUnstakedPrincipals();
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
 
@@ -1070,7 +1100,8 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.prank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(1 ether);
 
-        lido.receivePrincipalFromMPC{value: 1 ether}();
+        cheats.deal(pTreasuryAddress, 1 ether);
+        lido.claimUnstakedPrincipals();
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -1190,7 +1221,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         cheats.startPrank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(x);
-        lido.receivePrincipalFromMPC{value: x}();
+
+        cheats.deal(pTreasuryAddress, x);
+        lido.claimUnstakedPrincipals();
 
         lido.claim(reqId, x);
 
@@ -1205,10 +1238,12 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 1 ether}();
         assertEq(lido.protocolControlledAVAX(), 1 ether);
 
-        lido.receivePrincipalFromMPC{value: 0.6 ether}();
+        cheats.deal(pTreasuryAddress, 0.6 ether);
+        lido.claimUnstakedPrincipals();
         assertEq(lido.protocolControlledAVAX(), 0.4 ether);
 
-        lido.receivePrincipalFromMPC{value: 0.4 ether}();
+        cheats.deal(pTreasuryAddress, 0.4 ether);
+        lido.claimUnstakedPrincipals();
         assertEq(lido.protocolControlledAVAX(), 0 ether);
     }
 
@@ -1222,7 +1257,8 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.expectEmit(false, false, false, true);
         emit RewardsCollectedEvent(0.9 ether);
 
-        lido.receiveRewardsFromMPC{value: 1 ether}();
+        cheats.deal(rTreasuryAddress, 1 ether);
+        lido.claimRewards();
 
         assertEq(lido.protocolControlledAVAX(), 0.9 ether);
         assertEq(lido.amountPendingAVAX(), 0.9 ether);
@@ -1246,7 +1282,8 @@ contract AvaLidoTest is DSTest, Helpers {
 
         uint256 requestId = lido.requestWithdrawal(5 ether);
 
-        lido.receiveRewardsFromMPC{value: 1 ether}();
+        cheats.deal(rTreasuryAddress, 1 ether);
+        lido.claimRewards();
 
         // 0.1 taken as fee, 0.9 should be used to fill requests.
         (, , uint256 amountRequested, uint256 amountFilled, uint256 amountClaimed, uint256 stAVAXLocked) = lido
@@ -1376,7 +1413,8 @@ contract AvaLidoTest is DSTest, Helpers {
     // Payment splitter
 
     function testNewPaymentSplitter() public {
-        lido.receiveRewardsFromMPC{value: 5 ether}();
+        cheats.deal(rTreasuryAddress, 5 ether);
+        lido.claimRewards();
         assertEq(address(lido.protocolFeeSplitter()).balance, 0.5 ether);
 
         PaymentSplitter splitter = PaymentSplitter(lido.protocolFeeSplitter());
@@ -1397,7 +1435,8 @@ contract AvaLidoTest is DSTest, Helpers {
         paymentSplit[1] = 40;
 
         lido.setProtocolFeeSplit(paymentAddresses, paymentSplit);
-        lido.receiveRewardsFromMPC{value: 1 ether}();
+        cheats.deal(rTreasuryAddress, 1 ether);
+        lido.claimRewards();
         assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
 
         PaymentSplitter newSplitter = PaymentSplitter(lido.protocolFeeSplitter());
@@ -1437,5 +1476,20 @@ contract AvaLidoTest is DSTest, Helpers {
 
         // User 2 now has a role 🎉
         assertTrue(lido.hasRole(ROLE_MPC_MANAGER, USER2_ADDRESS));
+    }
+
+    function testMaxProtocolControlledAVAX() public {
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        assertTrue(lido.hasRole(ROLE_PROTOCOL_MANAGER, DEPLOYER_ADDRESS));
+
+        cheats.prank(DEPLOYER_ADDRESS);
+        lido.setMaxProtocolControlledAVAX(2 ether);
+
+        cheats.expectRevert(AvaLido.ProtocolStakedAmountTooLarge.selector);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1.1 ether}();
     }
 }
