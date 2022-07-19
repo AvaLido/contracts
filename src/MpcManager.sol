@@ -12,7 +12,6 @@ import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcManager, Initializable {
     // Errors
-    error AdminOnly();
     error AvaLidoOnly();
 
     error InvalidGroupSize(); // A group requires 2 or more participants.
@@ -29,6 +28,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     error RequestNotFound();
     error QuorumAlreadyReached();
     error AttemptToRejoin();
+    error Unrecognized();
 
     // Events
     event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
@@ -52,6 +52,14 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         uint256 endTime
     );
 
+    event ExportUTXORequest(
+        bytes32 txId,
+        uint32 outputIndex,
+        address to,
+        bytes indexed genPubKey,
+        uint256[] participantIndices
+    );
+
     // Types
     enum RequestStatus {
         UNKNOWN,
@@ -61,7 +69,13 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     enum RequestType {
         UNKNOWN,
         STAKE
-    } // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
+    }
+    enum UTXOutputIndex {
+        PRINCIPAL, // 0 in Avalanche network
+        REWARD // 1 in Avalanche network
+    }
+
+    // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
     struct Request {
         bytes publicKey;
         RequestType requestType;
@@ -79,7 +93,10 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     bytes public lastGenPubKey;
     address public lastGenAddress;
 
-    address private _avaLidoAddress;
+    address public avaLidoAddress;
+    address public principalTreasuryAddress;
+    address public rewardTreasuryAddress;
+
     // groupId -> number of participants in the group
     mapping(bytes32 => uint256) private _groupParticipantCount;
     // groupId -> threshold
@@ -98,10 +115,19 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
     uint256 private _lastRequestId;
 
-    function initialize() public initializer {
-        // Roles
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(ROLE_MPC_MANAGER, msg.sender);
+    // utxoTxId -> utxoIndex -> joinExportUTXOParticipantIndices
+    mapping(bytes32 => mapping(uint32 => uint256[])) private _joinExportUTXOParticipantIndices;
+
+    function initialize(
+        address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
+        address _avaLidoAddress,
+        address _principalTreasuryAddress,
+        address _rewardTreasuryAddress
+    ) public initializer {
+        _setupRole(ROLE_MPC_MANAGER, _roleMpcAdmin);
+        avaLidoAddress = _avaLidoAddress;
+        principalTreasuryAddress = _principalTreasuryAddress;
+        rewardTreasuryAddress = _rewardTreasuryAddress;
     }
 
     // -------------------------------------------------------------------------
@@ -236,12 +262,29 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
         }
     }
 
-    // -------------------------------------------------------------------------
-    //  Admin functions
-    // -------------------------------------------------------------------------
+    /**
+     * @notice Moves tokens from p-chain to c-chain.
+     */
+    function reportUTXO(
+        bytes32 groupId,
+        uint256 myIndex,
+        bytes calldata genPubKey,
+        bytes32 utxoTxID,
+        uint32 utxoIndex
+    ) external onlyGroupMember(groupId, myIndex) {
+        if (utxoIndex > 1) revert Unrecognized();
+        uint256 threshold = _groupThreshold[groupId];
+        uint256 countBeforeMyself = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].length;
+        if (countBeforeMyself > threshold) return;
 
-    function setAvaLidoAddress(address avaLidoAddress) external onlyRole(ROLE_MPC_MANAGER) {
-        _avaLidoAddress = avaLidoAddress;
+        _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].push(myIndex);
+
+        if (countBeforeMyself == threshold) {
+            uint256[] memory joinedIndices = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex];
+            address destAddress = utxoIndex == 0 ? principalTreasuryAddress : rewardTreasuryAddress;
+            emit ExportUTXORequest(utxoTxID, utxoIndex, destAddress, genPubKey, joinedIndices);
+            delete _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex];
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -269,7 +312,7 @@ contract MpcManager is Pausable, ReentrancyGuard, AccessControlEnumerable, IMpcM
     // -------------------------------------------------------------------------
 
     modifier onlyAvaLido() {
-        if (msg.sender != _avaLidoAddress) revert AvaLidoOnly();
+        if (msg.sender != avaLidoAddress) revert AvaLidoOnly();
         _;
     }
 

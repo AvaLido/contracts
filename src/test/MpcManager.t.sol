@@ -19,7 +19,12 @@ contract MpcManagerTest is DSTest, Helpers {
     uint256 constant STAKE_START_TIME = 1640966400; // 2022-01-01
     uint256 constant STAKE_END_TIME = 1642176000; // 2022-01-15
 
+    bytes32 constant UTXO_TX_ID = hex"5245afb3ad9c5c3c9430a7034464f42cee023f228d46ebcae7544759d2779caa";
+
     address AVALIDO_ADDRESS = 0x1000000000000000000000000000000000000001;
+
+    address PRINCIPAL_TREASURY_ADDR = 0xd94fC5fd8812ddE061F420D4146bc88e03b6787c;
+    address REWARD_TREASURY_ADDR = 0xe8025f13E6bF0Db21212b0Dd6AEBc4F3d1FB03ce;
 
     MpcManager mpcManager;
     bytes[] pubKeys = new bytes[](3);
@@ -45,12 +50,18 @@ contract MpcManagerTest is DSTest, Helpers {
         uint256 startTime,
         uint256 endTime
     );
+    event ExportUTXORequest(
+        bytes32 txId,
+        uint32 outputIndex,
+        address to,
+        bytes indexed genPubKey,
+        uint256[] participantIndices
+    );
 
     function setUp() public {
         MpcManager _mpcManager = new MpcManager();
         mpcManager = MpcManager(proxyWrapped(address(_mpcManager), ROLE_PROXY_ADMIN));
-        mpcManager.initialize();
-        mpcManager.setAvaLidoAddress(AVALIDO_ADDRESS);
+        mpcManager.initialize(MPC_ADMIN_ADDRESS, AVALIDO_ADDRESS, PRINCIPAL_TREASURY_ADDR, REWARD_TREASURY_ADDR);
         pubKeys[0] = MPC_PLAYER_1_PUBKEY;
         pubKeys[1] = MPC_PLAYER_2_PUBKEY;
         pubKeys[2] = MPC_PLAYER_3_PUBKEY;
@@ -61,6 +72,12 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testCreateGroup() public {
+        cheats.prank(USER1_ADDRESS);
+        cheats.expectRevert(
+            "AccessControl: account 0xd8da6bf26964af9d7eed9e03e53415d37aa96045 is missing role 0x9fece4792c7ff5d25a4f6041da7db799a6228be21fcb6358ef0b12f1dd685cb6"
+        );
+        mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
+        cheats.prank(MPC_ADMIN_ADDRESS);
         cheats.expectEmit(false, false, true, true);
         emit ParticipantAdded(MPC_PLAYER_1_PUBKEY, MPC_GROUP_ID, 1);
         emit ParticipantAdded(MPC_PLAYER_2_PUBKEY, MPC_GROUP_ID, 2);
@@ -164,11 +181,37 @@ contract MpcManagerTest is DSTest, Helpers {
         mpcManager.joinRequest(1, 3);
     }
 
+    function testReportUTXO() public {
+        setupKey();
+
+        // Event ExportUTXORequest emitted for after required t+1 participants have reported the same reward UTXO
+        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
+        cheats.expectEmit(true, false, false, true);
+        uint256[] memory indices = new uint256[](2);
+        indices[0] = 1;
+        indices[1] = 2;
+        emit ExportUTXORequest(UTXO_TX_ID, 0, PRINCIPAL_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
+        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 2, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
+
+        // Event ExportUTXORequest emitted for after required t+1 participants have reported the same principal UTXO
+        cheats.prank(MPC_PLAYER_3_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 3, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
+        cheats.expectEmit(true, false, false, true);
+        indices[0] = 3;
+        indices[1] = 1;
+        emit ExportUTXORequest(UTXO_TX_ID, 1, REWARD_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
+        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
+    }
+
     // -------------------------------------------------------------------------
     //  Private helper functions
     // -------------------------------------------------------------------------
 
     function setupGroup() private {
+        cheats.prank(MPC_ADMIN_ADDRESS);
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
     }
 

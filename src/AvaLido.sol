@@ -43,6 +43,7 @@ import "./Roles.sol";
 import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
+import "./interfaces/ITreasury.sol";
 
 uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
 
@@ -59,6 +60,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     error ClaimTooLarge();
     error InsufficientBalance();
     error NoAvailableValidators();
+    error InvalidAddress();
+    error AlreadySet();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
@@ -118,7 +121,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
 
     // Address where we'll send AVAX to be staked.
     address private mpcManagerAddress;
-    IMpcManager private mpcManager;
+    IMpcManager public mpcManager;
+    ITreasury public pricipalTreasury;
+    ITreasury public rewardTreasury;
 
     function initialize(
         address lidoFeeAddress,
@@ -142,9 +147,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         maxUnstakeRequests = 10;
         maxProtocolControlledAVAX = type(uint256).max; // Unlimited by default.
 
-        mpcManagerAddress = _mpcManagerAddress;
         mpcManager = IMpcManager(_mpcManagerAddress);
-
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
 
         // Initial payment addresses and fee split.
@@ -331,41 +334,46 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     }
 
     /**
-     * @notice You should not call this funciton.
+     * @notice Claims the value in treasury.
      * @dev A payable function which receives AVAX from the MPC wallet and
      * uses it to fill unstake requests. Any remaining funds after all requests
      * are filled are re-staked.
      */
-    function receivePrincipalFromMPC() external payable {
-        if (amountStakedAVAX == 0 || amountStakedAVAX < msg.value) revert InvalidStakeAmount();
+    function claimUnstakedPrincipals() external {
+        uint256 val = address(pricipalTreasury).balance;
+        if (val == 0) return;
+        pricipalTreasury.claim(val);
+        if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
         // We received this from an unstake, so remove from our count.
         // Anything restaked will be counted again on the way out.
         // Note: This avoids double counting, as the total count includes AVAX held by
         // the contract.
-        amountStakedAVAX -= msg.value;
+        amountStakedAVAX -= val;
 
         // Fill unstake requests
-        uint256 remaining = fillUnstakeRequests(msg.value);
+        uint256 remaining = fillUnstakeRequests(val);
 
         // Allocate excess for restaking.
         amountPendingAVAX += remaining;
     }
 
     /**
-     * @notice You should not call this funciton.
+     * @notice Claims the value in treasury and distribute.
      * @dev this function takes the protocol fee from the rewards, distributes
      * it to the protocol fee splitters, and then retains the rest.
      * We then kick off our stAVAX rebase.
      */
-    function receiveRewardsFromMPC() external payable {
-        if (msg.value == 0) return;
+    function claimRewards() external {
+        uint256 val = address(rewardTreasury).balance;
+        if (val == 0) return;
+        rewardTreasury.claim(val);
 
-        uint256 protocolFee = (msg.value * protocolFeePercentage) / 100;
+        uint256 protocolFee = (val * protocolFeePercentage) / 100;
         payable(protocolFeeSplitter).transfer(protocolFee);
         emit ProtocolFeeEvent(protocolFee);
 
-        uint256 afterFee = msg.value - protocolFee;
+        uint256 afterFee = val - protocolFee;
         emit RewardsCollectedEvent(afterFee);
 
         // Fill unstake requests
@@ -450,17 +458,35 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
         protocolFeePercentage = _protocolFeePercentage;
     }
 
+    /**
+     * @dev The two treasury addresses should be set in intialize. Separate them due to
+     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
+     * struct to hold all the arguments of initialize call?
+     */
+    function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
+        if (_address == address(0)) revert InvalidAddress();
+        if (address(pricipalTreasury) != address(0)) revert AlreadySet();
+
+        pricipalTreasury = ITreasury(_address);
+    }
+
+    /**
+     * @dev The two treasury addresses should be set in intialize. Separate them due to
+     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
+     * struct to hold all the arguments of initialize call?
+     */
+    function setRewardTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
+        if (_address == address(0)) revert InvalidAddress();
+        if (address(rewardTreasury) != address(0)) revert AlreadySet();
+
+        rewardTreasury = ITreasury(_address);
+    }
+
     function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
         public
         onlyRole(ROLE_TREASURY_MANAGER)
     {
         protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
-    }
-
-    function setMpcManagerAddress(address _mpcManagerAddress) external onlyRole(ROLE_MPC_MANAGER) {
-        require(_mpcManagerAddress != address(0), "Cannot set to 0 address");
-        mpcManagerAddress = _mpcManagerAddress;
-        mpcManager = IMpcManager(_mpcManagerAddress);
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
@@ -482,4 +508,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable, 
     function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
     }
+}
+
+contract PayableAvaLido is AvaLido {
+    receive() external payable {}
 }

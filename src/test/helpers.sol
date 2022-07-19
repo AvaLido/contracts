@@ -6,6 +6,7 @@ import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeabl
 
 import "../ValidatorSelector.sol";
 import "../MpcManager.sol";
+import "../Treasury.sol";
 
 import "./cheats.sol";
 
@@ -23,6 +24,7 @@ address constant WHITELISTED_ORACLE_2 = 0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413
 address constant WHITELISTED_ORACLE_3 = 0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018;
 address constant WHITELISTED_ORACLE_4 = 0xE339767906891bEE026285803DA8d8F2f346842C;
 address constant WHITELISTED_ORACLE_5 = 0x0309a747a34befD1625b5dcae0B00625FAa30460;
+address constant MPC_ADMIN_ADDRESS = ORACLE_ADMIN_ADDRESS;
 address constant MPC_PLAYER_1_ADDRESS = 0x3051bA2d313840932B7091D2e8684672496E9A4B;
 address constant MPC_PLAYER_2_ADDRESS = 0x7Ac8e2083E3503bE631a0557b3f2A8543EaAdd90;
 address constant MPC_PLAYER_3_ADDRESS = 0x3600323b486F115CE127758ed84F26977628EeaA;

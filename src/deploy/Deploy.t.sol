@@ -17,6 +17,7 @@ contract Deploy is DSTest, Helpers {
     // TODO: This should be divided into roles rather than used for everything
     address admin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
     address oracleAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
+    address mpcAdmin = 0x8e7D0f159e992cfC0ee28D55C600106482a818Ea;
 
     // Address constants
     address lidoFeeAddress = 0x2000000000000000000000000000000000000001;
@@ -41,7 +42,10 @@ contract Deploy is DSTest, Helpers {
         // MPC manager
         MpcManager _mpcManager = new MpcManager();
         MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), admin)));
-        mpcManager.initialize();
+
+        // Treasuries
+        PrincipalTreasury pTreasury = new PrincipalTreasury();
+        RewardTreasury rTreasury = new RewardTreasury();
 
         // Oracle manager
         OracleManager _oracleManager = new OracleManager();
@@ -61,12 +65,17 @@ contract Deploy is DSTest, Helpers {
         validatorSelector.initialize(address(oracle));
 
         // AvaLido
-        AvaLido _lido = new AvaLido();
-        AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
+        AvaLido _lido = new PayableAvaLido();
+        AvaLido lido = PayableAvaLido(payable(address(proxyWrapped(address(_lido), admin))));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
+        lido.setPrincipalTreasuryAddress(address(pTreasury));
+        lido.setRewardTreasuryAddress(address(rTreasury));
+        pTreasury.setAvaLidoAddress(address(lido));
+        rTreasury.setAvaLidoAddress(address(lido));
+
         // MPC manager setup
-        mpcManager.setAvaLidoAddress(address(lido));
+        mpcManager.initialize(mpcAdmin, address(lido), address(pTreasury), address(rTreasury));
 
         // End transaction
         cheats.stopBroadcast();

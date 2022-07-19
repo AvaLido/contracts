@@ -15,8 +15,6 @@ interface IMpcManager {
         uint256 endTime
     ) external payable;
 
-    function setAvaLidoAddress(address avaLidoAddress) external;
-
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external;
 
     function requestKeygen(bytes32 groupId) external;
