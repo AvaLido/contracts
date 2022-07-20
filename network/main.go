@@ -48,7 +48,10 @@ func shutdownOnSignal(
 // The network runs until the user provides a SIGINT or SIGTERM.
 func main() {
 	// Create the logger
-	logFactory := logging.NewFactory(logging.DefaultConfig)
+	logFactory := logging.NewFactory(logging.Config{
+		DisplayLevel: logging.Level(logging.Info),
+		LogLevel:     logging.Level(logging.Debug),
+	})
 	log, err := logFactory.Make("main")
 	if err != nil {
 		fmt.Println(err)
@@ -71,7 +74,7 @@ func run(log logging.Logger, binaryPath string, dir string) error {
 	conf := local.NewDefaultConfig(binaryPath)
 	conf.Genesis = genesisData
 
-	nw, err := local.NewNetwork(log, conf, dir)
+	nw, err := local.NewNetwork(log, conf, dir, dir)
 
 	// nw, err := local.NewDefaultNetwork(log, binaryPath)
 	if err != nil {
@@ -96,9 +99,8 @@ func run(log logging.Logger, binaryPath string, dir string) error {
 	// Wait until the nodes in the network are ready
 	ctx, cancel := context.WithTimeout(context.Background(), healthyTimeout)
 	defer cancel()
-	healthyChan := nw.Healthy(ctx)
 	log.Info("waiting for all nodes to report healthy...")
-	if err := <-healthyChan; err != nil {
+	if err := nw.Healthy(ctx); err != nil {
 		return err
 	}
 
