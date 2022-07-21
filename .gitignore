@@ -2,8 +2,9 @@ out/
 cache/
 broadcast/
 
-network/node-*
+network/node*
 network/build
+network/main.log
 
 node_modules/
 
