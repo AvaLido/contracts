@@ -205,7 +205,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      */
     function reportGeneratedKey(
         bytes32 groupId,
-        uint256 myIndex,
+        uint8 myIndex,
         bytes calldata generatedPublicKey
     ) external onlyGroupMember(groupId, myIndex) {
         KeyInfo storage info = _generatedKeys[generatedPublicKey];
@@ -231,7 +231,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * @notice Participant has to call this function to join an MPC request. Each request
      * requires exactly t + 1 members to join.
      */
-    function joinRequest(uint256 requestId, uint256 myIndex) external {
+    function joinRequest(uint256 requestId, uint8 myIndex) external {
         // TODO: Add auth
 
         Request storage status = _requests[requestId];
@@ -274,7 +274,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      */
     function reportUTXO(
         bytes32 groupId,
-        uint256 myIndex,
+        uint8 myIndex,
         bytes calldata genPubKey,
         bytes32 utxoTxID,
         uint32 utxoIndex
