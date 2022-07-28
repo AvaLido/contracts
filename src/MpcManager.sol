@@ -159,7 +159,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * signing.
      */
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyRole(ROLE_MPC_MANAGER) {
-        // TODO: Refine ACL
         // TODO: Check public keys are valid
         if (publicKeys.length < 2) revert InvalidGroupSize();
         if (threshold < 1 || threshold >= publicKeys.length) revert InvalidThreshold();
@@ -188,7 +187,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * of the ordered group members and the threshold.
      */
     function requestKeygen(bytes32 groupId) external onlyRole(ROLE_MPC_MANAGER) {
-        // TODO: Refine ACL
         emit KeygenRequestAdded(groupId);
     }
 
@@ -227,7 +225,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * requires exactly t + 1 members to join.
      */
     function joinRequest(uint256 requestId, uint256 myIndex) external {
-        // TODO: Add auth
 
         Request storage status = _requests[requestId];
         if (status.publicKey.length == 0) revert RequestNotFound();
