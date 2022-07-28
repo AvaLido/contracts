@@ -71,8 +71,8 @@ contract Deploy is DSTest, Helpers {
 
         lido.setPrincipalTreasuryAddress(address(pTreasury));
         lido.setRewardTreasuryAddress(address(rTreasury));
-        pTreasury.setAvaLidoAddress(address(lido));
-        rTreasury.setAvaLidoAddress(address(lido));
+        pTreasury.initialize(address(lido));
+        rTreasury.initialize(address(lido));
 
         // MPC manager setup
         mpcManager.initialize(mpcAdmin, address(lido), address(pTreasury), address(rTreasury));

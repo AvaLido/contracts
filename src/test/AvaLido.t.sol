@@ -90,8 +90,6 @@ contract AvaLidoTest is DSTest, Helpers {
         pTreasury = PrincipalTreasury(proxyWrapped(address(_pTreasury), ROLE_PROXY_ADMIN));
         RewardTreasury _rTreasury = new RewardTreasury();
         rTreasury = RewardTreasury(proxyWrapped(address(_rTreasury), ROLE_PROXY_ADMIN));
-        pTreasury.initialize();
-        rTreasury.initialize();
 
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
@@ -103,8 +101,8 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
         lido.setPrincipalTreasuryAddress(pTreasuryAddress);
         lido.setRewardTreasuryAddress(rTreasuryAddress);
-        pTreasury.setAvaLidoAddress(address(lido));
-        rTreasury.setAvaLidoAddress(address(lido));
+        pTreasury.initialize(address(lido));
+        rTreasury.initialize(address(lido));
     }
 
     receive() external payable {}
