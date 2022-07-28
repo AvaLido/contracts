@@ -10,6 +10,8 @@ import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
+    bytes32 constant GROUP_ID_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000; // Second last byte for groupSize, last byte for threshold
+    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
     uint256 constant MAX_GROUP_SIZE = 255;
     // Errors
     error AvaLidoOnly();
@@ -85,7 +87,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         bytes publicKey;
         RequestType requestType;
         uint256 participantIndices;
-        uint256 confirmedCount;
+        uint8 confirmedCount;
         RequestStatus status;
     }
     struct StakeRequestDetails {
@@ -103,10 +105,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     address public principalTreasuryAddress;
     address public rewardTreasuryAddress;
 
-    // groupId -> number of participants in the group
-    mapping(bytes32 => uint8) private _groupParticipantCount;
-    // groupId -> threshold
-    mapping(bytes32 => uint8) private _groupThreshold;
     // groupId -> index -> participant
     mapping(bytes32 => mapping(uint256 => ParticipantInfo)) private _groupParticipants;
 
@@ -171,16 +169,15 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (publicKeys.length < 2 || publicKeys.length > MAX_GROUP_SIZE) revert InvalidGroupSize();
         if (threshold < 1 || threshold >= publicKeys.length) revert InvalidThreshold();
 
-        bytes memory b = bytes.concat(bytes32(uint256(threshold)));
+        bytes memory b;
         for (uint256 i = 0; i < publicKeys.length; i++) {
             b = bytes.concat(b, publicKeys[i]);
         }
         bytes32 groupId = keccak256(b);
+        groupId = (groupId & GROUP_ID_MASK) | (bytes32(publicKeys.length) << 8) | bytes32(uint256(threshold));
 
-        uint256 count = _groupParticipantCount[groupId];
-        if (count > 0) revert AttemptToReaddGroup();
-        _groupParticipantCount[groupId] = uint8(publicKeys.length);
-        _groupThreshold[groupId] = threshold;
+        address knownFirstParticipantAddr = _groupParticipants[groupId][1].ethAddress;
+        if (knownFirstParticipantAddr != address(0)) revert AttemptToReaddGroup();
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
             _groupParticipants[groupId][i + 1].publicKey = publicKeys[i]; // Participant index is 1-based.
@@ -243,9 +240,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         KeyInfo memory info = _generatedKeys[status.publicKey];
         if (!info.confirmed) revert KeyNotFound();
 
-        uint256 threshold = _groupThreshold[info.groupId];
+        uint8 threshold = uint8(uint256(info.groupId & LAST_BYTE_MASK));
         uint256 indices = status.participantIndices;
-        uint256 confirmedCount = status.confirmedCount;
+        uint8 confirmedCount = status.confirmedCount;
         if (confirmedCount > threshold) revert QuorumAlreadyReached();
 
         _ensureSenderIsClaimedParticipant(info.groupId, myIndex);
@@ -283,7 +280,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint32 utxoIndex
     ) external onlyGroupMember(groupId, myIndex) {
         if (utxoIndex > 1) revert Unrecognized();
-        uint256 threshold = _groupThreshold[groupId];
+        uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
         uint256 countBeforeMyself = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].length;
         if (countBeforeMyself > threshold) return;
 
@@ -302,12 +299,12 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // -------------------------------------------------------------------------
 
     function getGroup(bytes32 groupId) external view returns (bytes[] memory, uint256) {
-        uint256 count = _groupParticipantCount[groupId];
+        uint8 count = uint8(uint256((groupId >> 8) & LAST_BYTE_MASK));
         if (count == 0) revert GroupNotFound();
         bytes[] memory participants = new bytes[](count);
-        uint256 threshold = _groupThreshold[groupId];
+        uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
 
-        for (uint256 i = 0; i < count; i++) {
+        for (uint8 i = 0; i < count; i++) {
             participants[i] = _groupParticipants[groupId][i + 1].publicKey; // Participant index is 1-based.
         }
         return (participants, threshold);
@@ -376,9 +373,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         view
         returns (bool)
     {
-        uint256 count = _groupParticipantCount[groupId];
+        uint8 count = uint8(uint256((groupId >> 8) & LAST_BYTE_MASK));
 
-        for (uint256 i = 0; i < count; i++) {
+        for (uint8 i = 0; i < count; i++) {
             if (!_keyConfirmations[generatedPublicKey][i + 1]) return false; // Participant index is 1-based.
         }
         return true;

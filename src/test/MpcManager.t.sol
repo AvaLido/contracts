@@ -12,7 +12,7 @@ import "../MpcManager.sol";
 
 contract MpcManagerTest is DSTest, Helpers {
     uint8 constant MPC_THRESHOLD = 1;
-    bytes32 constant MPC_GROUP_ID = hex"3726383e52fd4cb603498459e8a4a15d148566a51b3f5bfbbf3cac7b61647d04";
+    bytes32 constant MPC_GROUP_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495390301";
 
     bytes constant MESSAGE_TO_SIGN = bytes("foo");
     uint256 constant STAKE_AMOUNT = 30 ether;
