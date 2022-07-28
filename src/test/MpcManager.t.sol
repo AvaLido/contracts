@@ -11,7 +11,7 @@ import "../interfaces/IMpcManager.sol";
 import "../MpcManager.sol";
 
 contract MpcManagerTest is DSTest, Helpers {
-    uint256 constant MPC_THRESHOLD = 1;
+    uint8 constant MPC_THRESHOLD = 1;
     bytes32 constant MPC_GROUP_ID = hex"3726383e52fd4cb603498459e8a4a15d148566a51b3f5bfbbf3cac7b61647d04";
 
     bytes constant MESSAGE_TO_SIGN = bytes("foo");

@@ -38,7 +38,7 @@ contract FakeMpcManager is IMpcManager {
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }
 
-    function createGroup(bytes[] calldata, uint256) external {
+    function createGroup(bytes[] calldata, uint8) external {
         revert("Not Implemented");
     }
 

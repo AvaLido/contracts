@@ -15,7 +15,7 @@ interface IMpcManager {
         uint256 endTime
     ) external payable;
 
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external;
+    function createGroup(bytes[] calldata publicKeys, uint8 threshold) external;
 
     function requestKeygen(bytes32 groupId) external;
 

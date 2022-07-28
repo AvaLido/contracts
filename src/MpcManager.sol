@@ -104,9 +104,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     address public rewardTreasuryAddress;
 
     // groupId -> number of participants in the group
-    mapping(bytes32 => uint256) private _groupParticipantCount;
+    mapping(bytes32 => uint8) private _groupParticipantCount;
     // groupId -> threshold
-    mapping(bytes32 => uint256) private _groupThreshold;
+    mapping(bytes32 => uint8) private _groupThreshold;
     // groupId -> index -> participant
     mapping(bytes32 => mapping(uint256 => ParticipantInfo)) private _groupParticipants;
 
@@ -165,13 +165,13 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * @param threshold The threshold t. Note: t + 1 participants are required to complete a
      * signing.
      */
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyRole(ROLE_MPC_MANAGER) {
+    function createGroup(bytes[] calldata publicKeys, uint8 threshold) external onlyRole(ROLE_MPC_MANAGER) {
         // TODO: Refine ACL
         // TODO: Check public keys are valid
-        if (publicKeys.length < 2) revert InvalidGroupSize();
+        if (publicKeys.length < 2 || publicKeys.length > MAX_GROUP_SIZE) revert InvalidGroupSize();
         if (threshold < 1 || threshold >= publicKeys.length) revert InvalidThreshold();
 
-        bytes memory b = bytes.concat(bytes32(threshold));
+        bytes memory b = bytes.concat(bytes32(uint256(threshold)));
         for (uint256 i = 0; i < publicKeys.length; i++) {
             b = bytes.concat(b, publicKeys[i]);
         }
@@ -179,7 +179,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
         uint256 count = _groupParticipantCount[groupId];
         if (count > 0) revert AttemptToReaddGroup();
-        _groupParticipantCount[groupId] = publicKeys.length;
+        _groupParticipantCount[groupId] = uint8(publicKeys.length);
         _groupThreshold[groupId] = threshold;
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
