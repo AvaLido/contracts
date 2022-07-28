@@ -13,6 +13,8 @@ import "../MpcManager.sol";
 contract MpcManagerTest is DSTest, Helpers {
     uint256 constant MPC_THRESHOLD = 1;
     bytes32 constant MPC_GROUP_ID = hex"3726383e52fd4cb603498459e8a4a15d148566a51b3f5bfbbf3cac7b61647d04";
+    bytes constant TOO_SHORT_PUKEY =
+        hex"ee5cd601a19cd9bb95fe7be8b1566b73c51d3e7e375359c129b1d77bb4b3e6f06766bde6ff723360cee7f89abab428717f811f460ebf67f5186f75a9f4288d";
 
     bytes constant MESSAGE_TO_SIGN = bytes("foo");
     uint256 constant STAKE_AMOUNT = 30 ether;
@@ -58,6 +60,12 @@ contract MpcManagerTest is DSTest, Helpers {
         uint256[] participantIndices
     );
 
+    function resetParticipantPublicKeys() public {
+        pubKeys[0] = MPC_PLAYER_1_PUBKEY;
+        pubKeys[1] = MPC_PLAYER_2_PUBKEY;
+        pubKeys[2] = MPC_PLAYER_3_PUBKEY;
+    }
+
     function setUp() public {
         MpcManager _mpcManager = new MpcManager();
         mpcManager = MpcManager(proxyWrapped(address(_mpcManager), ROLE_PROXY_ADMIN));
@@ -72,11 +80,21 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function testCreateGroup() public {
+        // Non admin
         cheats.prank(USER1_ADDRESS);
         cheats.expectRevert(
             "AccessControl: account 0xd8da6bf26964af9d7eed9e03e53415d37aa96045 is missing role 0x9fece4792c7ff5d25a4f6041da7db799a6228be21fcb6358ef0b12f1dd685cb6"
         );
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
+
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        // Invalid public key
+        pubKeys[2] = TOO_SHORT_PUKEY;
+        cheats.expectRevert(MpcManager.InvalidPublicKey.selector);
+        mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
+
+        // Success case
+        resetParticipantPublicKeys();
         cheats.prank(MPC_ADMIN_ADDRESS);
         cheats.expectEmit(false, false, true, true);
         emit ParticipantAdded(MPC_PLAYER_1_PUBKEY, MPC_GROUP_ID, 1);

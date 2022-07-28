@@ -10,11 +10,13 @@ import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
+    uint256 constant PUBKEY_LENGTH = 64;
     // Errors
     error AvaLidoOnly();
 
     error InvalidGroupSize(); // A group requires 2 or more participants.
     error InvalidThreshold(); // Threshold has to be in range [1, n - 1].
+    error InvalidPublicKey();
     error GroupNotFound();
     error InvalidGroupMembership();
     error AttemptToReaddGroup();
@@ -174,12 +176,12 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * signing.
      */
     function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyRole(ROLE_MPC_MANAGER) {
-        // TODO: Check public keys are valid
         if (publicKeys.length < 2) revert InvalidGroupSize();
         if (threshold < 1 || threshold >= publicKeys.length) revert InvalidThreshold();
 
         bytes memory b = bytes.concat(bytes32(threshold));
         for (uint256 i = 0; i < publicKeys.length; i++) {
+            if (publicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();
             b = bytes.concat(b, publicKeys[i]);
         }
         bytes32 groupId = keccak256(b);
@@ -220,19 +222,15 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
         if (info.confirmed) revert AttemptToReconfirmKey();
 
-        // TODO: Check public key valid
         _keyConfirmations[generatedPublicKey][myIndex] = true;
 
         if (_generatedKeyConfirmedByAll(groupId, generatedPublicKey)) {
             info.groupId = groupId;
             info.confirmed = true;
-            // TODO: The two sentence below for naive testing purpose, to deal with them furher.
             lastGenPubKey = generatedPublicKey;
             lastGenAddress = _calculateAddress(generatedPublicKey);
             emit KeyGenerated(groupId, generatedPublicKey);
         }
-
-        // TODO: Removed _keyConfirmations data after all confirmed
     }
 
     /**
