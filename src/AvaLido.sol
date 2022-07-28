@@ -124,7 +124,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Address where we'll send AVAX to be staked.
     address private mpcManagerAddress;
     IMpcManager public mpcManager;
-    ITreasury public pricipalTreasury;
+    ITreasury public principalTreasury;
     ITreasury public rewardTreasury;
 
     function initialize(
@@ -345,9 +345,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * are filled are re-staked.
      */
     function claimUnstakedPrincipals() external {
-        uint256 val = address(pricipalTreasury).balance;
+        uint256 val = address(principalTreasury).balance;
         if (val == 0) return;
-        pricipalTreasury.claim(val);
+        principalTreasury.claim(val);
         if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
         // We received this from an unstake, so remove from our count.
@@ -478,9 +478,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      */
     function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
-        if (address(pricipalTreasury) != address(0)) revert AlreadySet();
+        if (address(principalTreasury) != address(0)) revert AlreadySet();
 
-        pricipalTreasury = ITreasury(_address);
+        principalTreasury = ITreasury(_address);
     }
 
     /**
