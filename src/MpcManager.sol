@@ -152,7 +152,22 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (lastGenAddress == address(0)) revert KeyNotGenerated();
         if (msg.value != amount) revert InvalidAmount();
         payable(lastGenAddress).transfer(amount);
-        _handleStakeRequest(lastGenPubKey, nodeID, amount, startTime, endTime);
+
+        KeyInfo memory info = _generatedKeys[lastGenPubKey];
+        if (!info.confirmed) revert KeyNotFound();
+
+        uint256 requestId = _getNextRequestId();
+        Request storage status = _requests[requestId];
+        status.publicKey = lastGenPubKey;
+        status.requestType = RequestType.STAKE;
+
+        StakeRequestDetails storage details = _stakeRequestDetails[requestId];
+
+        details.nodeID = nodeID;
+        details.amount = amount;
+        details.startTime = startTime;
+        details.endTime = endTime;
+        emit StakeRequestAdded(requestId, lastGenPubKey, nodeID, amount, startTime, endTime);
     }
 
     /**
@@ -193,7 +208,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * of the ordered group members and the threshold.
      */
     function requestKeygen(bytes32 groupId) external onlyRole(ROLE_MPC_MANAGER) {
-        // TODO: Refine ACL
         emit KeygenRequestAdded(groupId);
     }
 
@@ -339,33 +353,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // -------------------------------------------------------------------------
     //  Internal functions
     // -------------------------------------------------------------------------
-
-    // TODO: to deal with publickey param type modifier, currently use memory for testing convinience.
-    function _handleStakeRequest(
-        bytes memory publicKey,
-        string calldata nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    ) internal {
-        KeyInfo memory info = _generatedKeys[publicKey];
-        if (!info.confirmed) revert KeyNotFound();
-
-        // TODO: Validate input
-
-        uint256 requestId = _getNextRequestId();
-        Request storage status = _requests[requestId];
-        status.publicKey = publicKey;
-        status.requestType = 1;
-
-        StakeRequestDetails storage details = _stakeRequestDetails[requestId];
-
-        details.nodeID = nodeID;
-        details.amount = amount;
-        details.startTime = startTime;
-        details.endTime = endTime;
-        emit StakeRequestAdded(requestId, publicKey, nodeID, amount, startTime, endTime);
-    }
 
     function _getNextRequestId() internal returns (uint256) {
         _lastRequestId += 1;
