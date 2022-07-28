@@ -44,7 +44,7 @@ contract MpcManagerTest is DSTest, Helpers {
     event StakeRequestStarted(
         uint256 requestId,
         bytes indexed publicKey,
-        uint256[] participantIndices,
+        uint256 participantIndices,
         string nodeID,
         uint256 amount,
         uint256 startTime,
@@ -160,9 +160,9 @@ contract MpcManagerTest is DSTest, Helpers {
 
         // Event emitted after required t+1 participants have joined
         cheats.expectEmit(false, false, true, true);
-        uint256[] memory indices = new uint256[](2);
-        indices[0] = 1;
-        indices[1] = 2;
+        uint256 indices = 0;
+        indices += (1 << (1 - 1));
+        indices += (1 << (2 - 1));
         emit StakeRequestStarted(
             1,
             MPC_GENERATED_PUBKEY,

@@ -10,6 +10,7 @@ import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
+    uint256 constant MAX_GROUP_SIZE = 255;
     // Errors
     error AvaLidoOnly();
 
@@ -44,7 +45,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     event StakeRequestStarted(
         uint256 requestId,
         bytes indexed publicKey,
-        uint256[] participantIndices,
+        uint256 participantIndices,
         string nodeID,
         uint256 amount,
         uint256 startTime,
@@ -74,11 +75,17 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         REWARD // 1 in Avalanche network
     }
 
+    struct ParticipantInfo {
+        bytes publicKey;
+        address ethAddress;
+    }
+
     // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
     struct Request {
         bytes publicKey;
         RequestType requestType;
-        uint256[] participantIndices;
+        uint256 participantIndices;
+        uint256 confirmedCount;
         RequestStatus status;
     }
     struct StakeRequestDetails {
@@ -101,7 +108,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // groupId -> threshold
     mapping(bytes32 => uint256) private _groupThreshold;
     // groupId -> index -> participant
-    mapping(bytes32 => mapping(uint256 => bytes)) private _groupParticipants;
+    mapping(bytes32 => mapping(uint256 => ParticipantInfo)) private _groupParticipants;
 
     // key -> groupId
     mapping(bytes => KeyInfo) private _generatedKeys;
@@ -176,7 +183,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         _groupThreshold[groupId] = threshold;
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
-            _groupParticipants[groupId][i + 1] = publicKeys[i]; // Participant index is 1-based.
+            _groupParticipants[groupId][i + 1].publicKey = publicKeys[i]; // Participant index is 1-based.
+            _groupParticipants[groupId][i + 1].ethAddress = _calculateAddress(publicKeys[i]); // Participant index is 1-based.
             emit ParticipantAdded(publicKeys[i], groupId, i + 1);
         }
     }
@@ -236,16 +244,19 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (!info.confirmed) revert KeyNotFound();
 
         uint256 threshold = _groupThreshold[info.groupId];
-        if (status.participantIndices.length > threshold) revert QuorumAlreadyReached();
+        uint256 indices = status.participantIndices;
+        uint256 confirmedCount = status.confirmedCount;
+        if (confirmedCount > threshold) revert QuorumAlreadyReached();
 
         _ensureSenderIsClaimedParticipant(info.groupId, myIndex);
 
-        for (uint256 i = 0; i < status.participantIndices.length; i++) {
-            if (status.participantIndices[i] == myIndex) revert AttemptToRejoin();
-        }
-        status.participantIndices.push(myIndex);
+        uint256 myConfirm = 1 << (myIndex - 1);
+        if (indices & myConfirm > 0) revert AttemptToRejoin();
 
-        if (status.participantIndices.length == threshold + 1) {
+        status.participantIndices = indices + myConfirm;
+        status.confirmedCount = confirmedCount + 1;
+
+        if (status.confirmedCount == threshold + 1) {
             StakeRequestDetails memory details = _stakeRequestDetails[requestId];
             if (details.amount > 0) {
                 emit StakeRequestStarted(
@@ -297,7 +308,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 threshold = _groupThreshold[groupId];
 
         for (uint256 i = 0; i < count; i++) {
-            participants[i] = _groupParticipants[groupId][i + 1]; // Participant index is 1-based.
+            participants[i] = _groupParticipants[groupId][i + 1].publicKey; // Participant index is 1-based.
         }
         return (participants, threshold);
     }
@@ -386,11 +397,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     }
 
     function _ensureSenderIsClaimedParticipant(bytes32 groupId, uint256 index) private view {
-        bytes memory publicKey = _groupParticipants[groupId][index];
-        if (publicKey.length == 0) revert GroupNotFound();
-
-        address member = _calculateAddress(publicKey);
-
-        if (msg.sender != member) revert InvalidGroupMembership();
+        if (msg.sender != _groupParticipants[groupId][index].ethAddress) revert InvalidGroupMembership();
     }
 }
