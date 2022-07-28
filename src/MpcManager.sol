@@ -59,7 +59,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint32 outputIndex,
         address to,
         bytes indexed genPubKey,
-        uint256[] participantIndices
+        uint256 participantIndices
     );
 
     // Types
@@ -85,7 +85,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
     struct Request {
         bytes publicKey;
-        RequestType requestType;
+        uint256 requestType;
         uint256 participantIndices;
         uint8 confirmedCount;
         RequestStatus status;
@@ -120,7 +120,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     uint256 private _lastRequestId;
 
     // utxoTxId -> utxoIndex -> joinExportUTXOParticipantIndices
-    mapping(bytes32 => mapping(uint32 => uint256[])) private _joinExportUTXOParticipantIndices;
+    mapping(bytes32 => mapping(uint32 => Request)) private p2cRequests;
 
     function initialize(
         address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
@@ -275,22 +275,30 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     function reportUTXO(
         bytes32 groupId,
         uint8 myIndex,
-        bytes calldata genPubKey,
+        bytes calldata publicKey,
         bytes32 utxoTxID,
         uint32 utxoIndex
     ) external onlyGroupMember(groupId, myIndex) {
         if (utxoIndex > 1) revert Unrecognized();
         uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
-        uint256 countBeforeMyself = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].length;
-        if (countBeforeMyself > threshold) return;
 
-        _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex].push(myIndex);
+        Request storage status = p2cRequests[utxoTxID][utxoIndex];
+        if (status.publicKey.length == 0) {
+            status.publicKey = publicKey;
+            status.requestType = 2;
+        }
 
-        if (countBeforeMyself == threshold) {
-            uint256[] memory joinedIndices = _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex];
+        if (status.confirmedCount > threshold) return;
+
+        uint256 myConfirm = 1 << (myIndex - 1);
+        if (status.participantIndices & myConfirm > 0) revert AttemptToRejoin();
+
+        status.participantIndices = status.participantIndices + myConfirm;
+        status.confirmedCount = status.confirmedCount + 1;
+
+        if (status.confirmedCount == threshold + 1) {
             address destAddress = utxoIndex == 0 ? principalTreasuryAddress : rewardTreasuryAddress;
-            emit ExportUTXORequest(utxoTxID, utxoIndex, destAddress, genPubKey, joinedIndices);
-            delete _joinExportUTXOParticipantIndices[utxoTxID][utxoIndex];
+            emit ExportUTXORequest(utxoTxID, utxoIndex, destAddress, publicKey, status.participantIndices);
         }
     }
 
@@ -348,7 +356,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 requestId = _getNextRequestId();
         Request storage status = _requests[requestId];
         status.publicKey = publicKey;
-        status.requestType = RequestType.STAKE;
+        status.requestType = 1;
 
         StakeRequestDetails storage details = _stakeRequestDetails[requestId];
 

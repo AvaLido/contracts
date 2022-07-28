@@ -55,7 +55,7 @@ contract MpcManagerTest is DSTest, Helpers {
         uint32 outputIndex,
         address to,
         bytes indexed genPubKey,
-        uint256[] participantIndices
+        uint256 participantIndices
     );
 
     function setUp() public {
@@ -188,9 +188,9 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
         cheats.expectEmit(true, false, false, true);
-        uint256[] memory indices = new uint256[](2);
-        indices[0] = 1;
-        indices[1] = 2;
+        uint256 indices = 0;
+        indices += (1 << (1 - 1));
+        indices += (1 << (2 - 1));
         emit ExportUTXORequest(UTXO_TX_ID, 0, PRINCIPAL_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
         cheats.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 2, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
@@ -199,8 +199,9 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 3, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
         cheats.expectEmit(true, false, false, true);
-        indices[0] = 3;
-        indices[1] = 1;
+        indices = 0;
+        indices += (1 << (3 - 1));
+        indices += (1 << (1 - 1));
         emit ExportUTXORequest(UTXO_TX_ID, 1, REWARD_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
         cheats.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportUTXO(MPC_GROUP_ID, 1, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
