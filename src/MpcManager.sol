@@ -120,7 +120,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     uint256 private _lastRequestId;
 
     // utxoTxId -> utxoIndex -> joinExportUTXOParticipantIndices
-    mapping(bytes32 => mapping(uint32 => Request)) private p2cRequests;
+    mapping(bytes32 => mapping(uint32 => Request)) private _p2cRequests;
 
     function initialize(
         address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
@@ -282,7 +282,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (utxoIndex > 1) revert Unrecognized();
         uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
 
-        Request storage status = p2cRequests[utxoTxID][utxoIndex];
+        Request storage status = _p2cRequests[utxoTxID][utxoIndex];
         if (status.publicKey.length == 0) {
             status.publicKey = publicKey;
             status.requestType = 2;
