@@ -159,7 +159,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 requestId = _getNextRequestId();
         Request storage status = _requests[requestId];
         status.publicKey = lastGenPubKey;
-        status.requestType = RequestType.STAKE;
+        status.requestType = 1;
 
         StakeRequestDetails storage details = _stakeRequestDetails[requestId];
 
