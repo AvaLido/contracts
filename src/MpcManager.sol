@@ -171,29 +171,29 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * @notice Admin will call this function to create an MPC group consisting of n members
      * and a specified threshold t. The signing can be performed by any t + 1 participants
      * from the group.
-     * @param publicKeys The public keys which identify the n group members.
+     * @param orderedPublicKeys The public keys which identify the n group members.
      * @param threshold The threshold t. Note: t + 1 participants are required to complete a
      * signing.
      */
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external onlyRole(ROLE_MPC_MANAGER) {
-        if (publicKeys.length < 2) revert InvalidGroupSize();
-        if (threshold < 1 || threshold >= publicKeys.length) revert InvalidThreshold();
+    function createGroup(bytes[] calldata orderedPublicKeys, uint256 threshold) external onlyRole(ROLE_MPC_MANAGER) {
+        if (orderedPublicKeys.length < 2) revert InvalidGroupSize();
+        if (threshold < 1 || threshold >= orderedPublicKeys.length) revert InvalidThreshold();
 
         bytes memory b = bytes.concat(bytes32(threshold));
-        for (uint256 i = 0; i < publicKeys.length; i++) {
-            if (publicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();
-            b = bytes.concat(b, publicKeys[i]);
+        for (uint256 i = 0; i < orderedPublicKeys.length; i++) {
+            if (orderedPublicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();
+            b = bytes.concat(b, orderedPublicKeys[i]);
         }
         bytes32 groupId = keccak256(b);
 
         uint256 count = _groupParticipantCount[groupId];
         if (count > 0) revert AttemptToReaddGroup();
-        _groupParticipantCount[groupId] = publicKeys.length;
+        _groupParticipantCount[groupId] = orderedPublicKeys.length;
         _groupThreshold[groupId] = threshold;
 
-        for (uint256 i = 0; i < publicKeys.length; i++) {
-            _groupParticipants[groupId][i + 1] = publicKeys[i]; // Participant index is 1-based.
-            emit ParticipantAdded(publicKeys[i], groupId, i + 1);
+        for (uint256 i = 0; i < orderedPublicKeys.length; i++) {
+            _groupParticipants[groupId][i + 1] = orderedPublicKeys[i]; // Participant index is 1-based.
+            emit ParticipantAdded(orderedPublicKeys[i], groupId, i + 1);
         }
     }
 
