@@ -251,12 +251,14 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 myConfirm = 1 << (myIndex - 1);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
 
-        status.participantIndices = indices + myConfirm;
-        status.confirmedCount = confirmedCount + 1;
+        indices += myConfirm;
+        confirmedCount++;
 
-        if (status.confirmedCount == threshold + 1) {
-            emit RequestStarted(requestId, status.participantIndices);
+        if (confirmedCount == threshold + 1) {
+            emit RequestStarted(requestId, indices);
         }
+        status.participantIndices = indices;
+        status.confirmedCount = confirmedCount;
     }
 
     /**
