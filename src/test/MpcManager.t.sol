@@ -139,10 +139,8 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testGetKey() public {
         setupKey();
-        IMpcManager.KeyInfo memory keyInfo;
-        keyInfo = mpcManager.getKey(MPC_GENERATED_PUBKEY);
-        assertEq(MPC_GROUP_ID, keyInfo.groupId);
-        assert(keyInfo.confirmed);
+        bytes32 groupId = mpcManager.getGroupIdByKey(MPC_GENERATED_PUBKEY);
+        assertEq(MPC_GROUP_ID, groupId);
     }
 
     function testRequestStaking() public {

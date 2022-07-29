@@ -116,7 +116,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     mapping(bytes32 => ParticipantInfo) private _groupParticipants;
 
     // key -> groupId
-    mapping(bytes => KeyInfo) private _generatedKeys;
+    mapping(bytes => bytes32) private _keyToGroupIds;
 
     // key -> confirmation map
     mapping(bytes => uint256) private _keyConfirmations;
@@ -159,9 +159,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (lastGenAddress == address(0)) revert KeyNotGenerated();
         if (msg.value != amount) revert InvalidAmount();
         payable(lastGenAddress).transfer(amount);
-
-        KeyInfo memory info = _generatedKeys[lastGenPubKey];
-        if (!info.confirmed) revert KeyNotFound();
 
         uint256 requestId = _getNextRequestId();
 
@@ -220,25 +217,20 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         external
         onlyGroupMember(participantId)
     {
-        bytes32 groupId = participantId & INIT_31_BYTE_MASK;
         uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
         uint8 groupSize = uint8(uint256((participantId >> 16) & LAST_BYTE_MASK));
-        KeyInfo storage info = _generatedKeys[generatedPublicKey];
-
-        if (info.confirmed) revert AttemptToReconfirmKey();
-
-        uint256 myConfirm = INIT_BIT >> (myIndex - 1);
         uint256 confirmation = _keyConfirmations[generatedPublicKey];
+        uint256 myConfirm = INIT_BIT >> (myIndex - 1);
+        if ((confirmation & myConfirm) > 0) revert AttemptToReconfirmKey();
+
         uint256 indices = confirmation & uint256(INIT_31_BYTE_MASK);
         uint8 confirmedCount = uint8(confirmation & uint256(LAST_BYTE_MASK));
-
         indices += myConfirm;
         confirmedCount++;
 
         if (confirmedCount == groupSize) {
-            
-            info.groupId = groupId;
-            info.confirmed = true;
+            bytes32 groupId = participantId & INIT_31_BYTE_MASK;
+            _keyToGroupIds[generatedPublicKey] = groupId;
             lastGenPubKey = generatedPublicKey;
             lastGenAddress = _calculateAddress(generatedPublicKey);
             emit KeyGenerated(groupId, generatedPublicKey);
@@ -327,8 +319,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         return (participants);
     }
 
-    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory) {
-        return _generatedKeys[publicKey];
+    function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32) {
+        return _keyToGroupIds[publicKey];
     }
 
     // -------------------------------------------------------------------------

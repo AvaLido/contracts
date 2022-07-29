@@ -50,7 +50,7 @@ contract FakeMpcManager is IMpcManager {
         revert("Not Implemented");
     }
 
-    function getKey(bytes calldata) external view returns (KeyInfo memory) {
+    function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32) {
         revert("Not Implemented");
     }
 }

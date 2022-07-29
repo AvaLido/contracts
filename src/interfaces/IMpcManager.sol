@@ -3,11 +3,6 @@
 pragma solidity 0.8.10;
 
 interface IMpcManager {
-    struct KeyInfo {
-        bytes32 groupId;
-        bool confirmed;
-    }
-
     function requestStake(
         string calldata nodeID,
         uint256 amount,
@@ -21,5 +16,5 @@ interface IMpcManager {
 
     function getGroup(bytes32 groupId) external view returns (bytes[] memory participants);
 
-    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo);
+    function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32);
 }
