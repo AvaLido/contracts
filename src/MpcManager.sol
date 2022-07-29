@@ -29,14 +29,11 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     error AttemptToReaddGroup();
 
     error KeyNotGenerated();
-    error KeyNotFound();
     error AttemptToReconfirmKey();
 
     error InvalidAmount();
-    error RequestNotFound();
     error QuorumAlreadyReached();
     error AttemptToRejoin();
-    error Unrecognized();
 
     // Events
     event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
@@ -59,12 +56,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         address ethAddress;
     }
 
-    // Other request types to be added: e.g. REWARD, PRINCIPAL, RESTAKE
     struct Request {
         bytes publicKey;
-        uint256 requestType;
         uint256 participantIndices;
-        uint8 confirmedCount;
     }
 
     // State variables
