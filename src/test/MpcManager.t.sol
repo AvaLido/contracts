@@ -12,6 +12,9 @@ import "../MpcManager.sol";
 
 contract MpcManagerTest is DSTest, Helpers {
     uint8 constant MPC_THRESHOLD = 1;
+    uint256 constant INDEX_1 = 0x8000000000000000000000000000000000000000000000000000000000000000;
+    uint256 constant INDEX_2 = 0x4000000000000000000000000000000000000000000000000000000000000000;
+    uint256 constant INDEX_3 = 0x2000000000000000000000000000000000000000000000000000000000000000;
     bytes32 constant MPC_GROUP_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495390301";
     bytes constant TOO_SHORT_PUKEY =
         hex"ee5cd601a19cd9bb95fe7be8b1566b73c51d3e7e375359c129b1d77bb4b3e6f06766bde6ff723360cee7f89abab428717f811f460ebf67f5186f75a9f4288d";
@@ -179,9 +182,7 @@ contract MpcManagerTest is DSTest, Helpers {
 
         // Event emitted after required t+1 participants have joined
         cheats.expectEmit(false, false, true, true);
-        uint256 indices = 0;
-        indices += (1 << (1 - 1));
-        indices += (1 << (2 - 1));
+        uint256 indices = INDEX_1 + INDEX_2;
         emit RequestStarted(bytes32(uint256(1)), indices);
         cheats.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.joinRequest(MPC_GROUP_ID, 2, bytes32(uint256(1)));

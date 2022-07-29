@@ -12,7 +12,10 @@ import "./interfaces/IMpcManager.sol";
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
     bytes32 constant GROUP_ID_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000; // Second last byte for groupSize, last byte for threshold
     bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
-    uint256 constant MAX_GROUP_SIZE = 255;
+    uint256 constant INIT_BIT = 0x8000000000000000000000000000000000000000000000000000000000000000;
+    uint256 constant HEAD_MASK = 0xff00000000000000000000000000000000000000000000000000000000000000;
+    uint256 constant TAIL_MASK = 0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    uint256 constant MAX_GROUP_SIZE = 248;
     uint256 constant PUBKEY_LENGTH = 64;
     // Errors
     error AvaLidoOnly();
@@ -120,7 +123,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     mapping(bytes => mapping(uint256 => bool)) private _keyConfirmations;
 
     // groupId -> requestId -> request status
-    mapping(bytes32 => mapping(bytes32 => Request)) private _requests;
+    mapping(bytes32 => mapping(bytes32 => uint256)) private _requestParticipations; // Last Byte = total-Confirmation, Rest = Participation flags (for max of 248 members)
     mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
     uint256 private _lastRequestId;
 
@@ -241,14 +244,16 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint8 myIndex,
         bytes32 requestId
     ) external onlyGroupMember(groupId, myIndex) {
-        Request storage status = _requests[groupId][requestId];
+        uint256 participation = _requestParticipations[groupId][requestId];
 
         uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
-        uint256 indices = status.participantIndices;
-        uint8 confirmedCount = status.confirmedCount;
+
+        uint8 confirmedCount = uint8(participation & TAIL_MASK);
         if (confirmedCount > threshold) revert QuorumAlreadyReached();
 
-        uint256 myConfirm = 1 << (myIndex - 1);
+        uint256 indices = participation & HEAD_MASK;
+
+        uint256 myConfirm = INIT_BIT >> (myIndex - 1);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
 
         indices += myConfirm;
@@ -257,8 +262,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (confirmedCount == threshold + 1) {
             emit RequestStarted(requestId, indices);
         }
-        status.participantIndices = indices;
-        status.confirmedCount = confirmedCount;
+        _requestParticipations[groupId][requestId] = indices | confirmedCount;
     }
 
     /**
@@ -324,7 +328,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     }
 
     modifier onlyGroupMember(bytes32 groupId, uint256 index) {
-        _ensureSenderIsClaimedParticipant(groupId, index);
+        if (msg.sender != _groupParticipants[groupId][index].ethAddress) revert InvalidGroupMembership();
         _;
     }
 
@@ -364,9 +368,5 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
             mstore(0, hash)
             addr := mload(0)
         }
-    }
-
-    function _ensureSenderIsClaimedParticipant(bytes32 groupId, uint256 index) private view {
-        if (msg.sender != _groupParticipants[groupId][index].ethAddress) revert InvalidGroupMembership();
     }
 }
