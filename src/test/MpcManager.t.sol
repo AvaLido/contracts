@@ -193,32 +193,6 @@ contract MpcManagerTest is DSTest, Helpers {
         mpcManager.joinRequest(MPC_PARTICIPANT3_ID, bytes32(uint256(1)));
     }
 
-    function testReportUTXO() public {
-        setupKey();
-
-        // Event ExportUTXORequest emitted for after required t+1 participants have reported the same reward UTXO
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
-        mpcManager.reportUTXO(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
-        cheats.expectEmit(true, false, false, true);
-        uint256 indices = 0;
-        indices += (1 << (1 - 1));
-        indices += (1 << (2 - 1));
-        emit ExportUTXORequest(UTXO_TX_ID, 0, PRINCIPAL_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
-        cheats.prank(MPC_PLAYER_2_ADDRESS);
-        mpcManager.reportUTXO(MPC_PARTICIPANT2_ID, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 0);
-
-        // Event ExportUTXORequest emitted for after required t+1 participants have reported the same principal UTXO
-        cheats.prank(MPC_PLAYER_3_ADDRESS);
-        mpcManager.reportUTXO(MPC_PARTICIPANT3_ID, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
-        cheats.expectEmit(true, false, false, true);
-        indices = 0;
-        indices += (1 << (3 - 1));
-        indices += (1 << (1 - 1));
-        emit ExportUTXORequest(UTXO_TX_ID, 1, REWARD_TREASURY_ADDR, MPC_GENERATED_PUBKEY, indices);
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
-        mpcManager.reportUTXO(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY, UTXO_TX_ID, 1);
-    }
-
     // -------------------------------------------------------------------------
     //  Private helper functions
     // -------------------------------------------------------------------------

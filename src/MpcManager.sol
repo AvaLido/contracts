@@ -51,20 +51,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
     event RequestStarted(bytes32 indexed requestId, uint256 participantIndices);
 
-    event ExportUTXORequest(
-        bytes32 txId,
-        uint32 outputIndex,
-        address to,
-        bytes indexed genPubKey,
-        uint256 participantIndices
-    );
-
     // Types
-    enum UTXOutputIndex {
-        PRINCIPAL, // 0 in Avalanche network
-        REWARD // 1 in Avalanche network
-    }
-
     struct ParticipantInfo {
         bytes publicKey;
         address ethAddress;
@@ -99,9 +86,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     mapping(bytes32 => mapping(bytes32 => uint256)) private _requestParticipations; // Last Byte = total-Confirmation, Rest = Participation flags (for max of 248 members)
 
     uint256 private _lastRequestId;
-
-    // utxoTxId -> utxoIndex -> joinExportUTXOParticipantIndices
-    mapping(bytes32 => mapping(uint32 => Request)) private _p2cRequests;
 
     function initialize(
         address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
@@ -236,40 +220,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
             emit RequestStarted(requestId, indices);
         }
         _requestParticipations[groupId][requestId] = indices | confirmedCount;
-    }
-
-    /**
-     * @notice Moves tokens from p-chain to c-chain.
-     */
-    function reportUTXO(
-        bytes32 participantId,
-        bytes calldata publicKey,
-        bytes32 utxoTxID,
-        uint32 utxoIndex
-    ) external onlyGroupMember(participantId) {
-        if (utxoIndex > 1) revert Unrecognized();
-        bytes32 groupId = participantId & INIT_31_BYTE_MASK;
-        uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
-        uint8 threshold = uint8(uint256((participantId >> 8) & LAST_BYTE_MASK));
-
-        Request storage req = _p2cRequests[utxoTxID][utxoIndex];
-        if (req.publicKey.length == 0) {
-            req.publicKey = publicKey;
-            req.requestType = 2;
-        }
-
-        if (req.confirmedCount > threshold) return;
-
-        uint256 myConfirm = 1 << (myIndex - 1);
-        if (req.participantIndices & myConfirm > 0) revert AttemptToRejoin();
-
-        req.participantIndices = req.participantIndices + myConfirm;
-        req.confirmedCount = req.confirmedCount + 1;
-
-        if (req.confirmedCount == threshold + 1) {
-            address destAddress = utxoIndex == 0 ? principalTreasuryAddress : rewardTreasuryAddress;
-            emit ExportUTXORequest(utxoTxID, utxoIndex, destAddress, publicKey, req.participantIndices);
-        }
     }
 
     // -------------------------------------------------------------------------
