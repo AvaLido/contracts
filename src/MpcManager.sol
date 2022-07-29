@@ -43,7 +43,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
     event KeygenRequestAdded(bytes32 indexed groupId);
     event StakeRequestAdded(
-        uint256 requestId,
+        uint256 requestNumber,
         bytes indexed publicKey,
         string nodeID,
         uint256 amount,
@@ -51,7 +51,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 endTime
     );
 
-    event RequestStarted(bytes32 indexed requestId, uint256 participantIndices);
+    event RequestStarted(bytes32 indexed requestHash, uint256 participantIndices);
 
     // Types
     struct ParticipantInfo {
@@ -84,10 +84,10 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // key -> confirmation map
     mapping(bytes => uint256) private _keyConfirmations;
 
-    // groupId -> requestId -> request status
+    // groupId -> requestHash -> request status
     mapping(bytes32 => mapping(bytes32 => uint256)) private _requestParticipations; // Last Byte = total-Confirmation, Rest = Participation flags (for max of 248 members)
 
-    uint256 private _lastRequestId;
+    uint256 private _lastStakeRequestNumber;
 
     function initialize(
         address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
@@ -120,9 +120,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (msg.value != amount) revert InvalidAmount();
         payable(lastGenAddress).transfer(amount);
 
-        uint256 requestId = _getNextRequestId();
+        uint256 requestNumber = _getNextStakeRequestNumber();
 
-        emit StakeRequestAdded(requestId, lastGenPubKey, nodeID, amount, startTime, endTime);
+        emit StakeRequestAdded(requestNumber, lastGenPubKey, nodeID, amount, startTime, endTime);
     }
 
     /**
@@ -205,12 +205,12 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * @notice Participant has to call this function to join an MPC request. Each request
      * requires exactly t + 1 members to join.
      */
-    function joinRequest(bytes32 participantId, bytes32 requestId) external onlyGroupMember(participantId) {
+    function joinRequest(bytes32 participantId, bytes32 requestHash) external onlyGroupMember(participantId) {
         bytes32 groupId = participantId & INIT_31_BYTE_MASK;
         uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
         uint8 threshold = uint8(uint256((participantId >> THRESHOLD_SHIFT) & LAST_BYTE_MASK));
 
-        uint256 participation = _requestParticipations[groupId][requestId];
+        uint256 participation = _requestParticipations[groupId][requestHash];
         uint8 confirmedCount = uint8(participation & uint256(LAST_BYTE_MASK));
         if (confirmedCount > threshold) revert QuorumAlreadyReached();
 
@@ -222,9 +222,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         confirmedCount++;
 
         if (confirmedCount == threshold + 1) {
-            emit RequestStarted(requestId, indices);
+            emit RequestStarted(requestHash, indices);
         }
-        _requestParticipations[groupId][requestId] = indices | confirmedCount;
+        _requestParticipations[groupId][requestHash] = indices | confirmedCount;
     }
 
     // -------------------------------------------------------------------------
@@ -270,9 +270,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     //  Internal functions
     // -------------------------------------------------------------------------
 
-    function _getNextRequestId() internal returns (uint256) {
-        _lastRequestId += 1;
-        return _lastRequestId;
+    function _getNextStakeRequestNumber() internal returns (uint256) {
+        _lastStakeRequestNumber += 1;
+        return _lastStakeRequestNumber;
     }
 
     // -------------------------------------------------------------------------
