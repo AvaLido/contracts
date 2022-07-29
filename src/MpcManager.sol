@@ -10,6 +10,8 @@ import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
+    uint256 constant GROUP_SIZE_SHIFT = 16;
+    uint256 constant THRESHOLD_SHIFT = 8;
     bytes32 constant GROUP_ID_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000; // First 232 bits = Hash(PublicKeys), Next 8 bits = groupSize, Next 8 bits = threshold, Next 8 bits = reserved for party index
     bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
     bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
@@ -142,7 +144,10 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
             b = bytes.concat(b, publicKeys[i]);
         }
         bytes32 groupId = keccak256(b);
-        groupId = (groupId & GROUP_ID_MASK) | (bytes32(groupSize) << 16) | (bytes32(uint256(threshold)) << 8);
+        groupId =
+            (groupId & GROUP_ID_MASK) |
+            (bytes32(groupSize) << GROUP_SIZE_SHIFT) |
+            (bytes32(uint256(threshold)) << THRESHOLD_SHIFT);
 
         bytes32 participantId = groupId | bytes32(uint256(1));
         address knownFirstParticipantAddr = _groupParticipants[participantId].ethAddress;
@@ -176,7 +181,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         onlyGroupMember(participantId)
     {
         uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
-        uint8 groupSize = uint8(uint256((participantId >> 16) & LAST_BYTE_MASK));
+        uint8 groupSize = uint8(uint256((participantId >> GROUP_SIZE_SHIFT) & LAST_BYTE_MASK));
         uint256 confirmation = _keyConfirmations[generatedPublicKey];
         uint256 myConfirm = INIT_BIT >> (myIndex - 1);
         if ((confirmation & myConfirm) > 0) revert AttemptToReconfirmKey();
@@ -203,7 +208,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     function joinRequest(bytes32 participantId, bytes32 requestId) external onlyGroupMember(participantId) {
         bytes32 groupId = participantId & INIT_31_BYTE_MASK;
         uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
-        uint8 threshold = uint8(uint256((participantId >> 8) & LAST_BYTE_MASK));
+        uint8 threshold = uint8(uint256((participantId >> THRESHOLD_SHIFT) & LAST_BYTE_MASK));
 
         uint256 participation = _requestParticipations[groupId][requestId];
         uint8 confirmedCount = uint8(participation & uint256(LAST_BYTE_MASK));
@@ -227,7 +232,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // -------------------------------------------------------------------------
 
     function getGroup(bytes32 groupId) external view returns (bytes[] memory) {
-        uint256 count = uint256((groupId >> 16) & LAST_BYTE_MASK);
+        uint256 count = uint256((groupId >> GROUP_SIZE_SHIFT) & LAST_BYTE_MASK);
         if (count == 0) revert GroupNotFound();
         bytes[] memory participants = new bytes[](count);
 
