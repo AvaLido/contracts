@@ -249,7 +249,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint8 threshold = uint8(uint256((participantId >> 8) & LAST_BYTE_MASK));
 
         uint256 participation = _requestParticipations[groupId][requestId];
-        uint8 confirmedCount = uint8(participation & TAIL_MASK);
+        uint8 confirmedCount = uint8(participation & uint256(LAST_BYTE_MASK));
         if (confirmedCount > threshold) revert QuorumAlreadyReached();
 
         uint256 indices = participation & HEAD_MASK;
