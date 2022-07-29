@@ -238,8 +238,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      */
     function joinRequest(
         bytes32 groupId,
-        bytes32 requestId,
-        uint8 myIndex
+        uint8 myIndex,
+        bytes32 requestId
     ) external onlyGroupMember(groupId, myIndex) {
         Request storage status = _requests[groupId][requestId];
 

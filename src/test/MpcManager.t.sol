@@ -175,7 +175,7 @@ contract MpcManagerTest is DSTest, Helpers {
         setupStakingRequest();
 
         cheats.prank(MPC_PLAYER_1_ADDRESS);
-        mpcManager.joinRequest(MPC_GROUP_ID, bytes32(uint256(1)), 1);
+        mpcManager.joinRequest(MPC_GROUP_ID, 1, bytes32(uint256(1)));
 
         // Event emitted after required t+1 participants have joined
         cheats.expectEmit(false, false, true, true);
@@ -184,12 +184,12 @@ contract MpcManagerTest is DSTest, Helpers {
         indices += (1 << (2 - 1));
         emit RequestStarted(bytes32(uint256(1)), indices);
         cheats.prank(MPC_PLAYER_2_ADDRESS);
-        mpcManager.joinRequest(MPC_GROUP_ID, bytes32(uint256(1)), 2);
+        mpcManager.joinRequest(MPC_GROUP_ID, 2, bytes32(uint256(1)));
 
         // Cannot join anymore after required t+1 participants have joined
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         cheats.expectRevert(MpcManager.QuorumAlreadyReached.selector);
-        mpcManager.joinRequest(MPC_GROUP_ID, bytes32(uint256(1)), 3);
+        mpcManager.joinRequest(MPC_GROUP_ID, 3, bytes32(uint256(1)));
     }
 
     function testReportUTXO() public {
