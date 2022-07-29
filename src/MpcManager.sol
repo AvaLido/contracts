@@ -51,16 +51,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
     event RequestStarted(bytes32 indexed requestId, uint256 participantIndices);
 
-    event StakeRequestStarted(
-        uint256 requestId,
-        bytes indexed publicKey,
-        uint256 participantIndices,
-        string nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    );
-
     event ExportUTXORequest(
         bytes32 txId,
         uint32 outputIndex,
@@ -70,15 +60,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     );
 
     // Types
-    enum RequestStatus {
-        UNKNOWN,
-        STARTED,
-        COMPLETED
-    }
-    enum RequestType {
-        UNKNOWN,
-        STAKE
-    }
     enum UTXOutputIndex {
         PRINCIPAL, // 0 in Avalanche network
         REWARD // 1 in Avalanche network
@@ -95,13 +76,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 requestType;
         uint256 participantIndices;
         uint8 confirmedCount;
-        RequestStatus status;
-    }
-    struct StakeRequestDetails {
-        string nodeID;
-        uint256 amount;
-        uint256 startTime;
-        uint256 endTime;
     }
 
     // State variables
@@ -123,7 +97,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
     // groupId -> requestId -> request status
     mapping(bytes32 => mapping(bytes32 => uint256)) private _requestParticipations; // Last Byte = total-Confirmation, Rest = Participation flags (for max of 248 members)
-    mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
+
     uint256 private _lastRequestId;
 
     // utxoTxId -> utxoIndex -> joinExportUTXOParticipantIndices
@@ -278,23 +252,23 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
         uint8 threshold = uint8(uint256((participantId >> 8) & LAST_BYTE_MASK));
 
-        Request storage status = _p2cRequests[utxoTxID][utxoIndex];
-        if (status.publicKey.length == 0) {
-            status.publicKey = publicKey;
-            status.requestType = 2;
+        Request storage req = _p2cRequests[utxoTxID][utxoIndex];
+        if (req.publicKey.length == 0) {
+            req.publicKey = publicKey;
+            req.requestType = 2;
         }
 
-        if (status.confirmedCount > threshold) return;
+        if (req.confirmedCount > threshold) return;
 
         uint256 myConfirm = 1 << (myIndex - 1);
-        if (status.participantIndices & myConfirm > 0) revert AttemptToRejoin();
+        if (req.participantIndices & myConfirm > 0) revert AttemptToRejoin();
 
-        status.participantIndices = status.participantIndices + myConfirm;
-        status.confirmedCount = status.confirmedCount + 1;
+        req.participantIndices = req.participantIndices + myConfirm;
+        req.confirmedCount = req.confirmedCount + 1;
 
-        if (status.confirmedCount == threshold + 1) {
+        if (req.confirmedCount == threshold + 1) {
             address destAddress = utxoIndex == 0 ? principalTreasuryAddress : rewardTreasuryAddress;
-            emit ExportUTXORequest(utxoTxID, utxoIndex, destAddress, publicKey, status.participantIndices);
+            emit ExportUTXORequest(utxoTxID, utxoIndex, destAddress, publicKey, req.participantIndices);
         }
     }
 
