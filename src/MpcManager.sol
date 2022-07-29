@@ -46,6 +46,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 startTime,
         uint256 endTime
     );
+
+    event RequestStarted(bytes32 indexed requestId, uint256 participantIndices);
+
     event StakeRequestStarted(
         uint256 requestId,
         bytes indexed publicKey,
@@ -116,8 +119,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // key -> index -> confirmed
     mapping(bytes => mapping(uint256 => bool)) private _keyConfirmations;
 
-    // request status
-    mapping(uint256 => Request) private _requests;
+    // groupId -> requestId -> request status
+    mapping(bytes32 => mapping(bytes32 => Request)) private _requests;
     mapping(uint256 => StakeRequestDetails) private _stakeRequestDetails;
     uint256 private _lastRequestId;
 
@@ -159,16 +162,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (!info.confirmed) revert KeyNotFound();
 
         uint256 requestId = _getNextRequestId();
-        Request storage status = _requests[requestId];
-        status.publicKey = lastGenPubKey;
-        status.requestType = 1;
 
-        StakeRequestDetails storage details = _stakeRequestDetails[requestId];
-
-        details.nodeID = nodeID;
-        details.amount = amount;
-        details.startTime = startTime;
-        details.endTime = endTime;
         emit StakeRequestAdded(requestId, lastGenPubKey, nodeID, amount, startTime, endTime);
     }
 
@@ -242,21 +236,17 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * @notice Participant has to call this function to join an MPC request. Each request
      * requires exactly t + 1 members to join.
      */
-    function joinRequest(uint256 requestId, uint8 myIndex) external {
-        // TODO: Add auth
+    function joinRequest(
+        bytes32 groupId,
+        bytes32 requestId,
+        uint8 myIndex
+    ) external onlyGroupMember(groupId, myIndex) {
+        Request storage status = _requests[groupId][requestId];
 
-        Request storage status = _requests[requestId];
-        if (status.publicKey.length == 0) revert RequestNotFound();
-
-        KeyInfo memory info = _generatedKeys[status.publicKey];
-        if (!info.confirmed) revert KeyNotFound();
-
-        uint8 threshold = uint8(uint256(info.groupId & LAST_BYTE_MASK));
+        uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
         uint256 indices = status.participantIndices;
         uint8 confirmedCount = status.confirmedCount;
         if (confirmedCount > threshold) revert QuorumAlreadyReached();
-
-        _ensureSenderIsClaimedParticipant(info.groupId, myIndex);
 
         uint256 myConfirm = 1 << (myIndex - 1);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
@@ -265,18 +255,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         status.confirmedCount = confirmedCount + 1;
 
         if (status.confirmedCount == threshold + 1) {
-            StakeRequestDetails memory details = _stakeRequestDetails[requestId];
-            if (details.amount > 0) {
-                emit StakeRequestStarted(
-                    requestId,
-                    status.publicKey,
-                    status.participantIndices,
-                    details.nodeID,
-                    details.amount,
-                    details.startTime,
-                    details.endTime
-                );
-            }
+            emit RequestStarted(requestId, status.participantIndices);
         }
     }
 

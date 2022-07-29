@@ -35,6 +35,7 @@ contract MpcManagerTest is DSTest, Helpers {
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
+    event RequestStarted(bytes32 indexed requestId, uint256 participantIndices);
     event StakeRequestAdded(
         uint256 requestId,
         bytes indexed publicKey,
@@ -174,29 +175,21 @@ contract MpcManagerTest is DSTest, Helpers {
         setupStakingRequest();
 
         cheats.prank(MPC_PLAYER_1_ADDRESS);
-        mpcManager.joinRequest(1, 1);
+        mpcManager.joinRequest(MPC_GROUP_ID, bytes32(uint256(1)), 1);
 
         // Event emitted after required t+1 participants have joined
         cheats.expectEmit(false, false, true, true);
         uint256 indices = 0;
         indices += (1 << (1 - 1));
         indices += (1 << (2 - 1));
-        emit StakeRequestStarted(
-            1,
-            MPC_GENERATED_PUBKEY,
-            indices,
-            VALIDATOR_1,
-            STAKE_AMOUNT,
-            STAKE_START_TIME,
-            STAKE_END_TIME
-        );
+        emit RequestStarted(bytes32(uint256(1)), indices);
         cheats.prank(MPC_PLAYER_2_ADDRESS);
-        mpcManager.joinRequest(1, 2);
+        mpcManager.joinRequest(MPC_GROUP_ID, bytes32(uint256(1)), 2);
 
         // Cannot join anymore after required t+1 participants have joined
         cheats.prank(MPC_PLAYER_3_ADDRESS);
         cheats.expectRevert(MpcManager.QuorumAlreadyReached.selector);
-        mpcManager.joinRequest(1, 3);
+        mpcManager.joinRequest(MPC_GROUP_ID, bytes32(uint256(1)), 3);
     }
 
     function testReportUTXO() public {
