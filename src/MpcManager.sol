@@ -14,8 +14,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
     bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
     uint256 constant INIT_BIT = 0x8000000000000000000000000000000000000000000000000000000000000000;
-    uint256 constant HEAD_MASK = 0xff00000000000000000000000000000000000000000000000000000000000000;
-    uint256 constant TAIL_MASK = 0x00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
     uint256 constant MAX_GROUP_SIZE = 248;
     uint256 constant PUBKEY_LENGTH = 64;
     // Errors
@@ -120,8 +118,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // key -> groupId
     mapping(bytes => KeyInfo) private _generatedKeys;
 
-    // key -> index -> confirmed
-    mapping(bytes => mapping(uint256 => bool)) private _keyConfirmations;
+    // key -> confirmation map
+    mapping(bytes => uint256) private _keyConfirmations;
 
     // groupId -> requestId -> request status
     mapping(bytes32 => mapping(bytes32 => uint256)) private _requestParticipations; // Last Byte = total-Confirmation, Rest = Participation flags (for max of 248 members)
@@ -224,19 +222,28 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     {
         bytes32 groupId = participantId & INIT_31_BYTE_MASK;
         uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
+        uint8 groupSize = uint8(uint256((participantId >> 16) & LAST_BYTE_MASK));
         KeyInfo storage info = _generatedKeys[generatedPublicKey];
 
         if (info.confirmed) revert AttemptToReconfirmKey();
 
-        _keyConfirmations[generatedPublicKey][myIndex] = true;
+        uint256 myConfirm = INIT_BIT >> (myIndex - 1);
+        uint256 confirmation = _keyConfirmations[generatedPublicKey];
+        uint256 indices = confirmation & uint256(INIT_31_BYTE_MASK);
+        uint8 confirmedCount = uint8(confirmation & uint256(LAST_BYTE_MASK));
 
-        if (_generatedKeyConfirmedByAll(groupId, generatedPublicKey)) {
+        indices += myConfirm;
+        confirmedCount++;
+
+        if (confirmedCount == groupSize) {
+            
             info.groupId = groupId;
             info.confirmed = true;
             lastGenPubKey = generatedPublicKey;
             lastGenAddress = _calculateAddress(generatedPublicKey);
             emit KeyGenerated(groupId, generatedPublicKey);
         }
+        _keyConfirmations[generatedPublicKey] = indices | confirmedCount;
     }
 
     /**
@@ -350,19 +357,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     // -------------------------------------------------------------------------
     //  Private functions
     // -------------------------------------------------------------------------
-
-    function _generatedKeyConfirmedByAll(bytes32 groupId, bytes calldata generatedPublicKey)
-        private
-        view
-        returns (bool)
-    {
-        uint8 count = uint8(uint256((groupId >> 16) & LAST_BYTE_MASK));
-
-        for (uint8 i = 0; i < count; i++) {
-            if (!_keyConfirmations[generatedPublicKey][i + 1]) return false; // Participant index is 1-based.
-        }
-        return true;
-    }
 
     /**
      * @dev converts a public key to ethereum address.
