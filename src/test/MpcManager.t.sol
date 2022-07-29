@@ -19,6 +19,19 @@ contract MpcManagerTest is DSTest, Helpers {
     bytes32 constant MPC_PARTICIPANT1_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495030101";
     bytes32 constant MPC_PARTICIPANT2_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495030102";
     bytes32 constant MPC_PARTICIPANT3_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495030103";
+    bytes32 constant MPC_BIG_GROUP_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0900";
+    bytes32 constant MPC_BIG_P01_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0901";
+    bytes32 constant MPC_BIG_P02_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0902";
+    bytes32 constant MPC_BIG_P03_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0903";
+    bytes32 constant MPC_BIG_P04_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0904";
+    bytes32 constant MPC_BIG_P05_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0905";
+    bytes32 constant MPC_BIG_P06_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0906";
+    bytes32 constant MPC_BIG_P07_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0907";
+    bytes32 constant MPC_BIG_P08_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0908";
+    bytes32 constant MPC_BIG_P09_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0909";
+    bytes32 constant MPC_BIG_P10_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c090a";
+    bytes32 constant MPC_BIG_P11_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c090b";
+    bytes32 constant MPC_BIG_P12_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c090c";
     bytes constant TOO_SHORT_PUKEY =
         hex"ee5cd601a19cd9bb95fe7be8b1566b73c51d3e7e375359c129b1d77bb4b3e6f06766bde6ff723360cee7f89abab428717f811f460ebf67f5186f75a9f4288d";
 
@@ -85,6 +98,68 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
     //  Test cases
     // -------------------------------------------------------------------------
+    function testCreateGroupTooBig() public {
+        // Exceeding max allowed groupSize (=248)
+        bytes[] memory pubKeysTooBig = new bytes[](249);
+        for (uint256 i = 0; i < 249; i++) {
+            pubKeysTooBig[i] = MPC_PLAYER_1_PUBKEY;
+        }
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        cheats.expectRevert(MpcManager.InvalidGroupSize.selector);
+        mpcManager.createGroup(pubKeysTooBig, 200);
+    }
+
+    function testGroupOfSize12() public {
+        bytes[] memory pubKeys12 = new bytes[](12);
+        pubKeys12[0] = MPC_BIG_P01_PUBKEY;
+        pubKeys12[1] = MPC_BIG_P02_PUBKEY;
+        pubKeys12[2] = MPC_BIG_P03_PUBKEY;
+        pubKeys12[3] = MPC_BIG_P04_PUBKEY;
+        pubKeys12[4] = MPC_BIG_P05_PUBKEY;
+        pubKeys12[5] = MPC_BIG_P06_PUBKEY;
+        pubKeys12[6] = MPC_BIG_P07_PUBKEY;
+        pubKeys12[7] = MPC_BIG_P08_PUBKEY;
+        pubKeys12[8] = MPC_BIG_P09_PUBKEY;
+        pubKeys12[9] = MPC_BIG_P10_PUBKEY;
+        pubKeys12[10] = MPC_BIG_P11_PUBKEY;
+        pubKeys12[11] = MPC_BIG_P12_PUBKEY;
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        mpcManager.createGroup(pubKeys12, 9);
+
+        bytes[] memory participants = mpcManager.getGroup(MPC_BIG_GROUP_ID);
+        assertEq0(pubKeys12[0], participants[0]);
+        assertEq0(pubKeys12[1], participants[1]);
+        assertEq0(pubKeys12[2], participants[2]);
+
+        cheats.prank(MPC_BIG_P01_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P01_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P02_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P02_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P03_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P03_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P04_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P04_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P05_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P05_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P06_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P06_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P07_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P07_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P08_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P08_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P09_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P09_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P10_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P10_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_BIG_P11_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P11_ID, MPC_GENERATED_PUBKEY);
+
+        cheats.expectEmit(false, false, true, true);
+        emit KeyGenerated(MPC_BIG_GROUP_ID, MPC_GENERATED_PUBKEY);
+
+        cheats.prank(MPC_BIG_P12_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_BIG_P12_ID, MPC_GENERATED_PUBKEY);
+    }
 
     function testCreateGroup() public {
         // Non admin
