@@ -56,11 +56,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         address ethAddress;
     }
 
-    struct Request {
-        bytes publicKey;
-        uint256 participantIndices;
-    }
-
     // State variables
     bytes public lastGenPubKey;
     address public lastGenAddress;
