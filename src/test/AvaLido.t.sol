@@ -46,7 +46,7 @@ contract FakeMpcManager is IMpcManager {
         revert("Not Implemented");
     }
 
-    function getGroup(bytes32) external view returns (bytes[] memory, uint256) {
+    function getGroup(bytes32) external view returns (bytes[] memory) {
         revert("Not Implemented");
     }
 

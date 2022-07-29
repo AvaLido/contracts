@@ -10,7 +10,8 @@ import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
-    bytes32 constant GROUP_ID_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000; // Second last byte for groupSize, last byte for threshold
+    bytes32 constant GROUP_ID_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000; // First 232 bits = Hash(PublicKeys), Next 8 bits = groupSize, Next 8 bits = threshold, Next 8 bits = reserved for party index
+    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
     bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
     uint256 constant INIT_BIT = 0x8000000000000000000000000000000000000000000000000000000000000000;
     uint256 constant HEAD_MASK = 0xff00000000000000000000000000000000000000000000000000000000000000;
@@ -113,8 +114,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     address public principalTreasuryAddress;
     address public rewardTreasuryAddress;
 
-    // groupId -> index -> participant
-    mapping(bytes32 => mapping(uint256 => ParticipantInfo)) private _groupParticipants;
+    // participantId -> participant
+    mapping(bytes32 => ParticipantInfo) private _groupParticipants;
 
     // key -> groupId
     mapping(bytes => KeyInfo) private _generatedKeys;
@@ -178,23 +179,26 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * signing.
      */
     function createGroup(bytes[] calldata publicKeys, uint8 threshold) external onlyRole(ROLE_MPC_MANAGER) {
-        if (publicKeys.length < 2 || publicKeys.length > MAX_GROUP_SIZE) revert InvalidGroupSize();
-        if (threshold < 1 || threshold >= publicKeys.length) revert InvalidThreshold();
+        uint256 groupSize = publicKeys.length;
+        if (groupSize < 2 || groupSize > MAX_GROUP_SIZE) revert InvalidGroupSize();
+        if (threshold < 1 || threshold >= groupSize) revert InvalidThreshold();
 
         bytes memory b;
-        for (uint256 i = 0; i < publicKeys.length; i++) {
+        for (uint256 i = 0; i < groupSize; i++) {
             if (publicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();
             b = bytes.concat(b, publicKeys[i]);
         }
         bytes32 groupId = keccak256(b);
-        groupId = (groupId & GROUP_ID_MASK) | (bytes32(publicKeys.length) << 8) | bytes32(uint256(threshold));
+        groupId = (groupId & GROUP_ID_MASK) | (bytes32(groupSize) << 16) | (bytes32(uint256(threshold)) << 8);
 
-        address knownFirstParticipantAddr = _groupParticipants[groupId][1].ethAddress;
+        bytes32 participantId = groupId | bytes32(uint256(1));
+        address knownFirstParticipantAddr = _groupParticipants[participantId].ethAddress;
         if (knownFirstParticipantAddr != address(0)) revert AttemptToReaddGroup();
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
-            _groupParticipants[groupId][i + 1].publicKey = publicKeys[i]; // Participant index is 1-based.
-            _groupParticipants[groupId][i + 1].ethAddress = _calculateAddress(publicKeys[i]); // Participant index is 1-based.
+            participantId = groupId | bytes32(i + 1);
+            _groupParticipants[participantId].publicKey = publicKeys[i]; // Participant index is 1-based.
+            _groupParticipants[participantId].ethAddress = _calculateAddress(publicKeys[i]); // Participant index is 1-based.
             emit ParticipantAdded(publicKeys[i], groupId, i + 1);
         }
     }
@@ -211,15 +215,15 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
     /**
      * @notice All group members have to report the generated key which also serves as the proof.
-     * @param groupId The id of the mpc group.
-     * @param myIndex The index of the participant in the group. This is 1-based.
+     * @param participantId The id of a party in an mpc group.
      * @param generatedPublicKey The generated public key.
      */
-    function reportGeneratedKey(
-        bytes32 groupId,
-        uint8 myIndex,
-        bytes calldata generatedPublicKey
-    ) external onlyGroupMember(groupId, myIndex) {
+    function reportGeneratedKey(bytes32 participantId, bytes calldata generatedPublicKey)
+        external
+        onlyGroupMember(participantId)
+    {
+        bytes32 groupId = participantId & INIT_31_BYTE_MASK;
+        uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
         KeyInfo storage info = _generatedKeys[generatedPublicKey];
 
         if (info.confirmed) revert AttemptToReconfirmKey();
@@ -239,20 +243,16 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * @notice Participant has to call this function to join an MPC request. Each request
      * requires exactly t + 1 members to join.
      */
-    function joinRequest(
-        bytes32 groupId,
-        uint8 myIndex,
-        bytes32 requestId
-    ) external onlyGroupMember(groupId, myIndex) {
+    function joinRequest(bytes32 participantId, bytes32 requestId) external onlyGroupMember(participantId) {
+        bytes32 groupId = participantId & INIT_31_BYTE_MASK;
+        uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
+        uint8 threshold = uint8(uint256((participantId >> 8) & LAST_BYTE_MASK));
+
         uint256 participation = _requestParticipations[groupId][requestId];
-
-        uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
-
         uint8 confirmedCount = uint8(participation & TAIL_MASK);
         if (confirmedCount > threshold) revert QuorumAlreadyReached();
 
         uint256 indices = participation & HEAD_MASK;
-
         uint256 myConfirm = INIT_BIT >> (myIndex - 1);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
 
@@ -269,14 +269,15 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
      * @notice Moves tokens from p-chain to c-chain.
      */
     function reportUTXO(
-        bytes32 groupId,
-        uint8 myIndex,
+        bytes32 participantId,
         bytes calldata publicKey,
         bytes32 utxoTxID,
         uint32 utxoIndex
-    ) external onlyGroupMember(groupId, myIndex) {
+    ) external onlyGroupMember(participantId) {
         if (utxoIndex > 1) revert Unrecognized();
-        uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
+        bytes32 groupId = participantId & INIT_31_BYTE_MASK;
+        uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
+        uint8 threshold = uint8(uint256((participantId >> 8) & LAST_BYTE_MASK));
 
         Request storage status = _p2cRequests[utxoTxID][utxoIndex];
         if (status.publicKey.length == 0) {
@@ -302,16 +303,21 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     //  External view functions
     // -------------------------------------------------------------------------
 
-    function getGroup(bytes32 groupId) external view returns (bytes[] memory, uint256) {
-        uint8 count = uint8(uint256((groupId >> 8) & LAST_BYTE_MASK));
+    function getGroup(bytes32 groupId) external view returns (bytes[] memory) {
+        uint256 count = uint256((groupId >> 16) & LAST_BYTE_MASK);
         if (count == 0) revert GroupNotFound();
         bytes[] memory participants = new bytes[](count);
-        uint8 threshold = uint8(uint256(groupId & LAST_BYTE_MASK));
 
-        for (uint8 i = 0; i < count; i++) {
-            participants[i] = _groupParticipants[groupId][i + 1].publicKey; // Participant index is 1-based.
+        bytes32 participantId = groupId | bytes32(uint256(1));
+        bytes memory participant1 = _groupParticipants[participantId].publicKey; // Participant index is 1-based.
+        if (participant1.length == 0) revert GroupNotFound();
+        participants[0] = participant1;
+
+        for (uint256 i = 1; i < count; i++) {
+            participantId = groupId | bytes32(i + 1);
+            participants[i] = _groupParticipants[participantId].publicKey; // Participant index is 1-based.
         }
-        return (participants, threshold);
+        return (participants);
     }
 
     function getKey(bytes calldata publicKey) external view returns (KeyInfo memory) {
@@ -327,8 +333,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         _;
     }
 
-    modifier onlyGroupMember(bytes32 groupId, uint256 index) {
-        if (msg.sender != _groupParticipants[groupId][index].ethAddress) revert InvalidGroupMembership();
+    modifier onlyGroupMember(bytes32 participantId) {
+        if (msg.sender != _groupParticipants[participantId].ethAddress) revert InvalidGroupMembership();
         _;
     }
 
@@ -350,7 +356,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         view
         returns (bool)
     {
-        uint8 count = uint8(uint256((groupId >> 8) & LAST_BYTE_MASK));
+        uint8 count = uint8(uint256((groupId >> 16) & LAST_BYTE_MASK));
 
         for (uint8 i = 0; i < count; i++) {
             if (!_keyConfirmations[generatedPublicKey][i + 1]) return false; // Participant index is 1-based.
