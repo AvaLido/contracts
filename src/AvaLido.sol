@@ -61,7 +61,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error InsufficientBalance();
     error NoAvailableValidators();
     error InvalidAddress();
-    error AlreadySet();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
@@ -478,7 +477,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      */
     function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
-        if (address(principalTreasury) != address(0)) revert AlreadySet();
 
         principalTreasury = ITreasury(_address);
     }
@@ -490,7 +488,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      */
     function setRewardTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
-        if (address(rewardTreasury) != address(0)) revert AlreadySet();
 
         rewardTreasury = ITreasury(_address);
     }
