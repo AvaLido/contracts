@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "openzeppelin-contracts/contracts/security/Pausable.sol";
-import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/ITreasury.sol";
 
-contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasury, Initializable {
+contract Treasury is ITreasury {
     // Errors
     error InvalidAddress();
     error AvaLidoOnly();
     address payable public avaLidoAddress;
 
-    function initialize(address _avaLidoAddress) public initializer {
+    constructor(address _avaLidoAddress) public {
         avaLidoAddress = payable(_avaLidoAddress);
     }
 
@@ -28,7 +26,3 @@ contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasu
         _;
     }
 }
-
-contract PrincipalTreasury is Treasury {}
-
-contract RewardTreasury is Treasury {}

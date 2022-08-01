@@ -65,8 +65,8 @@ contract AvaLidoTest is DSTest, Helpers {
     AvaLido lido;
     ValidatorSelector validatorSelector;
     FakeMpcManager fakeMpcManager;
-    PrincipalTreasury pTreasury;
-    RewardTreasury rTreasury;
+    Treasury pTreasury;
+    Treasury rTreasury;
 
     address feeAddressAuthor = 0x1000000000000000000000000000000000000001;
     address feeAddressLido = 0x1000000000000000000000000000000000000002;
@@ -86,23 +86,20 @@ contract AvaLidoTest is DSTest, Helpers {
         FakeMpcManager _fakeMpcManager = new FakeMpcManager();
         fakeMpcManager = FakeMpcManager(proxyWrapped(address(_fakeMpcManager), ROLE_PROXY_ADMIN));
 
-        PrincipalTreasury _pTreasury = new PrincipalTreasury();
-        pTreasury = PrincipalTreasury(proxyWrapped(address(_pTreasury), ROLE_PROXY_ADMIN));
-        RewardTreasury _rTreasury = new RewardTreasury();
-        rTreasury = RewardTreasury(proxyWrapped(address(_rTreasury), ROLE_PROXY_ADMIN));
-
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
-        pTreasuryAddress = address(pTreasury);
-        rTreasuryAddress = address(rTreasury);
 
         AvaLido _lido = new PayableAvaLido();
         lido = PayableAvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
         lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
+
+        Treasury pTreasury = new Treasury(address(lido));
+        Treasury rTreasury = new Treasury(address(lido));
+        pTreasuryAddress = address(pTreasury);
+        rTreasuryAddress = address(rTreasury);
+
         lido.setPrincipalTreasuryAddress(pTreasuryAddress);
         lido.setRewardTreasuryAddress(rTreasuryAddress);
-        pTreasury.initialize(address(lido));
-        rTreasury.initialize(address(lido));
     }
 
     receive() external payable {}

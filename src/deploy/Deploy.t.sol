@@ -43,10 +43,6 @@ contract Deploy is DSTest, Helpers {
         MpcManager _mpcManager = new MpcManager();
         MpcManager mpcManager = MpcManager(address(proxyWrapped(address(_mpcManager), admin)));
 
-        // Treasuries
-        PrincipalTreasury pTreasury = new PrincipalTreasury();
-        RewardTreasury rTreasury = new RewardTreasury();
-
         // Oracle manager
         OracleManager _oracleManager = new OracleManager();
         OracleManager oracleManager = OracleManager(address(proxyWrapped(address(_oracleManager), admin)));
@@ -69,10 +65,11 @@ contract Deploy is DSTest, Helpers {
         AvaLido lido = PayableAvaLido(payable(address(proxyWrapped(address(_lido), admin))));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
+        // Treasuries
+        Treasury pTreasury = new Treasury(address(lido));
+        Treasury rTreasury = new Treasury(address(lido));
         lido.setPrincipalTreasuryAddress(address(pTreasury));
         lido.setRewardTreasuryAddress(address(rTreasury));
-        pTreasury.initialize(address(lido));
-        rTreasury.initialize(address(lido));
 
         // MPC manager setup
         mpcManager.initialize(mpcAdmin, address(lido), address(pTreasury), address(rTreasury));
