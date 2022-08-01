@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
-contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
+contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
     uint256 constant GROUP_SIZE_SHIFT = 16;
     uint256 constant THRESHOLD_SHIFT = 8;
     bytes32 constant GROUP_ID_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000; // First 232 bits = Hash(PublicKeys), Next 8 bits = groupSize, Next 8 bits = threshold, Next 8 bits = reserved for party index
