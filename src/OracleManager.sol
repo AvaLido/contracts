@@ -288,26 +288,4 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
     function resume() external onlyRole(ROLE_ORACLE_ADMIN) {
         _unpause();
     }
-
-    // TODO: function changeRoleOracleManager() {}
-
-    // -------------------------------------------------------------------------
-    //  Temporary functions - PLEASE REMOVE
-    // -------------------------------------------------------------------------
-
-    function temporaryFinalizeReport(uint256 _epochId, Validator[] calldata _reportData) external {
-        if (oracleContractAddress == address(0)) revert OracleContractAddressNotSet();
-
-        if (!_getOracleInWhitelistMapping(msg.sender)) revert OracleMemberNotFound();
-
-        if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
-
-        bytes32 hashedReportData = _hashReportData(_reportData);
-
-        _storeHashedDataCount(_epochId, hashedReportData);
-
-        finalizedReportsByEpochId[_epochId] = true;
-        Oracle.receiveFinalizedReport(_epochId, _reportData);
-        emit OracleReportSent(_epochId);
-    }
 }
