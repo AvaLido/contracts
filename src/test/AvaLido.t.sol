@@ -114,6 +114,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
 
         cheats.assume(x > lido.minStakeAmount());
         cheats.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
@@ -806,6 +807,8 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testUnstakeRequestFillWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
+
         cheats.assume(x > lido.minStakeBatchAmount());
         cheats.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
@@ -1273,6 +1276,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testClaimWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
 
         cheats.assume(x > lido.minStakeBatchAmount());
         cheats.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
