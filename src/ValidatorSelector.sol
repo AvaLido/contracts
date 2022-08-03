@@ -18,7 +18,6 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
     // Errors
     error InvalidAddress();
 
-    uint256 minimumRequiredStakeTimeRemaining;
     uint256 smallStakeThreshold;
     uint256 maxChunkSize;
 
@@ -30,7 +29,6 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
         _setupRole(ROLE_VALIDATOR_MANAGER, msg.sender);
 
         // Initialize contract variables
-        minimumRequiredStakeTimeRemaining = 15 days;
         smallStakeThreshold = 100 ether;
         maxChunkSize = 1000 ether;
         oracle = IOracle(oracleAddress);
@@ -175,7 +173,7 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
             if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
                 continue;
             }
-            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index])) {
+            if (!ValidatorHelpers.hasAcceptableUptime(validators[index])) {
                 continue;
             }
             count++;
@@ -189,7 +187,7 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
             if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
                 continue;
             }
-            if (!ValidatorHelpers.hasAcceptibleUptime(validators[index])) {
+            if (!ValidatorHelpers.hasAcceptableUptime(validators[index])) {
                 continue;
             }
             result[index] = validators[index];
@@ -205,13 +203,6 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
         if (oracleAddress == address(0)) revert InvalidAddress();
 
         oracle = IOracle(oracleAddress);
-    }
-
-    function setMinimumRequiredStakeTimeRemaining(uint256 _minimumRequiredStakeTimeRemaining)
-        external
-        onlyRole(ROLE_VALIDATOR_MANAGER)
-    {
-        minimumRequiredStakeTimeRemaining = _minimumRequiredStakeTimeRemaining;
     }
 
     function setSmallStakeThreshold(uint256 _smallStakeThreshold) external onlyRole(ROLE_VALIDATOR_MANAGER) {
