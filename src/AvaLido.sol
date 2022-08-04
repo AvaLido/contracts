@@ -45,8 +45,6 @@ import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
 import "./interfaces/ITreasury.sol";
 
-uint256 constant MAXIMUM_STAKE_AMOUNT = 300_000_000 ether; // Roughly all circulating AVAX
-
 /**
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
@@ -149,7 +147,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         minStakeAmount = 0.1 ether;
         stakePeriod = 14 days;
         maxUnstakeRequests = 10;
-        maxProtocolControlledAVAX = type(uint256).max; // Unlimited by default.
+        maxProtocolControlledAVAX = 100_000 ether; // Initial limit for deploy.
 
         mpcManager = IMpcManager(_mpcManagerAddress);
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
@@ -177,7 +175,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * @param stAVAXAmount The amount of stAVAX to unstake.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
-        if (stAVAXAmount == 0 || stAVAXAmount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (stAVAXAmount == 0) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] >= maxUnstakeRequests) {
             revert TooManyConcurrentUnstakeRequests();
@@ -320,7 +318,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      */
     function deposit() external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
-        if (amount < minStakeAmount || amount > MAXIMUM_STAKE_AMOUNT) revert InvalidStakeAmount();
+        if (amount < minStakeAmount) revert InvalidStakeAmount();
         if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
 
         // Mint stAVAX for user at the currently calculated exchange rate
