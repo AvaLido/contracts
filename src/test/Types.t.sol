@@ -11,13 +11,13 @@ contract TypesTest is DSTest, Helpers {
 
     function testHasUptime() public {
         uint24 withSet24 = 0 | (1 << 23);
-        bool res = ValidatorHelpers.hasAcceptibleUptime(Validator.wrap(withSet24));
+        bool res = ValidatorHelpers.hasAcceptableUptime(Validator.wrap(withSet24));
         assertTrue(res);
     }
 
     function testHasUptimeFalse() public {
         uint24 data = 1;
-        bool res = ValidatorHelpers.hasAcceptibleUptime(Validator.wrap(data));
+        bool res = ValidatorHelpers.hasAcceptableUptime(Validator.wrap(data));
         assertTrue(!res);
     }
 
@@ -68,7 +68,7 @@ contract TypesTest is DSTest, Helpers {
     function testPackRoundTrip() public {
         Validator val = ValidatorHelpers.packValidator(129, true, false, 1);
         assertEq(ValidatorHelpers.getNodeIndex(val), 129);
-        assertTrue(ValidatorHelpers.hasAcceptibleUptime(val));
+        assertTrue(ValidatorHelpers.hasAcceptableUptime(val));
         assertTrue(!ValidatorHelpers.hasTimeRemaining(val));
         assertEq(ValidatorHelpers.freeSpace(val), 1 * 100 ether);
     }

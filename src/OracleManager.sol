@@ -217,7 +217,7 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
      * @notice Returns array of whitelisted oracle addresses.
      * @return whitelistedOracles Array of oracles.
      */
-    function getWhitelistedOracles() public view returns (address[] memory) {
+    function getWhitelistedOracles() external view returns (address[] memory) {
         return whitelistedOraclesArray;
     }
 
