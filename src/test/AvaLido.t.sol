@@ -23,34 +23,23 @@ contract FakeMpcManager is IMpcManager {
         uint256 endTime
     ) external payable {
         require(msg.value == amount, "Incorrect value.");
-        string memory logData = string(
-            abi.encodePacked(
-                nodeID,
-                ", ",
-                Strings.toString(amount),
-                ", ",
-                Strings.toString(startTime),
-                ", ",
-                Strings.toString(endTime)
-            )
-        );
         payable(MPC_GENERATED_ADDRESS).transfer(amount);
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }
 
-    function createGroup(bytes[] calldata, uint256) external {
+    function createGroup(bytes[] calldata, uint256) external pure {
         revert("Not Implemented");
     }
 
-    function requestKeygen(bytes32) external {
+    function requestKeygen(bytes32) external pure {
         revert("Not Implemented");
     }
 
-    function getGroup(bytes32) external view returns (bytes[] memory, uint256) {
+    function getGroup(bytes32) external pure returns (bytes[] memory, uint256) {
         revert("Not Implemented");
     }
 
-    function getKey(bytes calldata) external view returns (KeyInfo memory) {
+    function getKey(bytes calldata) external pure returns (KeyInfo memory) {
         revert("Not Implemented");
     }
 }
@@ -123,16 +112,12 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 0 ether}();
     }
 
-    function testStakeTooLargeDeposit() public {
-        cheats.expectRevert(AvaLido.InvalidStakeAmount.selector);
-        lido.deposit{value: (MAXIMUM_STAKE_AMOUNT + 1)}();
-    }
-
     function testStakeWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
 
         cheats.assume(x > lido.minStakeAmount());
-        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
+        cheats.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
         cheats.prank(USER1_ADDRESS);
         lido.deposit{value: x}();
@@ -822,8 +807,10 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testUnstakeRequestFillWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
+
         cheats.assume(x > lido.minStakeBatchAmount());
-        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
+        cheats.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
         cheats.prank(USER1_ADDRESS);
         lido.deposit{value: x}();
@@ -848,44 +835,6 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountFilled, x);
         assertEq(stAVAXLocked, x);
     }
-
-    // function testUnstakeRequestFillWithFuzzingAfterRewards(uint256 x) public {
-    //     cheats.deal(USER1_ADDRESS, type(uint256).max);
-    //     cheats.deal(USER2_ADDRESS, type(uint256).max);
-    //     cheats.assume(x > lido.minStakeBatchAmount());
-    //     cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
-
-    //     cheats.prank(USER2_ADDRESS);
-    //     lido.deposit{value: x}();
-
-    //     lido.receiveRewardsFromMPC{value: 0.6 ether}();
-
-    //     cheats.prank(USER1_ADDRESS);
-    //     lido.deposit{value: x}();
-
-    //     uint256 stAVAXReceivedByUser = lido.balanceOf(USER1_ADDRESS);
-
-    //     // Set up validator and stake.
-    //     // We want to move all the AVAX in the contract (x + x + lido.receiveRewardsFromMPC{value: 0.5 ether}())
-    //     // or else it messes up the test
-    //     validatorSelectMock(validatorSelectorAddress, "test", lido.protocolControlledAVAX(), 0);
-    //     lido.initiateStake();
-
-    //     cheats.prank(USER1_ADDRESS);
-    //     uint256 requestId = lido.requestWithdrawal(x);
-    //     assertEq(requestId, 0);
-
-    //     cheats.deal(ZERO_ADDRESS, type(uint256).max);
-
-    //     cheats.prank(ZERO_ADDRESS);
-    //     lido.receivePrincipalFromMPC{value: x}();
-
-    //     (, , uint256 amountRequested, uint256 amountFilled, , uint256 stAVAXLocked) = lido.unstakeRequests(0);
-
-    //     assertEq(amountRequested, x);
-    //     assertEq(amountFilled, x);
-    //     assertEq(stAVAXLocked, stAVAXReceivedByUser);
-    // }
 
     // Claiming
 
@@ -1327,9 +1276,10 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testClaimWithFuzzing(uint256 x) public {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
 
         cheats.assume(x > lido.minStakeBatchAmount());
-        cheats.assume(x < MAXIMUM_STAKE_AMOUNT);
+        cheats.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
         cheats.prank(USER1_ADDRESS);
         lido.deposit{value: x}();

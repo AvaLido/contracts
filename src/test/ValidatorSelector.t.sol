@@ -15,11 +15,7 @@ contract MockHelpers {
         return uint64(block.timestamp + time);
     }
 
-    function nValidatorsWithFreeSpace(
-        uint256 n,
-        uint64 endTime,
-        uint256 freeSpace
-    ) public pure returns (Validator[] memory) {
+    function nValidatorsWithFreeSpace(uint256 n, uint256 freeSpace) public pure returns (Validator[] memory) {
         Validator[] memory result = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
             result[i] = ValidatorHelpers.packValidator(uint16(i), true, true, uint16(freeSpace / 100 ether));
@@ -43,9 +39,9 @@ contract MockHelpers {
         );
     }
 
-    function mixOfBigAndSmallValidators() public view returns (Validator[] memory) {
-        Validator[] memory smallValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 500 ether);
-        Validator[] memory bigValidators = nValidatorsWithFreeSpace(7, timeFromNow(30 days), 100000 ether);
+    function mixOfBigAndSmallValidators() public pure returns (Validator[] memory) {
+        Validator[] memory smallValidators = nValidatorsWithFreeSpace(7, 500 ether);
+        Validator[] memory bigValidators = nValidatorsWithFreeSpace(7, 100000 ether);
 
         Validator[] memory validators = new Validator[](smallValidators.length + bigValidators.length);
 
@@ -74,7 +70,7 @@ contract MockOracle is IOracle {
         revert("Should be mocked");
     }
 
-    function validatorCount() external view returns (uint256) {
+    function validatorCount() external pure returns (uint256) {
         revert("Should be mocked");
     }
 
@@ -111,13 +107,13 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
     function testGetByCapacityEmpty() public {
         // Note: This has 0 validators.
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(0, timeFromNow(30 days), 0 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(0, 0 ether));
 
         assertEq(selector.getAvailableValidatorsWithCapacity(1 ether).length, 0);
     }
 
     function testGetByCapacity() public {
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, timeFromNow(30 days), 1000 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, 1000 ether));
 
         assertEq(selector.getAvailableValidatorsWithCapacity(100 ether).length, 2); // Smaller
         assertEq(selector.getAvailableValidatorsWithCapacity(1000 ether).length, 2); // Exact
@@ -125,7 +121,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     }
 
     function testGetByCapacityRounding() public {
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1, timeFromNow(30 days), 1234 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1, 1234 ether));
 
         // Values are rounded down and stored as '100s of free avax'
         assertEq(selector.getAvailableValidatorsWithCapacity(1100 ether).length, 1); // Smaller
@@ -133,7 +129,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     }
 
     function testGetByCapacityWithinEndTime() public {
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, timeFromNow(10 days), 10 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, 10 ether));
         assertEq(selector.getAvailableValidatorsWithCapacity(1 ether).length, 0);
     }
 
@@ -155,7 +151,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
     function testSelectZeroCapacity() public {
         // 1 validator with no capacity
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1, timeFromNow(30 days), 0));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1, 0));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(50);
         assertEq(vals.length, 0);
@@ -165,7 +161,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
     function testSelectUnderThreshold() public {
         // one validator with lots of capacity
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1, timeFromNow(30 days), 2000 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1, 2000 ether));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
             50 ether
@@ -182,7 +178,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     // // TODO: figure out why this is failing on Github actions but not locally
     // function testSelectManyValidatorsUnderThreshold() public {
     //     // many validators with lots of capacity
-    //     oracleDataMock(nValidatorsWithFreeSpace(1000, timeFromNow(30 days), 500 ether));
+    //     oracleDataMock(nValidatorsWithFreeSpace(1000, 500 ether));
 
     //     (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
     //         50 ether
@@ -201,7 +197,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
     function testSelectManyValidatorsOverThreshold() public {
         // many validators with limited of capacity
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, timeFromNow(30 days), 500 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, 500 ether));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
             500 ether
@@ -229,7 +225,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     function testSelectManyValidatorsOverThresholdSmallCapacity() public {
         // many validators with loads of capacity.
         // Should get at most `maxChunkSize` on each until the request is filled.
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, timeFromNow(30 days), 500 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, 500 ether));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
             50000 ether
@@ -254,7 +250,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     function testSelectManyValidatorsOverThresholdLargeCapacity() public {
         // many validators with loads of capacity.
         // Should get at most `maxChunkSize` on each until the request is filled.
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, timeFromNow(30 days), 50000 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, 50000 ether));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
             50000 ether
@@ -277,7 +273,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
     function testSelectManyValidatorsWithRemainder() public {
         // Odd number of stake/validators to check remainder
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(7, timeFromNow(30 days), 400 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(7, 400 ether));
 
         (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
             5000 ether
@@ -294,7 +290,7 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
 
     function testSelectManyValidatorsWithHighRemainder() public {
         // request of stake much higher than remaining capacity
-        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(10, timeFromNow(30 days), 400 ether));
+        oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(10, 400 ether));
 
         (, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(10000 ether);
 
