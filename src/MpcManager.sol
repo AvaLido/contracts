@@ -8,44 +8,7 @@ import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.s
 import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
-library ParticipantIdHelpers {
-    uint256 constant GROUP_SIZE_SHIFT = 16;
-    uint256 constant THRESHOLD_SHIFT = 8;
-    bytes32 constant GROUP_ID_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000; // First 232 bits = Hash(PublicKeys), Next 8 bits = groupSize, Next 8 bits = threshold, Next 8 bits = reserved for party index
-    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
-
-    function mkGroupId(
-        bytes32 groupHash,
-        uint256 groupSize,
-        uint256 threshold
-    ) public pure returns (bytes32) {
-        assert(groupSize <= type(uint8).max);
-        assert(threshold <= type(uint8).max);
-        return
-            (groupHash & GROUP_ID_MASK) |
-            (bytes32(groupSize) << GROUP_SIZE_SHIFT) |
-            (bytes32(threshold) << THRESHOLD_SHIFT);
-    }
-
-    function getGroupSize(bytes32 groupOrParticipantId) public pure returns (uint8) {
-        return uint8(uint256((groupOrParticipantId >> GROUP_SIZE_SHIFT) & LAST_BYTE_MASK));
-    }
-
-    function getThreshold(bytes32 groupOrParticipantId) public pure returns (uint8) {
-        return uint8(uint256((groupOrParticipantId >> THRESHOLD_SHIFT) & LAST_BYTE_MASK));
-    }
-
-    function getParticipantIndex(bytes32 participantId) public pure returns (uint8) {
-        return uint8(uint256(participantId & LAST_BYTE_MASK));
-    }
-}
-
-library ParticipationHelpers {}
-
 contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
-    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
-    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
-    uint256 constant INIT_BIT = 0x8000000000000000000000000000000000000000000000000000000000000000;
     uint256 constant MAX_GROUP_SIZE = 248;
     uint256 constant PUBKEY_LENGTH = 64;
     // Errors
@@ -104,7 +67,7 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
     mapping(bytes => uint256) private _keyConfirmations;
 
     // groupId -> requestHash -> request status
-    mapping(bytes32 => mapping(bytes32 => uint256)) private _requestParticipations; // Last Byte = total-Confirmation, Rest = Participation flags (for max of 248 members)
+    mapping(bytes32 => mapping(bytes32 => uint256)) private _requestConfirmations; // Last Byte = total-Confirmation, Rest = Confirmation flags (for max of 248 members)
 
     uint256 private _lastStakeRequestNumber;
 
@@ -162,14 +125,14 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
             if (publicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();
             b = bytes.concat(b, publicKeys[i]);
         }
-        bytes32 groupId = ParticipantIdHelpers.mkGroupId(keccak256(b), groupSize, threshold);
+        bytes32 groupId = ParticipantIdHelpers.makeGroupId(keccak256(b), groupSize, threshold);
 
-        bytes32 participantId = groupId | bytes32(uint256(1));
+        bytes32 participantId = ParticipantIdHelpers.makeParticipantId(groupId, 1);
         address knownFirstParticipantAddr = _groupParticipants[participantId].ethAddress;
         if (knownFirstParticipantAddr != address(0)) revert AttemptToReaddGroup();
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
-            participantId = groupId | bytes32(i + 1);
+            participantId = ParticipantIdHelpers.makeParticipantId(groupId, i + 1);
             _groupParticipants[participantId].publicKey = publicKeys[i]; // Participant index is 1-based.
             _groupParticipants[participantId].ethAddress = _calculateAddress(publicKeys[i]); // Participant index is 1-based.
             emit ParticipantAdded(publicKeys[i], groupId, i + 1);
@@ -195,25 +158,24 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
         external
         onlyGroupMember(participantId)
     {
-        uint8 myIndex = uint8(uint256(participantId & LAST_BYTE_MASK));
+        uint8 myIndex = ParticipantIdHelpers.getParticipantIndex(participantId);
         uint8 groupSize = ParticipantIdHelpers.getGroupSize(participantId);
         uint256 confirmation = _keyConfirmations[generatedPublicKey];
-        uint256 myConfirm = INIT_BIT >> (myIndex - 1);
+        uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
         if ((confirmation & myConfirm) > 0) revert AttemptToReconfirmKey();
 
-        uint256 indices = confirmation & uint256(INIT_31_BYTE_MASK);
-        uint8 confirmedCount = uint8(confirmation & uint256(LAST_BYTE_MASK));
+        (uint256 indices, uint8 confirmedCount) = ConfirmationHelpers.parseConfirmation(confirmation);
         indices += myConfirm;
         confirmedCount++;
 
         if (confirmedCount == groupSize) {
-            bytes32 groupId = participantId & INIT_31_BYTE_MASK;
+            bytes32 groupId = ParticipantIdHelpers.getGroupId(participantId);
             _keyToGroupIds[generatedPublicKey] = groupId;
             lastGenPubKey = generatedPublicKey;
             lastGenAddress = _calculateAddress(generatedPublicKey);
             emit KeyGenerated(groupId, generatedPublicKey);
         }
-        _keyConfirmations[generatedPublicKey] = indices | confirmedCount;
+        _keyConfirmations[generatedPublicKey] = ConfirmationHelpers.makeConfirmation(indices, confirmedCount);
     }
 
     /**
@@ -221,16 +183,16 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
      * requires exactly t + 1 members to join.
      */
     function joinRequest(bytes32 participantId, bytes32 requestHash) external onlyGroupMember(participantId) {
-        bytes32 groupId = participantId & INIT_31_BYTE_MASK;
+        bytes32 groupId = ParticipantIdHelpers.getGroupId(participantId);
         uint8 myIndex = ParticipantIdHelpers.getParticipantIndex(participantId);
         uint8 threshold = ParticipantIdHelpers.getThreshold(groupId);
 
-        uint256 participation = _requestParticipations[groupId][requestHash];
-        uint8 confirmedCount = uint8(participation & uint256(LAST_BYTE_MASK));
+        uint256 participation = _requestConfirmations[groupId][requestHash];
+        (uint256 indices, uint8 confirmedCount) = ConfirmationHelpers.parseConfirmation(participation);
         if (confirmedCount > threshold) revert QuorumAlreadyReached();
 
-        uint256 indices = participation & uint256(INIT_31_BYTE_MASK);
-        uint256 myConfirm = INIT_BIT >> (myIndex - 1);
+        ConfirmationHelpers.confirm(myIndex);
+        uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
 
         indices += myConfirm;
@@ -239,7 +201,7 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
         if (confirmedCount == threshold + 1) {
             emit RequestStarted(requestHash, indices);
         }
-        _requestParticipations[groupId][requestHash] = indices | confirmedCount;
+        _requestConfirmations[groupId][requestHash] = ConfirmationHelpers.makeConfirmation(indices, confirmedCount);
     }
 
     // -------------------------------------------------------------------------
@@ -251,13 +213,13 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
         if (count == 0) revert GroupNotFound();
         bytes[] memory participants = new bytes[](count);
 
-        bytes32 participantId = groupId | bytes32(uint256(1));
+        bytes32 participantId = ParticipantIdHelpers.makeParticipantId(groupId, 1);
         bytes memory participant1 = _groupParticipants[participantId].publicKey; // Participant index is 1-based.
         if (participant1.length == 0) revert GroupNotFound();
         participants[0] = participant1;
 
         for (uint256 i = 1; i < count; i++) {
-            participantId = groupId | bytes32(i + 1);
+            participantId = ParticipantIdHelpers.makeParticipantId(groupId, i + 1);
             participants[i] = _groupParticipants[participantId].publicKey; // Participant index is 1-based.
         }
         return (participants);
@@ -304,5 +266,72 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
             mstore(0, hash)
             addr := mload(0)
         }
+    }
+}
+
+// First 232 bits = Hash(PublicKeys), Next 8 bits = groupSize, Next 8 bits = threshold, Last 8 bits = party index
+library ParticipantIdHelpers {
+    uint256 constant GROUP_SIZE_SHIFT = 16;
+    uint256 constant THRESHOLD_SHIFT = 8;
+    bytes32 constant GROUP_HASH_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000;
+    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
+    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
+
+    function makeGroupId(
+        bytes32 groupHash,
+        uint256 groupSize,
+        uint256 threshold
+    ) public pure returns (bytes32) {
+        assert(groupSize <= type(uint8).max);
+        assert(threshold <= type(uint8).max);
+        return
+            (groupHash & GROUP_HASH_MASK) |
+            (bytes32(groupSize) << GROUP_SIZE_SHIFT) |
+            (bytes32(threshold) << THRESHOLD_SHIFT);
+    }
+
+    function makeParticipantId(bytes32 groupId, uint256 participantIndex) public pure returns (bytes32) {
+        assert(participantIndex <= type(uint8).max);
+        return groupId | (bytes32(participantIndex));
+    }
+
+    function getGroupSize(bytes32 groupOrParticipantId) public pure returns (uint8) {
+        return uint8(uint256((groupOrParticipantId >> GROUP_SIZE_SHIFT) & LAST_BYTE_MASK));
+    }
+
+    function getThreshold(bytes32 groupOrParticipantId) public pure returns (uint8) {
+        return uint8(uint256((groupOrParticipantId >> THRESHOLD_SHIFT) & LAST_BYTE_MASK));
+    }
+
+    function getGroupId(bytes32 participantId) public pure returns (bytes32) {
+        return participantId & INIT_31_BYTE_MASK;
+    }
+
+    function getParticipantIndex(bytes32 participantId) public pure returns (uint8) {
+        return uint8(uint256(participantId & LAST_BYTE_MASK));
+    }
+}
+
+// The first 31 bytes (248 bits) to represent the confirmation of max. 248 members,
+// i.e. when the first bit set to 1, it means participant 1 has confirmed.
+// The last byte records the number participants that have confirmed
+library ConfirmationHelpers {
+    uint256 constant INIT_BIT = 0x8000000000000000000000000000000000000000000000000000000000000000;
+    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
+    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
+
+    function makeConfirmation(uint256 indices, uint8 confirmedCount) public pure returns (uint256) {
+        assert(indices & uint256(LAST_BYTE_MASK) == 0);
+        return indices | confirmedCount;
+    }
+
+    function parseConfirmation(uint256 confirmation) public pure returns (uint256 indices, uint8 confirmedCount) {
+        indices = confirmation & uint256(INIT_31_BYTE_MASK);
+        confirmedCount = uint8(confirmation & uint256(LAST_BYTE_MASK));
+        return (indices, confirmedCount);
+    }
+
+    function confirm(uint8 myIndex) public pure returns (uint256) {
+        return INIT_BIT >> (myIndex - 1); // Set bit representing my confirm.
     }
 }
