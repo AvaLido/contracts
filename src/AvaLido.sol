@@ -136,6 +136,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Roles
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ROLE_PAUSE_MANAGER, msg.sender);
+        _setupRole(ROLE_RESUME_MANAGER, msg.sender);
         _setupRole(ROLE_FEE_MANAGER, msg.sender);
         _setupRole(ROLE_TREASURY_MANAGER, msg.sender);
         _setupRole(ROLE_MPC_MANAGER, msg.sender);
@@ -461,7 +462,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _pause();
     }
 
-    function resume() external onlyRole(ROLE_PAUSE_MANAGER) {
+    function resume() external onlyRole(ROLE_RESUME_MANAGER) {
         _unpause();
     }
 
