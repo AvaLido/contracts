@@ -240,24 +240,4 @@ contract OracleManagerTest is DSTest, Helpers {
         );
         oracleManager.setOracleAddress(anotherAddressForTesting);
     }
-
-    // TODO: write and test changing ORACLE_ADMIN_ADDRESS
-
-    // -------------------------------------------------------------------------
-    //  TEMPORARY FUNCTION TEST - REMOVE WHEN FUNCTION IS REMOVED
-    // -------------------------------------------------------------------------
-
-    function testTemporaryFinalizeReport() public {
-        cheats.prank(ORACLE_ADMIN_ADDRESS);
-        oracleManager.setOracleAddress(address(oracle));
-
-        Validator[] memory reportData = new Validator[](2);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
-        reportData[1] = ValidatorHelpers.packValidator(1, true, true, 200);
-
-        cheats.prank(ORACLE_MEMBERS[0]);
-        cheats.expectEmit(false, false, false, true);
-        emit OracleReportSent(epochId);
-        oracleManager.temporaryFinalizeReport(epochId, reportData);
-    }
 }

@@ -26,7 +26,7 @@ type Validator is uint24;
 // v = 10 bits - number of 'hundreds of free avax, rounded down', capped at 256
 
 library ValidatorHelpers {
-    function hasAcceptibleUptime(Validator data) public pure returns (bool) {
+    function hasAcceptableUptime(Validator data) public pure returns (bool) {
         uint24 shifted = Validator.unwrap(data) >> 23;
         uint24 flag = shifted & 1;
         return flag == 1 ? true : false;
