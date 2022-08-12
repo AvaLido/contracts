@@ -12,13 +12,6 @@ import "../MpcManager.sol";
 
 contract MpcManagerTest is DSTest, Helpers {
     uint8 constant MPC_THRESHOLD = 1;
-    uint256 constant INDEX_1 = 0x8000000000000000000000000000000000000000000000000000000000000000;
-    uint256 constant INDEX_2 = 0x4000000000000000000000000000000000000000000000000000000000000000;
-    uint256 constant INDEX_3 = 0x2000000000000000000000000000000000000000000000000000000000000000;
-    bytes32 constant MPC_GROUP_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495030100";
-    bytes32 constant MPC_PARTICIPANT1_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495030101";
-    bytes32 constant MPC_PARTICIPANT2_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495030102";
-    bytes32 constant MPC_PARTICIPANT3_ID = hex"580f50574d33934e3253fba81b83697c6948595c7d873e948665745495030103";
     bytes32 constant MPC_BIG_GROUP_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0900";
     bytes32 constant MPC_BIG_P01_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0901";
     bytes32 constant MPC_BIG_P02_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0902";
@@ -356,5 +349,133 @@ contract MpcManagerTest is DSTest, Helpers {
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+    }
+}
+
+contract ParticipantIdHelpersTest is DSTest, Helpers {
+    function setUp() public {}
+
+    function testMakeGroupId() public {
+        bytes32 groupId = ParticipantIdHelpers.makeGroupId(MPC_GROUP_HASH, 3, 1);
+        assertEq(groupId, MPC_GROUP_ID);
+    }
+
+    function testMakeParticipantId() public {
+        bytes32 participantId = ParticipantIdHelpers.makeParticipantId(MPC_GROUP_ID, 1);
+        assertEq(participantId, MPC_PARTICIPANT1_ID);
+        participantId = ParticipantIdHelpers.makeParticipantId(MPC_GROUP_ID, 2);
+        assertEq(participantId, MPC_PARTICIPANT2_ID);
+        participantId = ParticipantIdHelpers.makeParticipantId(MPC_GROUP_ID, 3);
+        assertEq(participantId, MPC_PARTICIPANT3_ID);
+    }
+
+    function testGetGroupSize() public {
+        uint8 groupSize = ParticipantIdHelpers.getGroupSize(MPC_GROUP_ID);
+        assertEq(groupSize, 3);
+        groupSize = ParticipantIdHelpers.getGroupSize(MPC_PARTICIPANT1_ID);
+        assertEq(groupSize, 3);
+        groupSize = ParticipantIdHelpers.getGroupSize(MPC_PARTICIPANT2_ID);
+        assertEq(groupSize, 3);
+        groupSize = ParticipantIdHelpers.getGroupSize(MPC_PARTICIPANT3_ID);
+        assertEq(groupSize, 3);
+    }
+
+    function testGetThreshold() public {
+        uint8 threshold = ParticipantIdHelpers.getThreshold(MPC_GROUP_ID);
+        assertEq(threshold, 1);
+        threshold = ParticipantIdHelpers.getThreshold(MPC_PARTICIPANT1_ID);
+        assertEq(threshold, 1);
+        threshold = ParticipantIdHelpers.getThreshold(MPC_PARTICIPANT2_ID);
+        assertEq(threshold, 1);
+        threshold = ParticipantIdHelpers.getThreshold(MPC_PARTICIPANT3_ID);
+        assertEq(threshold, 1);
+    }
+
+    function testGetGroupId() public {
+        bytes32 groupId = ParticipantIdHelpers.getGroupId(MPC_PARTICIPANT1_ID);
+        assertEq(groupId, MPC_GROUP_ID);
+        groupId = ParticipantIdHelpers.getGroupId(MPC_PARTICIPANT2_ID);
+        assertEq(groupId, MPC_GROUP_ID);
+        groupId = ParticipantIdHelpers.getGroupId(MPC_PARTICIPANT3_ID);
+        assertEq(groupId, MPC_GROUP_ID);
+    }
+
+    function testGetParticipantIndex() public {
+        uint8 participantIndex = ParticipantIdHelpers.getParticipantIndex(MPC_PARTICIPANT1_ID);
+        assertEq(participantIndex, 1);
+        participantIndex = ParticipantIdHelpers.getParticipantIndex(MPC_PARTICIPANT2_ID);
+        assertEq(participantIndex, 2);
+        participantIndex = ParticipantIdHelpers.getParticipantIndex(MPC_PARTICIPANT3_ID);
+        assertEq(participantIndex, 3);
+    }
+}
+
+contract ConfirmationHelpersTest is DSTest, Helpers {
+    bytes32 constant INDICES = hex"73553de49378e407b656cae022df20a11de995d35221910115cfc0993c483700";
+    uint8 constant CONFIRMATION_COUNT = 115;
+    bytes32 constant CONFIRMATION = hex"73553de49378e407b656cae022df20a11de995d35221910115cfc0993c483773";
+
+    function testMakeConfirmation() public {
+        uint256 confirmation = ConfirmationHelpers.makeConfirmation(uint256(INDICES), CONFIRMATION_COUNT);
+        assertEq(confirmation, uint256(CONFIRMATION));
+    }
+
+    function testParseConfirmation() public {
+        (uint256 indices, uint8 count) = ConfirmationHelpers.parseConfirmation( uint256(CONFIRMATION));
+        assertEq(indices, uint256(INDICES));
+        assertEq(count, CONFIRMATION_COUNT);
+    }
+
+    function testConfirm() public {
+        uint256 confirm  = ConfirmationHelpers.confirm(1);
+        assertEq(confirm, uint256( INDEX_1));
+        confirm  = ConfirmationHelpers.confirm(2);
+        assertEq(confirm, uint256( INDEX_2));
+        confirm  = ConfirmationHelpers.confirm(3);
+        assertEq(confirm, uint256( INDEX_3));
+
+    }
+}
+
+contract KeygenStatusHelpersTest is DSTest, Helpers {
+    function testMakeKeygenRequest() public {
+        bytes32 req = KeygenStatusHelpers.makeKeygenRequest(MPC_GROUP_ID, 1);
+        assertEq(uint256(req), uint256(MPC_GROUP_ID) + 1);
+        req = KeygenStatusHelpers.makeKeygenRequest(MPC_GROUP_ID, 2);
+        assertEq(uint256(req), uint256(MPC_GROUP_ID) + 2);
+        req = KeygenStatusHelpers.makeKeygenRequest(MPC_GROUP_ID, 3);
+        assertEq(uint256(req), uint256(MPC_GROUP_ID) + 3);
+        req = KeygenStatusHelpers.makeKeygenRequest(MPC_GROUP_ID, 4);
+        assertEq(uint256(req), uint256(MPC_GROUP_ID) + 4);
+    }
+
+    function testGetGroupId() public {
+        bytes32 req = bytes32(uint256(MPC_GROUP_ID) + 1);
+        bytes32 groupId = KeygenStatusHelpers.getGroupId(req);
+        assertEq(groupId, MPC_GROUP_ID);
+        req = bytes32(uint256(MPC_GROUP_ID) + 2);
+        groupId = KeygenStatusHelpers.getGroupId(req);
+        assertEq(groupId, MPC_GROUP_ID);
+        req = bytes32(uint256(MPC_GROUP_ID) + 3);
+        groupId = KeygenStatusHelpers.getGroupId(req);
+        assertEq(groupId, MPC_GROUP_ID);
+        req = bytes32(uint256(MPC_GROUP_ID) + 4);
+        groupId = KeygenStatusHelpers.getGroupId(req);
+        assertEq(groupId, MPC_GROUP_ID);
+    }
+
+    function testGetKeygenStatus() public {
+        bytes32 req = bytes32(uint256(MPC_GROUP_ID) + 1);
+        uint8 status = KeygenStatusHelpers.getKeygenStatus(req);
+        assertEq(status, 1);
+        req = bytes32(uint256(MPC_GROUP_ID) + 2);
+        status = KeygenStatusHelpers.getKeygenStatus(req);
+        assertEq(status, 2);
+        req = bytes32(uint256(MPC_GROUP_ID) + 3);
+        status = KeygenStatusHelpers.getKeygenStatus(req);
+        assertEq(status, 3);
+        req = bytes32(uint256(MPC_GROUP_ID) + 4);
+        status = KeygenStatusHelpers.getKeygenStatus(req);
+        assertEq(status, 4);
     }
 }
