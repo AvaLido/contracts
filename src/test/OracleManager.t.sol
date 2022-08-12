@@ -108,8 +108,6 @@ contract OracleManagerTest is DSTest, Helpers {
 
         Validator[] memory reportDataOne = new Validator[](1);
         reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
-        Validator[] memory reportDataTwo = new Validator[](1);
-        reportDataTwo[0] = ValidatorHelpers.packValidator(1, true, true, 200);
 
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -221,6 +219,37 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.prank(ORACLE_ADMIN_ADDRESS);
         cheats.expectRevert(OracleManager.OracleMemberNotFound.selector);
         oracleManager.removeOracleMember(0xf195179eEaE3c8CAB499b5181721e5C57e4769b2);
+    }
+
+    function testProtocolNotStuckAfterSetList() public {
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        oracleManager.setOracleAddress(address(oracle));
+
+        Validator[] memory reportDataOne = new Validator[](1);
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
+        // Add a report for epoch 1
+        cheats.prank(ORACLE_MEMBERS[0]);
+        oracleManager.receiveMemberReport(1, reportDataOne);
+
+        string[] memory newNodes = new string[](1);
+        newNodes[0] = "test";
+
+        // Change the nodeID list
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        oracle.setNodeIDList(newNodes);
+
+        // Ensure we are able to move forwards and get quroum for epoch 2
+        cheats.prank(ORACLE_MEMBERS[0]);
+        oracleManager.receiveMemberReport(2, reportDataOne);
+        cheats.prank(ORACLE_MEMBERS[1]);
+        oracleManager.receiveMemberReport(2, reportDataOne);
+
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportSent(2);
+
+        cheats.prank(ORACLE_MEMBERS[2]);
+        oracleManager.receiveMemberReport(2, reportDataOne);
     }
 
     // -------------------------------------------------------------------------

