@@ -204,7 +204,6 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
         confirmedCount++;
 
         if (confirmedCount == groupSize) {
-            bytes32 groupId = ParticipantIdHelpers.getGroupId(participantId);
             _keyToGroupIds[generatedPublicKey] = groupId;
             lastGenPubKey = generatedPublicKey;
             lastGenAddress = _calculateAddress(generatedPublicKey);
