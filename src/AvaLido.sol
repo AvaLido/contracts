@@ -97,9 +97,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Record the number of unstake requests per user so that we can limit them to our max.
     mapping(address => uint8) public unstakeRequestCount;
 
-    // Address which protocol fees are sent to.
+    // Protocol fee is expressed as basis points (BPS). One BPS is 1/100 of 1%.
+    uint256 public protocolFeeBasisPoints;
+
+    // Addresses which protocol fees are sent to.
+    // Protocol fee split is set out in the "Lido for Avalance" proposal:
+    // https://research.lido.fi/t/lido-for-avalanche-joint-proposal-by-hyperelliptic-labs-and-rockx/1610
     PaymentSplitter public protocolFeeSplitter;
-    uint256 public protocolFeePercentage;
 
     // For gas efficiency, we won't emit staking events if the pending amount is below this value.
     uint256 public minStakeBatchAmount;
@@ -142,7 +146,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _setupRole(ROLE_PROTOCOL_MANAGER, msg.sender);
 
         // Initialize contract variables.
-        protocolFeePercentage = 10;
+        protocolFeeBasisPoints = 1000; // 1000 BPS = 10%
         minStakeBatchAmount = 10 ether;
         minStakeAmount = 0.1 ether;
         stakePeriod = 14 days;
@@ -373,7 +377,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (val == 0) return;
         rewardTreasury.claim(val);
 
-        uint256 protocolFee = (val * protocolFeePercentage) / 100;
+        uint256 protocolFee = (val * protocolFeeBasisPoints) / 10_000;
         payable(protocolFeeSplitter).transfer(protocolFee);
         emit ProtocolFeeEvent(protocolFee);
 
@@ -465,9 +469,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _unpause();
     }
 
-    function setProtocolFeePercentage(uint256 _protocolFeePercentage) external onlyRole(ROLE_FEE_MANAGER) {
-        require(_protocolFeePercentage >= 0 && _protocolFeePercentage <= 100);
-        protocolFeePercentage = _protocolFeePercentage;
+    function setProtocolFeeBasisPoints(uint256 _protocolFeeBasisPoints) external onlyRole(ROLE_FEE_MANAGER) {
+        require(_protocolFeeBasisPoints <= 10_000);
+        protocolFeeBasisPoints = _protocolFeeBasisPoints;
     }
 
     /**
