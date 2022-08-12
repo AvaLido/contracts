@@ -14,6 +14,7 @@ contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasu
     error AdminOnly();
     error AvaLidoOnly();
     error AlreadySet();
+    error NotSet();
     address payable public avaLidoAddress;
 
     function initialize() public initializer {
@@ -30,6 +31,8 @@ contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasu
     }
 
     function claim(uint256 amount) external onlyAvaLido {
+        // Prevent claiming to burn address if not yet set.
+        if (avaLidoAddress == address(0)) revert NotSet();
         avaLidoAddress.transfer(amount);
     }
 
