@@ -411,11 +411,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
             if (remaining == 0) break;
 
-            if (isFilled(unstakeRequests[i])) {
-                // This shouldn't happen, but revert if it does for clearer testing
-                revert("Invalid state - filled request in queue");
-            }
-
             if (unstakeRequests[i].amountFilled < unstakeRequests[i].amountRequested) {
                 uint256 amountRequired = unstakeRequests[i].amountRequested - unstakeRequests[i].amountFilled;
 
