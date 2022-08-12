@@ -27,7 +27,7 @@ contract FakeMpcManager is IMpcManager {
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }
 
-    function createGroup(bytes[] calldata, uint8) external {
+    function createGroup(bytes[] calldata, uint8) external pure {
         revert("Not Implemented");
     }
 
@@ -39,11 +39,11 @@ contract FakeMpcManager is IMpcManager {
         revert("Not Implemented");
     }
 
-    function getGroup(bytes32) external view returns (bytes[] memory) {
+    function getGroup(bytes32) external pure returns (bytes[] memory) {
         revert("Not Implemented");
     }
 
-    function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32) {
+    function getGroupIdByKey(bytes calldata) external pure returns (bytes32) {
         revert("Not Implemented");
     }
 }
@@ -58,8 +58,6 @@ contract AvaLidoTest is DSTest, Helpers {
     AvaLido lido;
     ValidatorSelector validatorSelector;
     FakeMpcManager fakeMpcManager;
-    Treasury pTreasury;
-    Treasury rTreasury;
 
     address feeAddressAuthor = 0x1000000000000000000000000000000000000001;
     address feeAddressLido = 0x1000000000000000000000000000000000000002;
