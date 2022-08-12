@@ -50,7 +50,15 @@ contract MpcManagerTest is DSTest, Helpers {
     MpcManager mpcManager;
     bytes[] pubKeys = new bytes[](3);
 
+    enum KeygenStatus {
+        NOT_EXIST,
+        REQUESTED,
+        COMPLETED,
+        CANCELED
+    }
     event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
+    event KeygenRequestAdded(bytes32 indexed groupId, uint256 requestNumber);
+    event KeygenRequestCanceled(bytes32 indexed groupId, uint256 requestNumber);
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
@@ -125,6 +133,8 @@ contract MpcManagerTest is DSTest, Helpers {
         pubKeys12[11] = MPC_BIG_P12_PUBKEY;
         cheats.prank(MPC_ADMIN_ADDRESS);
         mpcManager.createGroup(pubKeys12, 9);
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        mpcManager.requestKeygen(MPC_BIG_GROUP_ID);
 
         bytes[] memory participants = mpcManager.getGroup(MPC_BIG_GROUP_ID);
         assertEq0(pubKeys12[0], participants[0]);
@@ -193,8 +203,56 @@ contract MpcManagerTest is DSTest, Helpers {
         assertEq0(pubKeys[2], participants[2]);
     }
 
-    function testReportGeneratedKey() public {
+    function testKeygenRequest() public {
         setupGroup();
+
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        cheats.expectEmit(false, false, true, true);
+        emit KeygenRequestAdded(MPC_GROUP_ID, 1);
+        mpcManager.requestKeygen(MPC_GROUP_ID);
+        assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_GROUP_ID) + uint8(KeygenStatus.REQUESTED));
+
+        // Can cancel before started
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        cheats.expectEmit(false, false, true, true);
+        emit KeygenRequestCanceled(MPC_GROUP_ID, 1);
+        mpcManager.cancelKeygen();
+        assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_GROUP_ID) + uint8(KeygenStatus.CANCELED));
+        // Cannot report if canceled
+        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        cheats.expectRevert(MpcManager.KeygenNotRequested.selector);
+        mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
+
+        // Request again
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        mpcManager.requestKeygen(MPC_GROUP_ID);
+
+        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_PARTICIPANT2_ID, MPC_GENERATED_PUBKEY);
+
+        // Can cancel before done
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        mpcManager.cancelKeygen();
+
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        mpcManager.requestKeygen(MPC_GROUP_ID);
+
+        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_PARTICIPANT2_ID, MPC_GENERATED_PUBKEY);
+        cheats.prank(MPC_PLAYER_3_ADDRESS);
+        mpcManager.reportGeneratedKey(MPC_PARTICIPANT3_ID, MPC_GENERATED_PUBKEY);
+
+        // Cannot cancel after done
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        mpcManager.cancelKeygen();
+    }
+
+    function testReportGeneratedKey() public {
+        setupKeygenRequest();
 
         // first participant reports generated key
         cheats.prank(MPC_PLAYER_1_ADDRESS);
@@ -277,8 +335,14 @@ contract MpcManagerTest is DSTest, Helpers {
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
     }
 
-    function setupKey() private {
+    function setupKeygenRequest() private {
         setupGroup();
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        mpcManager.requestKeygen(MPC_GROUP_ID);
+    }
+
+    function setupKey() private {
+        setupKeygenRequest();
         cheats.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
         cheats.prank(MPC_PLAYER_2_ADDRESS);

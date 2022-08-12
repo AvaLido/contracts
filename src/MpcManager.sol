@@ -9,6 +9,12 @@ import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
+    enum KeygenStatus {
+        NOT_EXIST,
+        REQUESTED,
+        COMPLETED,
+        CANCELED
+    }
     uint256 constant MAX_GROUP_SIZE = 248;
     uint256 constant PUBKEY_LENGTH = 64;
     // Errors
@@ -21,6 +27,9 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
     error InvalidGroupMembership();
     error AttemptToReaddGroup();
 
+    error KeygenNotRequested();
+    error GotPendingKeygenRequest();
+    error NotInAuthorizedGroup();
     error KeyNotGenerated();
     error AttemptToReconfirmKey();
 
@@ -31,7 +40,8 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
     // Events
     event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
-    event KeygenRequestAdded(bytes32 indexed groupId);
+    event KeygenRequestAdded(bytes32 indexed groupId, uint256 requestNumber);
+    event KeygenRequestCanceled(bytes32 indexed groupId, uint256 requestNumber);
     event StakeRequestAdded(
         uint256 requestNumber,
         bytes indexed publicKey,
@@ -50,6 +60,8 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
     }
 
     // State variables
+    uint256 public lastKeygenRequestNumber;
+    bytes32 public lastKeygenRequest;
     bytes public lastGenPubKey;
     address public lastGenAddress;
 
@@ -63,8 +75,8 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
     // key -> groupId
     mapping(bytes => bytes32) private _keyToGroupIds;
 
-    // key -> confirmation map
-    mapping(bytes => uint256) private _keyConfirmations;
+    // keygenRequestNumber -> key -> confirmation map
+    mapping(uint256 => mapping(bytes => uint256)) private _keyConfirmations;
 
     // groupId -> requestHash -> request status
     mapping(bytes32 => mapping(bytes32 => uint256)) private _requestConfirmations; // Last Byte = total-Confirmation, Rest = Confirmation flags (for max of 248 members)
@@ -146,7 +158,23 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
      * of the ordered group members and the threshold.
      */
     function requestKeygen(bytes32 groupId) external onlyRole(ROLE_MPC_MANAGER) {
-        emit KeygenRequestAdded(groupId);
+        if (KeygenStatusHelpers.getKeygenStatus(lastKeygenRequest) == uint8(KeygenStatus.REQUESTED))
+            revert GotPendingKeygenRequest();
+
+        lastKeygenRequest = KeygenStatusHelpers.makeKeygenRequest(groupId, uint8(KeygenStatus.REQUESTED));
+        uint256 requestNumber = _getNextKeygenRequestNumber();
+        emit KeygenRequestAdded(groupId, requestNumber);
+    }
+
+    /**
+     * @notice Admin may want to cancel the last keygen request if due to whatever reason the keygen
+     * request wasn't able to complete (e.g. timeout).
+     */
+    function cancelKeygen() external onlyRole(ROLE_MPC_MANAGER) {
+        if (KeygenStatusHelpers.getKeygenStatus(lastKeygenRequest) != uint8(KeygenStatus.REQUESTED)) return;
+        bytes32 groupId = KeygenStatusHelpers.getGroupId(lastKeygenRequest);
+        lastKeygenRequest = KeygenStatusHelpers.makeKeygenRequest(groupId, uint8(KeygenStatus.CANCELED));
+        emit KeygenRequestCanceled(groupId, lastKeygenRequestNumber);
     }
 
     /**
@@ -158,9 +186,16 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
         external
         onlyGroupMember(participantId)
     {
+        if (KeygenStatusHelpers.getKeygenStatus(lastKeygenRequest) != uint8(KeygenStatus.REQUESTED))
+            revert KeygenNotRequested();
+
+        bytes32 groupId = ParticipantIdHelpers.getGroupId(participantId);
+        bytes32 authGroupId = KeygenStatusHelpers.getGroupId(lastKeygenRequest);
+        if (groupId != authGroupId) revert NotInAuthorizedGroup();
+
         uint8 myIndex = ParticipantIdHelpers.getParticipantIndex(participantId);
         uint8 groupSize = ParticipantIdHelpers.getGroupSize(participantId);
-        uint256 confirmation = _keyConfirmations[generatedPublicKey];
+        uint256 confirmation = _keyConfirmations[lastKeygenRequestNumber][generatedPublicKey];
         uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
         if ((confirmation & myConfirm) > 0) revert AttemptToReconfirmKey();
 
@@ -175,7 +210,10 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
             lastGenAddress = _calculateAddress(generatedPublicKey);
             emit KeyGenerated(groupId, generatedPublicKey);
         }
-        _keyConfirmations[generatedPublicKey] = ConfirmationHelpers.makeConfirmation(indices, confirmedCount);
+        _keyConfirmations[lastKeygenRequestNumber][generatedPublicKey] = ConfirmationHelpers.makeConfirmation(
+            indices,
+            confirmedCount
+        );
     }
 
     /**
@@ -246,6 +284,11 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
     // -------------------------------------------------------------------------
     //  Internal functions
     // -------------------------------------------------------------------------
+
+    function _getNextKeygenRequestNumber() internal returns (uint256) {
+        lastKeygenRequestNumber += 1;
+        return lastKeygenRequestNumber;
+    }
 
     function _getNextStakeRequestNumber() internal returns (uint256) {
         _lastStakeRequestNumber += 1;
@@ -333,5 +376,23 @@ library ConfirmationHelpers {
 
     function confirm(uint8 myIndex) public pure returns (uint256) {
         return INIT_BIT >> (myIndex - 1); // Set bit representing my confirm.
+    }
+}
+
+// The first 31 bytes (248 bits) is the groupId, the last byte is the status.
+library KeygenStatusHelpers {
+    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
+    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
+
+    function makeKeygenRequest(bytes32 groupId, uint8 keygenStatus) public pure returns (bytes32) {
+        return (groupId & INIT_31_BYTE_MASK) | bytes32(uint256(keygenStatus));
+    }
+
+    function getGroupId(bytes32 keygenRequest) public pure returns (bytes32) {
+        return keygenRequest & INIT_31_BYTE_MASK;
+    }
+
+    function getKeygenStatus(bytes32 keygenRequest) public pure returns (uint8) {
+        return uint8(uint256(keygenRequest & LAST_BYTE_MASK));
     }
 }

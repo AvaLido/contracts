@@ -35,6 +35,10 @@ contract FakeMpcManager is IMpcManager {
         revert("Not Implemented");
     }
 
+    function cancelKeygen() external pure {
+        revert("Not Implemented");
+    }
+
     function getGroup(bytes32) external view returns (bytes[] memory) {
         revert("Not Implemented");
     }

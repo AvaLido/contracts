@@ -14,6 +14,8 @@ interface IMpcManager {
 
     function requestKeygen(bytes32 groupId) external;
 
+    function cancelKeygen() external;
+
     function getGroup(bytes32 groupId) external view returns (bytes[] memory participants);
 
     function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32);
