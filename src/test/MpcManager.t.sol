@@ -421,19 +421,18 @@ contract ConfirmationHelpersTest is DSTest, Helpers {
     }
 
     function testParseConfirmation() public {
-        (uint256 indices, uint8 count) = ConfirmationHelpers.parseConfirmation( uint256(CONFIRMATION));
+        (uint256 indices, uint8 count) = ConfirmationHelpers.parseConfirmation(uint256(CONFIRMATION));
         assertEq(indices, uint256(INDICES));
         assertEq(count, CONFIRMATION_COUNT);
     }
 
     function testConfirm() public {
-        uint256 confirm  = ConfirmationHelpers.confirm(1);
-        assertEq(confirm, uint256( INDEX_1));
-        confirm  = ConfirmationHelpers.confirm(2);
-        assertEq(confirm, uint256( INDEX_2));
-        confirm  = ConfirmationHelpers.confirm(3);
-        assertEq(confirm, uint256( INDEX_3));
-
+        uint256 confirm = ConfirmationHelpers.confirm(1);
+        assertEq(confirm, uint256(INDEX_1));
+        confirm = ConfirmationHelpers.confirm(2);
+        assertEq(confirm, uint256(INDEX_2));
+        confirm = ConfirmationHelpers.confirm(3);
+        assertEq(confirm, uint256(INDEX_3));
     }
 }
 
