@@ -90,7 +90,13 @@ contract MpcManagerTest is DSTest, Helpers {
     function setUp() public {
         MpcManager _mpcManager = new MpcManager();
         mpcManager = MpcManager(proxyWrapped(address(_mpcManager), ROLE_PROXY_ADMIN));
-        mpcManager.initialize(MPC_ADMIN_ADDRESS, AVALIDO_ADDRESS, PRINCIPAL_TREASURY_ADDR, REWARD_TREASURY_ADDR);
+        mpcManager.initialize(
+            MPC_ADMIN_ADDRESS,
+            PAUSE_ADMIN_ADDRESS,
+            AVALIDO_ADDRESS,
+            PRINCIPAL_TREASURY_ADDR,
+            REWARD_TREASURY_ADDR
+        );
         pubKeys[0] = MPC_PLAYER_1_PUBKEY;
         pubKeys[1] = MPC_PLAYER_2_PUBKEY;
         pubKeys[2] = MPC_PLAYER_3_PUBKEY;
@@ -294,6 +300,25 @@ contract MpcManagerTest is DSTest, Helpers {
         // Called with correct sender and after keygen
         cheats.prank(AVALIDO_ADDRESS);
         cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        cheats.expectEmit(false, false, true, true);
+        emit StakeRequestAdded(1, MPC_GENERATED_PUBKEY, VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+        mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+        assertEq(address(MPC_GENERATED_ADDRESS).balance, STAKE_AMOUNT);
+    }
+
+    function testCannotRequestStakingWhenPaused() public {
+        setupKey();
+        cheats.prank(PAUSE_ADMIN_ADDRESS);
+        mpcManager.pause();
+
+        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        cheats.prank(AVALIDO_ADDRESS);
+        cheats.expectRevert("Pausable: paused");
+        mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
+
+        cheats.prank(PAUSE_ADMIN_ADDRESS);
+        mpcManager.resume();
+        cheats.prank(AVALIDO_ADDRESS);
         cheats.expectEmit(false, false, true, true);
         emit StakeRequestAdded(1, MPC_GENERATED_PUBKEY, VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);

@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
+import "openzeppelin-contracts/contracts/security/Pausable.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./Roles.sol";
 import "./interfaces/IMpcManager.sol";
 
-contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
+contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
     enum KeygenStatus {
         NOT_EXIST,
         REQUESTED,
@@ -85,11 +86,13 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
 
     function initialize(
         address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
+        address _rolePauseManager,
         address _avaLidoAddress,
         address _principalTreasuryAddress,
         address _rewardTreasuryAddress
     ) public initializer {
         _setupRole(ROLE_MPC_MANAGER, _roleMpcAdmin);
+        _setupRole(ROLE_PAUSE_MANAGER, _rolePauseManager);
         avaLidoAddress = _avaLidoAddress;
         principalTreasuryAddress = _principalTreasuryAddress;
         rewardTreasuryAddress = _rewardTreasuryAddress;
@@ -109,7 +112,7 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
         uint256 amount,
         uint256 startTime,
         uint256 endTime
-    ) external payable onlyAvaLido {
+    ) external payable whenNotPaused onlyAvaLido {
         if (lastGenAddress == address(0)) revert KeyNotGenerated();
         if (msg.value != amount) revert InvalidAmount();
         payable(lastGenAddress).transfer(amount);
@@ -264,6 +267,18 @@ contract MpcManager is AccessControlEnumerable, IMpcManager, Initializable {
 
     function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32) {
         return _keyToGroupIds[publicKey];
+    }
+
+    // -------------------------------------------------------------------------
+    //  Admin functions
+    // -------------------------------------------------------------------------
+
+    function pause() external onlyRole(ROLE_PAUSE_MANAGER) {
+        _pause();
+    }
+
+    function resume() external onlyRole(ROLE_PAUSE_MANAGER) {
+        _unpause();
     }
 
     // -------------------------------------------------------------------------
