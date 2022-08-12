@@ -13,7 +13,7 @@ contract Treasury is ITreasury {
     error AvaLidoOnly();
     address payable public avaLidoAddress;
 
-    constructor(address _avaLidoAddress) public {
+    constructor(address _avaLidoAddress) {
         avaLidoAddress = payable(_avaLidoAddress);
     }
 
