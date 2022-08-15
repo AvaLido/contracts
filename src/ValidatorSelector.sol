@@ -96,9 +96,8 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
         // Keep track of the remaining value to return back to the caller.
         uint256 remainingUnstaked = 0;
         if (totalFreeSpace < amount) {
-            uint256 newAmount = Math.min(amount, totalFreeSpace);
-            remainingUnstaked = amount - newAmount;
-            amount = newAmount;
+            remainingUnstaked = amount - totalFreeSpace;
+            amount = totalFreeSpace;
         }
 
         // For larger amounts, we chunk it into N pieces.
