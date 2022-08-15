@@ -7,6 +7,7 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./Roles.sol";
+import "./Types.sol";
 import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
@@ -327,92 +328,5 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
             mstore(0, hash)
             addr := mload(0)
         }
-    }
-}
-
-// First 232 bits = Hash(PublicKeys), Next 8 bits = groupSize, Next 8 bits = threshold, Last 8 bits = party index
-library IdHelpers {
-    uint256 constant GROUP_SIZE_SHIFT = 16;
-    uint256 constant THRESHOLD_SHIFT = 8;
-    bytes32 constant GROUP_HASH_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000;
-    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
-    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
-
-    function makeGroupId(
-        bytes32 groupHash,
-        uint256 groupSize,
-        uint256 threshold
-    ) public pure returns (bytes32) {
-        assert(groupSize <= type(uint8).max);
-        assert(threshold <= type(uint8).max);
-        return
-            (groupHash & GROUP_HASH_MASK) |
-            (bytes32(groupSize) << GROUP_SIZE_SHIFT) |
-            (bytes32(threshold) << THRESHOLD_SHIFT);
-    }
-
-    function makeParticipantId(bytes32 groupId, uint256 participantIndex) public pure returns (bytes32) {
-        assert(participantIndex <= type(uint8).max);
-        return groupId | (bytes32(participantIndex));
-    }
-
-    function getGroupSize(bytes32 groupOrParticipantId) public pure returns (uint8) {
-        return uint8(uint256((groupOrParticipantId >> GROUP_SIZE_SHIFT) & LAST_BYTE_MASK));
-    }
-
-    function getThreshold(bytes32 groupOrParticipantId) public pure returns (uint8) {
-        return uint8(uint256((groupOrParticipantId >> THRESHOLD_SHIFT) & LAST_BYTE_MASK));
-    }
-
-    function getGroupId(bytes32 participantId) public pure returns (bytes32) {
-        return participantId & INIT_31_BYTE_MASK;
-    }
-
-    function getParticipantIndex(bytes32 participantId) public pure returns (uint8) {
-        return uint8(uint256(participantId & LAST_BYTE_MASK));
-    }
-}
-
-// The first 31 bytes (248 bits) to represent the confirmation of max. 248 members,
-// i.e. when the first bit set to 1, it means participant 1 has confirmed.
-// The last byte records the number participants that have confirmed
-library ConfirmationHelpers {
-    uint256 constant INIT_BIT = 0x8000000000000000000000000000000000000000000000000000000000000000;
-    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
-    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
-
-    function makeConfirmation(uint256 indices, uint8 confirmationCount) public pure returns (uint256) {
-        assert(indices & uint256(LAST_BYTE_MASK) == 0);
-        return indices | confirmationCount;
-    }
-
-    function getIndices(uint256 confirmation) public pure returns (uint256) {
-        return confirmation & uint256(INIT_31_BYTE_MASK);
-    }
-
-    function getConfirmationCount(uint256 confirmation) public pure returns (uint8) {
-        return uint8(confirmation & uint256(LAST_BYTE_MASK));
-    }
-
-    function confirm(uint8 myIndex) public pure returns (uint256) {
-        return INIT_BIT >> (myIndex - 1); // Set bit representing my confirm.
-    }
-}
-
-// The first 31 bytes (248 bits) is the groupId, the last byte is the status.
-library KeygenStatusHelpers {
-    bytes32 constant LAST_BYTE_MASK = 0x00000000000000000000000000000000000000000000000000000000000000ff;
-    bytes32 constant INIT_31_BYTE_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00;
-
-    function makeKeygenRequest(bytes32 groupId, uint8 keygenStatus) public pure returns (bytes32) {
-        return (groupId & INIT_31_BYTE_MASK) | bytes32(uint256(keygenStatus));
-    }
-
-    function getGroupId(bytes32 keygenRequest) public pure returns (bytes32) {
-        return keygenRequest & INIT_31_BYTE_MASK;
-    }
-
-    function getKeygenStatus(bytes32 keygenRequest) public pure returns (uint8) {
-        return uint8(uint256(keygenRequest & LAST_BYTE_MASK));
     }
 }
