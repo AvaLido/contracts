@@ -377,60 +377,60 @@ contract MpcManagerTest is DSTest, Helpers {
     }
 }
 
-contract ParticipantIdHelpersTest is DSTest, Helpers {
+contract IdHelpersTest is DSTest, Helpers {
     function setUp() public {}
 
     function testMakeGroupId() public {
-        bytes32 groupId = ParticipantIdHelpers.makeGroupId(MPC_GROUP_HASH, 3, 1);
+        bytes32 groupId = IdHelpers.makeGroupId(MPC_GROUP_HASH, 3, 1);
         assertEq(groupId, MPC_GROUP_ID);
     }
 
     function testMakeParticipantId() public {
-        bytes32 participantId = ParticipantIdHelpers.makeParticipantId(MPC_GROUP_ID, 1);
+        bytes32 participantId = IdHelpers.makeParticipantId(MPC_GROUP_ID, 1);
         assertEq(participantId, MPC_PARTICIPANT1_ID);
-        participantId = ParticipantIdHelpers.makeParticipantId(MPC_GROUP_ID, 2);
+        participantId = IdHelpers.makeParticipantId(MPC_GROUP_ID, 2);
         assertEq(participantId, MPC_PARTICIPANT2_ID);
-        participantId = ParticipantIdHelpers.makeParticipantId(MPC_GROUP_ID, 3);
+        participantId = IdHelpers.makeParticipantId(MPC_GROUP_ID, 3);
         assertEq(participantId, MPC_PARTICIPANT3_ID);
     }
 
     function testGetGroupSize() public {
-        uint8 groupSize = ParticipantIdHelpers.getGroupSize(MPC_GROUP_ID);
+        uint8 groupSize = IdHelpers.getGroupSize(MPC_GROUP_ID);
         assertEq(groupSize, 3);
-        groupSize = ParticipantIdHelpers.getGroupSize(MPC_PARTICIPANT1_ID);
+        groupSize = IdHelpers.getGroupSize(MPC_PARTICIPANT1_ID);
         assertEq(groupSize, 3);
-        groupSize = ParticipantIdHelpers.getGroupSize(MPC_PARTICIPANT2_ID);
+        groupSize = IdHelpers.getGroupSize(MPC_PARTICIPANT2_ID);
         assertEq(groupSize, 3);
-        groupSize = ParticipantIdHelpers.getGroupSize(MPC_PARTICIPANT3_ID);
+        groupSize = IdHelpers.getGroupSize(MPC_PARTICIPANT3_ID);
         assertEq(groupSize, 3);
     }
 
     function testGetThreshold() public {
-        uint8 threshold = ParticipantIdHelpers.getThreshold(MPC_GROUP_ID);
+        uint8 threshold = IdHelpers.getThreshold(MPC_GROUP_ID);
         assertEq(threshold, 1);
-        threshold = ParticipantIdHelpers.getThreshold(MPC_PARTICIPANT1_ID);
+        threshold = IdHelpers.getThreshold(MPC_PARTICIPANT1_ID);
         assertEq(threshold, 1);
-        threshold = ParticipantIdHelpers.getThreshold(MPC_PARTICIPANT2_ID);
+        threshold = IdHelpers.getThreshold(MPC_PARTICIPANT2_ID);
         assertEq(threshold, 1);
-        threshold = ParticipantIdHelpers.getThreshold(MPC_PARTICIPANT3_ID);
+        threshold = IdHelpers.getThreshold(MPC_PARTICIPANT3_ID);
         assertEq(threshold, 1);
     }
 
     function testGetGroupId() public {
-        bytes32 groupId = ParticipantIdHelpers.getGroupId(MPC_PARTICIPANT1_ID);
+        bytes32 groupId = IdHelpers.getGroupId(MPC_PARTICIPANT1_ID);
         assertEq(groupId, MPC_GROUP_ID);
-        groupId = ParticipantIdHelpers.getGroupId(MPC_PARTICIPANT2_ID);
+        groupId = IdHelpers.getGroupId(MPC_PARTICIPANT2_ID);
         assertEq(groupId, MPC_GROUP_ID);
-        groupId = ParticipantIdHelpers.getGroupId(MPC_PARTICIPANT3_ID);
+        groupId = IdHelpers.getGroupId(MPC_PARTICIPANT3_ID);
         assertEq(groupId, MPC_GROUP_ID);
     }
 
     function testGetParticipantIndex() public {
-        uint8 participantIndex = ParticipantIdHelpers.getParticipantIndex(MPC_PARTICIPANT1_ID);
+        uint8 participantIndex = IdHelpers.getParticipantIndex(MPC_PARTICIPANT1_ID);
         assertEq(participantIndex, 1);
-        participantIndex = ParticipantIdHelpers.getParticipantIndex(MPC_PARTICIPANT2_ID);
+        participantIndex = IdHelpers.getParticipantIndex(MPC_PARTICIPANT2_ID);
         assertEq(participantIndex, 2);
-        participantIndex = ParticipantIdHelpers.getParticipantIndex(MPC_PARTICIPANT3_ID);
+        participantIndex = IdHelpers.getParticipantIndex(MPC_PARTICIPANT3_ID);
         assertEq(participantIndex, 3);
     }
 }
@@ -445,9 +445,13 @@ contract ConfirmationHelpersTest is DSTest, Helpers {
         assertEq(confirmation, uint256(CONFIRMATION));
     }
 
-    function testParseConfirmation() public {
-        (uint256 indices, uint8 count) = ConfirmationHelpers.parseConfirmation(uint256(CONFIRMATION));
+    function testGetIndices() public {
+        uint256 indices = ConfirmationHelpers.getIndices(uint256(CONFIRMATION));
         assertEq(indices, uint256(INDICES));
+    }
+
+    function testGetConfirmationCount() public {
+        uint8 count = ConfirmationHelpers.getConfirmationCount(uint256(CONFIRMATION));
         assertEq(count, CONFIRMATION_COUNT);
     }
 
