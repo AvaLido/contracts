@@ -27,7 +27,7 @@ contract FakeMpcManager is IMpcManager {
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
     }
 
-    function createGroup(bytes[] calldata, uint256) external pure {
+    function createGroup(bytes[] calldata, uint8) external pure {
         revert("Not Implemented");
     }
 
@@ -35,11 +35,15 @@ contract FakeMpcManager is IMpcManager {
         revert("Not Implemented");
     }
 
-    function getGroup(bytes32) external pure returns (bytes[] memory, uint256) {
+    function cancelKeygen() external pure {
         revert("Not Implemented");
     }
 
-    function getKey(bytes calldata) external pure returns (KeyInfo memory) {
+    function getGroup(bytes32) external pure returns (bytes[] memory) {
+        revert("Not Implemented");
+    }
+
+    function getGroupIdByKey(bytes calldata) external pure returns (bytes32) {
         revert("Not Implemented");
     }
 }
@@ -54,8 +58,6 @@ contract AvaLidoTest is DSTest, Helpers {
     AvaLido lido;
     ValidatorSelector validatorSelector;
     FakeMpcManager fakeMpcManager;
-    PrincipalTreasury pTreasury;
-    RewardTreasury rTreasury;
 
     address feeAddressAuthor = 0x1000000000000000000000000000000000000001;
     address feeAddressLido = 0x1000000000000000000000000000000000000002;
@@ -75,25 +77,20 @@ contract AvaLidoTest is DSTest, Helpers {
         FakeMpcManager _fakeMpcManager = new FakeMpcManager();
         fakeMpcManager = FakeMpcManager(proxyWrapped(address(_fakeMpcManager), ROLE_PROXY_ADMIN));
 
-        PrincipalTreasury _pTreasury = new PrincipalTreasury();
-        pTreasury = PrincipalTreasury(proxyWrapped(address(_pTreasury), ROLE_PROXY_ADMIN));
-        RewardTreasury _rTreasury = new RewardTreasury();
-        rTreasury = RewardTreasury(proxyWrapped(address(_rTreasury), ROLE_PROXY_ADMIN));
-        pTreasury.initialize();
-        rTreasury.initialize();
-
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
-        pTreasuryAddress = address(pTreasury);
-        rTreasuryAddress = address(rTreasury);
 
         AvaLido _lido = new PayableAvaLido();
         lido = PayableAvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
         lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
+
+        Treasury pTreasury = new Treasury(address(lido));
+        Treasury rTreasury = new Treasury(address(lido));
+        pTreasuryAddress = address(pTreasury);
+        rTreasuryAddress = address(rTreasury);
+
         lido.setPrincipalTreasuryAddress(pTreasuryAddress);
         lido.setRewardTreasuryAddress(rTreasuryAddress);
-        pTreasury.setAvaLidoAddress(address(lido));
-        rTreasury.setAvaLidoAddress(address(lido));
     }
 
     receive() external payable {}

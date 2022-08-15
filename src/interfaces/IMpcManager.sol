@@ -3,11 +3,6 @@
 pragma solidity 0.8.10;
 
 interface IMpcManager {
-    struct KeyInfo {
-        bytes32 groupId;
-        bool confirmed;
-    }
-
     function requestStake(
         string calldata nodeID,
         uint256 amount,
@@ -15,11 +10,13 @@ interface IMpcManager {
         uint256 endTime
     ) external payable;
 
-    function createGroup(bytes[] calldata publicKeys, uint256 threshold) external;
+    function createGroup(bytes[] calldata publicKeys, uint8 threshold) external;
 
     function requestKeygen(bytes32 groupId) external;
 
-    function getGroup(bytes32 groupId) external view returns (bytes[] memory participants, uint256 threshold);
+    function cancelKeygen() external;
 
-    function getKey(bytes calldata publicKey) external view returns (KeyInfo memory keyInfo);
+    function getGroup(bytes32 groupId) external view returns (bytes[] memory participants);
+
+    function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32);
 }

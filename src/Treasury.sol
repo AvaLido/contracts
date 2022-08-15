@@ -2,48 +2,23 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.10;
 
-import "openzeppelin-contracts/contracts/security/Pausable.sol";
-import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/ITreasury.sol";
 
-contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasury, Initializable {
+contract Treasury is ITreasury {
     // Errors
-    error AdminOnly();
+    error InvalidAddress();
     error AvaLidoOnly();
-    error AlreadySet();
-    error NotSet();
     address payable public avaLidoAddress;
 
-    function initialize() public initializer {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    }
-
-    // -------------------------------------------------------------------------
-    //  Admin functions
-    // -------------------------------------------------------------------------
-
-    function setAvaLidoAddress(address _address) external onlyAdmin {
-        if (avaLidoAddress != address(0)) revert AlreadySet();
-        avaLidoAddress = payable(_address);
+    constructor(address _avaLidoAddress) {
+        avaLidoAddress = payable(_avaLidoAddress);
     }
 
     function claim(uint256 amount) external onlyAvaLido {
-        // Prevent claiming to burn address if not yet set.
-        if (avaLidoAddress == address(0)) revert NotSet();
         avaLidoAddress.transfer(amount);
-    }
-
-    // -------------------------------------------------------------------------
-    //  Modifiers
-    // -------------------------------------------------------------------------
-
-    modifier onlyAdmin() {
-        // TODO: Define proper RBAC. For now just use deployer as admin.
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert AdminOnly();
-        _;
     }
 
     modifier onlyAvaLido() {
@@ -51,7 +26,3 @@ contract Treasury is Pausable, ReentrancyGuard, AccessControlEnumerable, ITreasu
         _;
     }
 }
-
-contract PrincipalTreasury is Treasury {}
-
-contract RewardTreasury is Treasury {}
