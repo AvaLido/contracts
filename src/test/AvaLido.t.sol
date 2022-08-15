@@ -239,7 +239,7 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectMock(validatorSelectorAddress, "test-node", 9 ether, 1 ether);
 
         cheats.expectEmit(false, false, false, true);
-        emit FakeStakeRequested("test-node", 9 ether, 1801, 1211401);
+        emit FakeStakeRequested("test-node", 9 ether, 3601, 1213201);
         uint256 staked = lido.initiateStake();
 
         assertEq(staked, 9 ether);
@@ -685,7 +685,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
         // Check event emission for staking.
         cheats.expectEmit(false, false, false, true);
-        emit FakeStakeRequested("test", 10 ether, 1801, 1211401);
+        emit FakeStakeRequested("test", 10 ether, 3601, 1213201);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);

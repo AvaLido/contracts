@@ -119,6 +119,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Maximum unstake requests a user can open at once (prevents spamming).
     uint8 public maxUnstakeRequests;
 
+    // The buffer added to account for delay in exporting to P-chain
+    uint256 pChainExportBuffer;
+
     // Selector used to find validators to stake on.
     IValidatorSelector public validatorSelector;
 
@@ -152,6 +155,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         stakePeriod = 14 days;
         maxUnstakeRequests = 10;
         maxProtocolControlledAVAX = 100_000 ether; // Initial limit for deploy.
+        pChainExportBuffer = 1 hours;
 
         mpcManager = IMpcManager(_mpcManagerAddress);
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
@@ -296,8 +300,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         amountPendingAVAX = remaining;
 
         // Add some buffer to account for delay in exporting to P-chain and MPC consensus.
-        // TODO: Make configurable?
-        uint256 startTime = block.timestamp + 30 minutes;
+        uint256 startTime = block.timestamp + pChainExportBuffer;
         uint256 endTime = startTime + stakePeriod;
         for (uint256 i = 0; i < ids.length; i++) {
             // The array from selectValidatorsForStake may be sparse, so we need to ignore any validators
@@ -516,6 +519,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
+    }
+
+    function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        pChainExportBuffer = _pChainExportBuffer;
     }
 
     // -------------------------------------------------------------------------
