@@ -6,23 +6,26 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/ITreasury.sol";
+import "./interfaces/ITreasuryBeneficiary.sol";
 
 contract Treasury is ITreasury {
     // Errors
     error InvalidAddress();
-    error AvaLidoOnly();
-    address payable public avaLidoAddress;
+    error BeneficiaryOnly();
+    ITreasuryBeneficiary public beneficiary;
 
-    constructor(address _avaLidoAddress) {
-        avaLidoAddress = payable(_avaLidoAddress);
+    constructor(address _beneficiaryAddress) {
+        beneficiary = ITreasuryBeneficiary(_beneficiaryAddress);
     }
 
-    function claim(uint256 amount) external onlyAvaLido {
-        avaLidoAddress.transfer(amount);
+    receive() external payable {}
+
+    function claim(uint256 amount) external onlyBeneficiary {
+        beneficiary.receiveFromTreasury{value: amount}();
     }
 
-    modifier onlyAvaLido() {
-        if (msg.sender != avaLidoAddress) revert AvaLidoOnly();
+    modifier onlyBeneficiary() {
+        if (msg.sender != address(beneficiary)) revert BeneficiaryOnly();
         _;
     }
 }
