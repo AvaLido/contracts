@@ -24,7 +24,6 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // Events
     event OracleManagerAddressChanged(address newOracleManagerAddress);
     event OracleReportReceived(uint256 epochId);
-    // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     // State variables
     address public oracleManagerContract;
@@ -137,8 +136,6 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
 
         emit OracleManagerAddressChanged(_oracleManagerAddress);
     }
-
-    // TODO: function changeRoleOracleManager() {}
 
     function setNodeIDList(string[] calldata nodes) external onlyRole(ROLE_ORACLE_ADMIN) {
         delete validatorNodeIds;
