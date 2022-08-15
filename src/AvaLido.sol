@@ -76,6 +76,15 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 indexed requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
+    event SetProtocolFeeBasisPoints(uint256 newProtocolFeeBasisPoints);
+    event SetPrincipalTreasuryAddress(address newPrincipalTreasuryAddress);
+    event SetRewardTreasuryAddress(address newRewardTreasuryAddress);
+    event SetProtocolFeeSplit(address[] newPaymentAddresses, uint256[] newPaymentSplit);
+    event SetMinStakeBatchAmount(uint256 newMinStakeBatchAmount);
+    event SetMinStakeAmount(uint256 newMinStakeAmount);
+    event SetStakePeriod(uint256 newStakePeriod);
+    event SetMaxUnstakeRequests(uint8 newMaxUnstakeRequests);
+    event SetMaxProtocolControlledAVAX(uint256 newMaxProtocolControlledAVAX);
 
     // State variables
 
@@ -488,6 +497,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function setProtocolFeeBasisPoints(uint256 _protocolFeeBasisPoints) external onlyRole(ROLE_FEE_MANAGER) {
         require(_protocolFeeBasisPoints <= 10_000);
         protocolFeeBasisPoints = _protocolFeeBasisPoints;
+
+        emit SetProtocolFeeBasisPoints(_protocolFeeBasisPoints);
     }
 
     /**
@@ -499,6 +510,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (_address == address(0)) revert InvalidAddress();
 
         principalTreasury = ITreasury(_address);
+
+        emit SetPrincipalTreasuryAddress(_address);
     }
 
     /**
@@ -510,6 +523,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (_address == address(0)) revert InvalidAddress();
 
         rewardTreasury = ITreasury(_address);
+
+        emit SetRewardTreasuryAddress(_address);
     }
 
     function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
@@ -517,26 +532,38 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         onlyRole(ROLE_TREASURY_MANAGER)
     {
         protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
+
+        emit SetProtocolFeeSplit(paymentAddresses, paymentSplit);
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
+
+        emit SetMinStakeBatchAmount(_minStakeBatchAmount);
     }
 
     function setMinStakeAmount(uint256 _minStakeAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeAmount = _minStakeAmount;
+
+        emit SetMinStakeAmount(_minStakeAmount);
     }
 
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         stakePeriod = _stakePeriod;
+
+        emit SetStakePeriod(_stakePeriod);
     }
 
     function setMaxUnstakeRequests(uint8 _maxUnstakeRequests) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxUnstakeRequests = _maxUnstakeRequests;
+
+        emit SetMaxUnstakeRequests(_maxUnstakeRequests);
     }
 
     function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
+
+        emit SetMaxProtocolControlledAVAX(_maxProtocolControlledAVAX);
     }
 
     function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
