@@ -71,9 +71,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 timestamp,
         uint256 requestIndex
     );
-    event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
-    event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
-    event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 requestIndex);
+    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 indexed requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
 

@@ -52,8 +52,8 @@ contract AvaLidoTest is DSTest, Helpers {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-    event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
-    event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
+    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
@@ -140,7 +140,7 @@ contract AvaLidoTest is DSTest, Helpers {
         // User 1 requests a withdrawal of 2 ether
         cheats.prank(USER1_ADDRESS);
         lido.requestWithdrawal(2 ether);
-        cheats.expectEmit(true, false, false, true);
+        cheats.expectEmit(false, false, true, true);
         emit RequestPartiallyFilledEvent(1 ether, uint64(block.timestamp), 0);
         cheats.deal(pTreasuryAddress, 1 ether);
         lido.claimUnstakedPrincipals();
