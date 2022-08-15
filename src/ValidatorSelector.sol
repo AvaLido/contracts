@@ -65,7 +65,6 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
 
         // We have no nodes with capacity, don't do anything.
         if (validators.length == 0) {
-            // TODO: Emit an event because this is not a great state to be in.
             return (new string[](0), new uint256[](0), amount);
         }
 
@@ -159,11 +158,6 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
         // 1. Fetch our validators from the Oracle
         Validator[] memory validators = oracle.getLatestValidators();
 
-        // TODO: Can we re-think a way to filter this without needing to iterate twice?
-        // We can't do it client-side because it happens at stake-time, and we do not want
-        // clients to control where the stake goes.
-        // Possible idea - store indicies of validators in a bitmask? Would be limited to N validators
-        // where N < 256.
         uint256 count = 0;
         for (uint256 index = 0; index < validators.length; index++) {
             if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
