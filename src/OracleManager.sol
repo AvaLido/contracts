@@ -54,8 +54,6 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
     mapping(uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
     mapping(uint256 => bool) public finalizedReportsByEpochId; // epochId => true/false
 
-    // TODO: when quorum is received for an epoch we can delete it from the mapping oracleMemberReports
-
     function initialize(
         address _roleOracleAdmin, // Role that can change whitelist of oracles.
         address[] memory _whitelistedOracleMembers // Whitelisted oracle member addresses.
@@ -262,7 +260,6 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
      */
     function removeOracleMember(address _oracleMember) external onlyRole(ROLE_ORACLE_ADMIN) {
         if (_oracleMember == address(0)) revert InvalidAddress();
-        // TODO: add checks for having too few oracle members. What should the minimum be?
 
         if (!_getOracleInWhitelistMapping(_oracleMember)) revert OracleMemberNotFound();
 
