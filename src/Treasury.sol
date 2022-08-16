@@ -17,6 +17,8 @@ contract Treasury is ITreasury {
         beneficiaryAddress = payable(_beneficiaryAddress);
     }
 
+    receive() external payable {}
+
     function claim(uint256 amount) external onlyBeneficiary {
         beneficiaryAddress.transfer(amount);
     }
