@@ -10,19 +10,19 @@ import "./interfaces/ITreasury.sol";
 contract Treasury is ITreasury {
     // Errors
     error InvalidAddress();
-    error AvaLidoOnly();
-    address payable public avaLidoAddress;
+    error BeneficiaryOnly();
+    address payable public beneficiaryAddress;
 
-    constructor(address _avaLidoAddress) {
-        avaLidoAddress = payable(_avaLidoAddress);
+    constructor(address _beneficiaryAddress) {
+        beneficiaryAddress = payable(_beneficiaryAddress);
     }
 
-    function claim(uint256 amount) external onlyAvaLido {
-        avaLidoAddress.transfer(amount);
+    function claim(uint256 amount) external onlyBeneficiary {
+        beneficiaryAddress.transfer(amount);
     }
 
-    modifier onlyAvaLido() {
-        if (msg.sender != avaLidoAddress) revert AvaLidoOnly();
+    modifier onlyBeneficiary() {
+        if (msg.sender != beneficiaryAddress) revert BeneficiaryOnly();
         _;
     }
 }
