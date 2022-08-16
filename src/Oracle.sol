@@ -18,6 +18,7 @@ import "./Types.sol";
  */
 contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // Errors
+    error EpochAlreadyFinalized();
     error InvalidAddress();
     error OnlyOracleManagerContract();
 
@@ -71,6 +72,10 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         external
         onlyOracleManagerContract
     {
+        // make sure we can't rewrite an epoch id forcefully
+        // if reportsByEpochId[_epochId] != 0 then reject
+        if (reportsByEpochId[_epochId].length != 0) revert EpochAlreadyFinalized();
+
         for (uint256 i = 0; i < _reportData.length; i++) {
             reportsByEpochId[_epochId].push(_reportData[i]);
         }

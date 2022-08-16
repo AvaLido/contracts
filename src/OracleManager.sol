@@ -32,7 +32,6 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
     error OracleContractAddressNotSet();
     error OracleMemberExists();
     error OracleMemberNotFound();
-    //error TooFewOracleMembers();
     error ValidatorAlreadyWhitelisted();
     error ValidatorNodeIdNotFound();
     error InvalidValidatorIndex();
@@ -42,7 +41,6 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
     event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
     event OracleReportSent(uint256 epochId);
-    // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     // State variables
     address[] public whitelistedOraclesArray; // whitelisted addresses running our oracle daemon.

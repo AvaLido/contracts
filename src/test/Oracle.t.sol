@@ -15,7 +15,6 @@ contract OracleTest is DSTest, Helpers {
 
     event OracleManagerAddressChanged(address newOracleManagerAddress);
     event OracleReportReceived(uint256 epochId);
-    // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     address[] ORACLE_MEMBERS = [
         WHITELISTED_ORACLE_1,
@@ -63,6 +62,23 @@ contract OracleTest is DSTest, Helpers {
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
         cheats.expectRevert(Oracle.OnlyOracleManagerContract.selector);
         oracle.receiveFinalizedReport(epochId, reportData);
+    }
+
+    function testCannotReceiveFinalizedReportTwice() public {
+        Validator[] memory reportData = new Validator[](1);
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+
+        cheats.expectEmit(false, false, false, true);
+        emit OracleReportReceived(epochId);
+
+        cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        oracle.receiveFinalizedReport(epochId, reportData);
+
+        // Should fail because epoch is already finalized
+        cheats.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        cheats.expectRevert(Oracle.EpochAlreadyFinalized.selector);
+        oracle.receiveFinalizedReport(epochId, reportData);
+        cheats.stopPrank();
     }
 
     function testOldReportDoesNotUpdateLatest() public {
