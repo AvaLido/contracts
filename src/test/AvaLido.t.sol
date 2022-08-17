@@ -883,6 +883,31 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.claim(reqId, 1 ether);
     }
 
+    function testClaimTooSoon() public {
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // Withdraw as user.
+        cheats.prank(USER1_ADDRESS);
+        uint256 reqId = lido.requestWithdrawal(1 ether);
+
+        // Receive a small amount back from MPC for unstaking.
+        cheats.deal(pTreasuryAddress, 1 ether);
+        lido.claimUnstakedPrincipals();
+
+        // Attempt to claim before enough time as passed
+        uint64 availAt = uint64(block.timestamp) + lido.minimumClaimWaitTimeSeconds();
+        cheats.expectRevert(abi.encodeWithSelector(AvaLido.ClaimTooSoon.selector, availAt));
+        cheats.prank(USER1_ADDRESS);
+        lido.claim(reqId, 1 ether);
+    }
+
     function testClaimSucceeds() public {
         // Deposit as user.
         cheats.deal(USER1_ADDRESS, 10 ether);
@@ -910,6 +935,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         cheats.deal(pTreasuryAddress, 5 ether);
         lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -967,6 +995,9 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(lido.exchangeRateAVAXToStAVAX(), 991080277502477700);
         assertEq(lido.exchangeRateStAVAXToAVAX(), 1.009 ether);
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
         // They should claim 1.009 AVAX
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -1017,6 +1048,9 @@ contract AvaLidoTest is DSTest, Helpers {
         // Some stAVAX is transferred to contract when requesting withdrawal.
         // They had 10 stAVAX and request to withdraw 1 so should have 9 left.
         assertEq(lido.balanceOf(USER1_ADDRESS), 9 ether);
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
 
         // Receive from MPC for unstaking
         cheats.deal(pTreasuryAddress, 5 ether);
@@ -1074,6 +1108,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
         cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, 0.5 ether);
 
@@ -1124,6 +1161,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
         // Now we receive more rewards
         cheats.deal(rTreasuryAddress, 0.1 ether);
         lido.claimRewards();
@@ -1163,6 +1203,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         cheats.deal(pTreasuryAddress, 1 ether);
         lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -1239,6 +1282,9 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(lido.exchangeRateAVAXToStAVAX(), 982318271119842829);
         assertEq(lido.exchangeRateStAVAXToAVAX(), 1.018 ether);
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
         // ...but their claim should still be same as test above: 1.009 AVAX
         // because the exchange rate is locked at time of request
         cheats.prank(USER1_ADDRESS);
@@ -1282,17 +1328,24 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: x}();
         validatorSelectMock(validatorSelectorAddress, "test", x, 0);
 
+        uint256 stAVAXBalance = lido.balanceOf(USER1_ADDRESS);
+        assertEq(stAVAXBalance, x); // rate is 1:1
+
         lido.initiateStake();
 
-        cheats.startPrank(USER1_ADDRESS);
+        cheats.prank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(x);
 
         cheats.deal(pTreasuryAddress, x);
         lido.claimUnstakedPrincipals();
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
+        cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, x);
 
-        // TODO: Assert tokens transferred correctly
+        assertEq(lido.balanceOf(USER1_ADDRESS), 0); // All stAVAX gone.
     }
 
     // Tokens
