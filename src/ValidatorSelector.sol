@@ -158,7 +158,8 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
         // 1. Fetch our validators from the Oracle
         Validator[] memory validators = oracle.getLatestValidators();
 
-        uint256 count = 0;
+        // 2. Count how many validators meet our criteria
+        uint256 countOfSuitableValidators = 0;
         for (uint256 index = 0; index < validators.length; index++) {
             if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
                 continue;
@@ -169,10 +170,12 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
             if (!ValidatorHelpers.hasAcceptableUptime(validators[index])) {
                 continue;
             }
-            count++;
+            countOfSuitableValidators++;
         }
 
-        Validator[] memory result = new Validator[](count);
+        // 3. Compress the array into just suitable validators
+        Validator[] memory result = new Validator[](countOfSuitableValidators);
+        uint256 resultIndexCount = 0;
         for (uint256 index = 0; index < validators.length; index++) {
             if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
                 continue;
@@ -183,7 +186,8 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
             if (!ValidatorHelpers.hasAcceptableUptime(validators[index])) {
                 continue;
             }
-            result[index] = validators[index];
+            result[resultIndexCount] = validators[index];
+            resultIndexCount++;
         }
         return result;
     }
