@@ -228,30 +228,39 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * @dev This allows users to claim their AVAX back. We burn the stAVAX that we've been holding
      * at this point.
      * Note that we also allow partial claims of unstake requests so that users don't need to wait
-     * for the entire request to be filled to get some liquidity. This is the reason we set the
-     * exchange rate in requestWithdrawal instead of at claim time.
+     * for the entire request to be filled to get some liquidity. This is one of the reasons we set the
+     * exchange rate in requestWithdrawal instead of at claim time. (The other is so that unstakers don't
+     * earn rewards).
      */
-    function claim(uint256 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
+    function claim(uint256 requestIndex, uint256 amountAVAX) external whenNotPaused nonReentrant {
         UnstakeRequest memory request = requestByIndex(requestIndex);
 
         if (request.requester != msg.sender) revert NotAuthorized();
-        if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
-        if (amount > address(this).balance) revert InsufficientBalance();
+        if (amountAVAX > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
+        if (amountAVAX > address(this).balance) revert InsufficientBalance();
 
         uint64 availableAt = request.requestedAt + minimumClaimWaitTimeSeconds;
         if (block.timestamp < availableAt) revert ClaimTooSoon({availableAt: availableAt});
 
         // Partial claim, update amounts.
-        request.amountClaimed += amount;
+        request.amountClaimed += amountAVAX;
         unstakeRequests[requestIndex] = request;
 
         // Burn the stAVAX in the UnstakeRequest. If it's a partial claim we need to burn a proportional amount
         // of the original stAVAX using the stAVAX and AVAX amounts in the unstake request.
-        uint256 amountOfStAVAXToBurn = Math.mulDiv(request.stAVAXLocked, amount, request.amountRequested);
+        uint256 amountOfStAVAXToBurn = Math.mulDiv(request.stAVAXLocked, amountAVAX, request.amountRequested);
+
+        // In the case that a user claims all but one wei of their avax, and then claims 1 wei separately, we
+        // will incorrectly round down the amount of stAVAX to burn, leading to a left over amount of 1 wei stAVAX
+        // in the contract, and a request which can never be fully claimed. I don't know why anyone would do this,
+        // but maybe this will keep our internal accounting more in order.
+        if (amountOfStAVAXToBurn == 0) {
+            amountOfStAVAXToBurn = 1;
+        }
         _burn(address(this), amountOfStAVAXToBurn);
 
         // Transfer the AVAX to the user
-        payable(msg.sender).transfer(amount);
+        payable(msg.sender).transfer(amountAVAX);
 
         // Emit claim event.
         if (isFullyClaimed(request)) {
@@ -260,13 +269,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
             unstakeRequestCount[msg.sender]--;
             delete unstakeRequests[requestIndex];
 
-            emit ClaimEvent(msg.sender, amount, true, requestIndex);
+            emit ClaimEvent(msg.sender, amountAVAX, true, requestIndex);
 
             return;
         }
 
         // Emit an event which describes the partial claim.
-        emit ClaimEvent(msg.sender, amount, false, requestIndex);
+        emit ClaimEvent(msg.sender, amountAVAX, false, requestIndex);
     }
 
     /**
