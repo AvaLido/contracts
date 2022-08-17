@@ -56,9 +56,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error TooManyConcurrentUnstakeRequests();
     error NotAuthorized();
     error ClaimTooLarge();
+    error ClaimTooSoon(uint64 availableAt);
     error InsufficientBalance();
     error NoAvailableValidators();
     error InvalidAddress();
+    error InvalidConfiguration();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
@@ -119,6 +121,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Maximum unstake requests a user can open at once (prevents spamming).
     uint8 public maxUnstakeRequests;
 
+    // Time that an unstaker must wait before being able to claim.
+    uint64 public minimumClaimWaitTimeSeconds;
+
     // Track the total AVAX buffered on this contract.
     // Access via the `bufferedBalance` function.
     uint256 private _bufferedBalance;
@@ -160,6 +165,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         maxUnstakeRequests = 10;
         maxProtocolControlledAVAX = 100_000 ether; // Initial limit for deploy.
         pChainExportBuffer = 1 hours;
+        minimumClaimWaitTimeSeconds = 3600;
 
         mpcManager = IMpcManager(_mpcManagerAddress);
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
@@ -235,6 +241,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (request.requester != msg.sender) revert NotAuthorized();
         if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
         if (amount > bufferedBalance()) revert InsufficientBalance();
+
+        uint64 availableAt = request.requestedAt + minimumClaimWaitTimeSeconds;
+        if (block.timestamp < availableAt) revert ClaimTooSoon({availableAt: availableAt});
 
         // Partial claim, update amounts.
         request.amountClaimed += amount;
@@ -562,6 +571,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         pChainExportBuffer = _pChainExportBuffer;
+    }
+
+    function setMinClaimWaitTimeSeconds(uint64 _minimumClaimWaitTimeSeconds) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        if (_minimumClaimWaitTimeSeconds > stakePeriod) revert InvalidConfiguration();
+        minimumClaimWaitTimeSeconds = _minimumClaimWaitTimeSeconds;
     }
 
     // -------------------------------------------------------------------------
