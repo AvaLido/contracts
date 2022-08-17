@@ -48,6 +48,12 @@ contract FakeMpcManager is IMpcManager {
     }
 }
 
+contract SelfDestructor {
+    function attack(address target) public payable {
+        selfdestruct(payable(target));
+    }
+}
+
 contract AvaLidoTest is DSTest, Helpers {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
@@ -1635,5 +1641,26 @@ contract AvaLidoTest is DSTest, Helpers {
         // Confirm that attacker has not forced exchange rate to zero.
         assertTrue(exchangeRateStAVAXToAVAX > 0);
         assertTrue(exchangeRateAVAXToStAVAX > 0);
+    }
+
+    function testManipulateBalanceWithSelfDestruct() public {
+        assertEq(lido.protocolControlledAVAX(), 0);
+        assertEq(lido.unaccountedBalance(), 0);
+
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 1 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 1 ether);
+        assertEq(lido.unaccountedBalance(), 0);
+
+        // Force-send AVAX via selfdestruct
+        SelfDestructor attacker = new SelfDestructor();
+        cheats.deal(address(attacker), 50 ether);
+        attacker.attack(address(lido));
+
+        assertEq(lido.protocolControlledAVAX(), 1 ether);
+        assertEq(lido.unaccountedBalance(), 50 ether);
     }
 }
