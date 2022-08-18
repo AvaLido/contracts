@@ -54,6 +54,7 @@ contract AvaLidoTest is DSTest, Helpers {
     event ProtocolFeeEvent(uint256 amount);
     event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
     event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event ProtocolConfigChanged(string indexed eventName, bytes data);
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
@@ -1146,8 +1147,6 @@ contract AvaLidoTest is DSTest, Helpers {
         // User has 10 stavax
         assertEq(lido.balanceOf(USER2_ADDRESS), 10 ether);
 
-        console.log("exhange rate for 1 stavax", lido.exchangeRateStAVAXToAVAX());
-
         // Withdraw it all
         cheats.prank(USER2_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(10 ether);
@@ -1643,6 +1642,10 @@ contract AvaLidoTest is DSTest, Helpers {
         paymentSplit[0] = 60;
         paymentSplit[1] = 40;
 
+        string memory eventName = "setProtocolFeeSplit";
+        bytes memory data = abi.encode(paymentAddresses, paymentSplit);
+        cheats.expectEmit(true, false, false, true);
+        emit ProtocolConfigChanged(eventName, data);
         lido.setProtocolFeeSplit(paymentAddresses, paymentSplit);
         cheats.deal(rTreasuryAddress, 1 ether);
         lido.claimRewards();
@@ -1694,6 +1697,10 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertTrue(lido.hasRole(ROLE_PROTOCOL_MANAGER, DEPLOYER_ADDRESS));
 
+        string memory eventName = "setMaxProtocolControlledAVAX";
+        bytes memory data = abi.encode(2 ether);
+        cheats.expectEmit(true, false, false, true);
+        emit ProtocolConfigChanged(eventName, data);
         cheats.prank(DEPLOYER_ADDRESS);
         lido.setMaxProtocolControlledAVAX(2 ether);
 
