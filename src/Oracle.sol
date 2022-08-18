@@ -84,8 +84,8 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         // Check that we are not overwriting an already finalized epoch
         if (reportsByEpochId[_epochId].length != 0) revert EpochAlreadyFinalized();
 
-        // Check that we are reporting for only the currently reportable epoch
-        if (Oracle.nextReportableEpoch() != _epochId) revert InvalidReportingEpoch();
+        // Check that we are reporting for a valid epoch
+        if (!isEpochValid(_epochId)) revert InvalidReportingEpoch();
 
         for (uint256 i = 0; i < _reportData.length; i++) {
             reportsByEpochId[_epochId].push(_reportData[i]);
@@ -138,10 +138,17 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     }
 
     /**
-     * @notice Get next reportable epoch
+     * @notice Get next reportable epoch for daemons
      */
     function nextReportableEpoch() public view returns (uint256) {
         return latestEpochId + epochDuration;
+    }
+
+    /**
+     * @notice Check validity of epoch id in reports
+     */
+    function isEpochValid(uint256 epochId) public view returns (bool) {
+        return epochId > latestEpochId && epochId % epochDuration == 0;
     }
 
     // -------------------------------------------------------------------------
