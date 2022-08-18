@@ -54,10 +54,35 @@ contract MockHelpers {
 
         return validators;
     }
+
+    function mixOfSuitableAndUnsuitableValidators() public pure returns (Validator[] memory) {
+        uint256 n = 5;
+        uint256 freeSpace = 500;
+        Validator[] memory unsuitableValidators = new Validator[](n);
+        for (uint256 i = 0; i < n; i++) {
+            unsuitableValidators[i] = ValidatorHelpers.packValidator(
+                uint16(i),
+                false,
+                true,
+                uint16(freeSpace / 100 ether)
+            );
+        }
+        Validator[] memory suitableValidators = nValidatorsWithFreeSpace(n, 100000 ether);
+
+        Validator[] memory validators = new Validator[](unsuitableValidators.length + suitableValidators.length);
+
+        for (uint256 i = 0; i < unsuitableValidators.length; i++) {
+            validators[i] = unsuitableValidators[i];
+        }
+        for (uint256 i = 0; i < suitableValidators.length; i++) {
+            validators[unsuitableValidators.length + i] = suitableValidators[i];
+        }
+
+        return validators;
+    }
 }
 
 contract MockOracle is IOracle {
-    // TODO: Some left-padding or similar to match real-world node IDs would be nice.
     function nodeId(uint256 num) public pure returns (string memory) {
         return string(abi.encodePacked("NodeID-", Strings.toString(num)));
     }
@@ -131,6 +156,14 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
     function testGetByCapacityWithinEndTime() public {
         oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(2, 10 ether));
         assertEq(selector.getAvailableValidatorsWithCapacity(1 ether).length, 0);
+    }
+
+    function testGetAvailableValidatorsWithCapacityRegression() public {
+        // This is a regression test to make sure we avoid the "index out of bounds" error
+        oracleDataMock(oracleAddress, mixOfSuitableAndUnsuitableValidators());
+
+        // Of 10 validators we should have 5 suitable
+        assertEq(selector.getAvailableValidatorsWithCapacity(500 ether).length, 5);
     }
 
     function testSelectZero() public {
