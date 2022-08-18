@@ -124,6 +124,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Time that an unstaker must wait before being able to claim.
     uint64 public minimumClaimWaitTimeSeconds;
 
+    // Track the total AVAX buffered on this contract.
+    // Access via the `bufferedBalance` function.
+    uint256 private _bufferedBalance;
+
     // The buffer added to account for delay in exporting to P-chain
     uint256 pChainExportBuffer;
 
@@ -237,7 +241,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         if (request.requester != msg.sender) revert NotAuthorized();
         if (amountAVAX > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
-        if (amountAVAX > address(this).balance) revert InsufficientBalance();
+        if (amountAVAX > bufferedBalance()) revert InsufficientBalance();
 
         uint64 availableAt = request.requestedAt + minimumClaimWaitTimeSeconds;
         if (block.timestamp < availableAt) revert ClaimTooSoon({availableAt: availableAt});
@@ -258,6 +262,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
             amountOfStAVAXToBurn = 1;
         }
         _burn(address(this), amountOfStAVAXToBurn);
+
+        // Track buffered balance.
+        _bufferedBalance -= amountAVAX;
 
         // Transfer the AVAX to the user
         payable(msg.sender).transfer(amountAVAX);
@@ -287,7 +294,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * *This should always be >= the total supply of stAVAX*.
      */
     function protocolControlledAVAX() public view override returns (uint256) {
-        return amountStakedAVAX + address(this).balance;
+        return amountStakedAVAX + bufferedBalance();
     }
 
     /**
@@ -321,12 +328,17 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 startTime = block.timestamp + pChainExportBuffer;
         uint256 endTime = startTime + stakePeriod;
         for (uint256 i = 0; i < ids.length; i++) {
+            uint256 amount = amounts[i];
+
             // The array from selectValidatorsForStake may be sparse, so we need to ignore any validators
             // which are set with 0 amounts.
-            if (amounts[i] == 0) {
+            if (amount == 0) {
                 continue;
             }
-            mpcManager.requestStake{value: amounts[i]}(ids[i], amounts[i], startTime, endTime);
+            mpcManager.requestStake{value: amount}(ids[i], amount, startTime, endTime);
+
+            // Track buffered balance.
+            _bufferedBalance -= amount;
         }
 
         return totalToStake;
@@ -345,6 +357,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 amount = msg.value;
         if (amount < minStakeAmount) revert InvalidStakeAmount();
         if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
+
+        // Track buffered balance.
+        _bufferedBalance += amount;
 
         // Mint stAVAX for user at the currently calculated exchange rate
         // We don't want to count this deposit in protocolControlledAVAX()
@@ -372,6 +387,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (val == 0) return;
         if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
+        // Track buffered balance and claim.
+        _bufferedBalance += val;
         principalTreasury.claim(val);
 
         // We received this from an unstake, so remove from our count.
@@ -396,9 +413,16 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function claimRewards() external {
         uint256 val = address(rewardTreasury).balance;
         if (val == 0) return;
+
+        // Track buffered balance and claim.
+        _bufferedBalance += val;
         rewardTreasury.claim(val);
 
+        // Caclulate protocol fee.
         uint256 protocolFee = (val * protocolFeeBasisPoints) / 10_000;
+
+        // Track buffered balance and transfer fee.
+        _bufferedBalance -= protocolFee;
         payable(protocolFeeSplitter).transfer(protocolFee);
         emit ProtocolFeeEvent(protocolFee);
 
@@ -415,6 +439,21 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // -------------------------------------------------------------------------
     //  Private/internal functions
     // -------------------------------------------------------------------------
+
+    /**
+     * @dev Gets the total AVAX buffered on this contract.
+     */
+    function bufferedBalance() public view returns (uint256) {
+        assert(address(this).balance >= _bufferedBalance);
+        return _bufferedBalance;
+    }
+
+    /**
+     * @dev Gets unaccounted (excess) AVAX on this contract balance.
+     */
+    function unaccountedBalance() external view returns (uint256) {
+        return address(this).balance - bufferedBalance();
+    }
 
     /**
      * @dev Fills the next available unstake request with the given amount.

@@ -48,6 +48,12 @@ contract FakeMpcManager is IMpcManager {
     }
 }
 
+contract SelfDestructor {
+    function attack(address target) public payable {
+        selfdestruct(payable(target));
+    }
+}
+
 contract AvaLidoTest is DSTest, Helpers {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
@@ -1726,5 +1732,82 @@ contract AvaLidoTest is DSTest, Helpers {
             lido.deposit{value: 100000000 ether}();
         }
         assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
+    }
+
+    function testTriggerZeroExchangeRate() public {
+        // Increase protocol limit for test (default is low)
+        cheats.prank(DEPLOYER_ADDRESS);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
+
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // No longer has any AVAX, but has stAVAX
+        assertEq(address(USER1_ADDRESS).balance, 0);
+        assertEq(lido.balanceOf(USER1_ADDRESS), 10 ether);
+
+        // Withdraw as user.
+        cheats.prank(USER1_ADDRESS);
+        uint256 reqId = lido.requestWithdrawal(10 ether - 1 wei);
+        cheats.deal(pTreasuryAddress, 10 ether);
+        lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
+        // Claim all but 1 wei.
+        cheats.prank(USER1_ADDRESS);
+        lido.claim(reqId, 10 ether - 1 wei);
+
+        // Only 1 wei left in protocol.
+        uint256 totalControlled = lido.protocolControlledAVAX();
+        assertEq(totalControlled, 1 wei);
+
+        // Calculate exchange rate.
+        uint256 exchangeRateStAVAXToAVAX = lido.stAVAXToAVAX(totalControlled, 1 ether);
+        uint256 exchangeRateAVAXToStAVAX = lido.avaxToStAVAX(totalControlled, 1 ether);
+
+        assertEq(exchangeRateStAVAXToAVAX, 1 ether);
+        assertEq(exchangeRateAVAXToStAVAX, 1 ether);
+
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 1 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        // Calculate exchange rate.
+        exchangeRateStAVAXToAVAX = lido.stAVAXToAVAX(totalControlled, 1 ether);
+        exchangeRateAVAXToStAVAX = lido.avaxToStAVAX(totalControlled, 1 ether);
+
+        // Confirm that attacker has not forced exchange rate to zero.
+        assertTrue(exchangeRateStAVAXToAVAX > 0);
+        assertTrue(exchangeRateAVAXToStAVAX > 0);
+    }
+
+    function testManipulateBalanceWithSelfDestruct() public {
+        assertEq(lido.protocolControlledAVAX(), 0);
+        assertEq(lido.unaccountedBalance(), 0);
+
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 1 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 1 ether);
+        assertEq(lido.unaccountedBalance(), 0);
+
+        // Force-send AVAX via selfdestruct
+        SelfDestructor attacker = new SelfDestructor();
+        cheats.deal(address(attacker), 50 ether);
+        attacker.attack(address(lido));
+
+        assertEq(lido.protocolControlledAVAX(), 1 ether);
+        assertEq(lido.unaccountedBalance(), 50 ether);
     }
 }
