@@ -37,7 +37,7 @@ The local network has a few pre-funded accounts to make development easier:
 
 The network stores state in the `node-N` directories in the `network` folder. This means you can kill and restart the network without losing state. You should be able to use MetaMask like normal to test out the network.
 
-To set up MetaMask, add:
+To set up MetaMask for the local network, add:
 
 RPC URL: `http://127.0.0.1:9650/ext/bc/C/rpc`
 Chain ID: `43112`
@@ -51,6 +51,8 @@ forge script src/deploy/Deploy.t.sol --sig "deploy()" --broadcast --rpc-url <RPC
 ```
 
 This uses the pre-funded AVAX "Contract Deployer" address above for deployment. Other addresses and roles can be defined during deploy or afterwards via OpenZeppelin `AccessControl.sol` methods.
+
+`RPC_URL` options include `http://127.0.0.1:9650/ext/bc/C/rpc` for local development and `https://api.avax-test.network/ext/bc/C/rpc` for Fuji testnet.
 
 ### Interaction
 
