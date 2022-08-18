@@ -20,7 +20,6 @@ contract OracleManagerTest is DSTest, Helpers {
     event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
     event OracleReportSent(uint256 epochId);
-    // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     address[] ORACLE_MEMBERS = [
         WHITELISTED_ORACLE_1,
@@ -29,7 +28,7 @@ contract OracleManagerTest is DSTest, Helpers {
         WHITELISTED_ORACLE_4,
         WHITELISTED_ORACLE_5
     ];
-    uint256 epochId = 123456789;
+    uint256 epochId = 100;
     address anotherAddressForTesting = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
     string[] nodeIds = [VALIDATOR_1, VALIDATOR_2];
 
@@ -38,9 +37,10 @@ contract OracleManagerTest is DSTest, Helpers {
         oracleManager = OracleManager(proxyWrapped(address(_oracleManager), ROLE_PROXY_ADMIN));
         oracleManager.initialize(ORACLE_ADMIN_ADDRESS, ORACLE_MEMBERS);
 
+        uint256 epochDuration = 100;
         Oracle _oracle = new Oracle();
         oracle = Oracle(proxyWrapped(address(_oracle), ROLE_PROXY_ADMIN));
-        oracle.initialize(ORACLE_ADMIN_ADDRESS, address(oracleManager));
+        oracle.initialize(ORACLE_ADMIN_ADDRESS, address(oracleManager), epochDuration);
 
         cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracle.setNodeIDList(nodeIds);
@@ -228,9 +228,9 @@ contract OracleManagerTest is DSTest, Helpers {
         Validator[] memory reportDataOne = new Validator[](1);
         reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
-        // Add a report for epoch 1
+        // Add a report for a valid epoch
         cheats.prank(ORACLE_MEMBERS[0]);
-        oracleManager.receiveMemberReport(1, reportDataOne);
+        oracleManager.receiveMemberReport(100, reportDataOne);
 
         string[] memory newNodes = new string[](1);
         newNodes[0] = "test";
@@ -241,15 +241,15 @@ contract OracleManagerTest is DSTest, Helpers {
 
         // Ensure we are able to move forwards and get quroum for epoch 2
         cheats.prank(ORACLE_MEMBERS[0]);
-        oracleManager.receiveMemberReport(2, reportDataOne);
+        oracleManager.receiveMemberReport(200, reportDataOne);
         cheats.prank(ORACLE_MEMBERS[1]);
-        oracleManager.receiveMemberReport(2, reportDataOne);
+        oracleManager.receiveMemberReport(200, reportDataOne);
 
         cheats.expectEmit(false, false, false, true);
-        emit OracleReportSent(2);
+        emit OracleReportSent(200);
 
         cheats.prank(ORACLE_MEMBERS[2]);
-        oracleManager.receiveMemberReport(2, reportDataOne);
+        oracleManager.receiveMemberReport(200, reportDataOne);
     }
 
     // -------------------------------------------------------------------------

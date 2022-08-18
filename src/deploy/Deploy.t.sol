@@ -50,9 +50,10 @@ contract Deploy is DSTest, Helpers {
         oracleManager.initialize(oracleAdmin, oracleAllowlist);
 
         // Oracle
+        uint256 epochDuration = 100;
         Oracle _oracle = new Oracle();
         Oracle oracle = Oracle(address(proxyWrapped(address(_oracle), admin)));
-        oracle.initialize(oracleAdmin, address(oracleManager));
+        oracle.initialize(oracleAdmin, address(oracleManager), epochDuration);
 
         // Validator selector
         ValidatorSelector _validatorSelector = new ValidatorSelector();
