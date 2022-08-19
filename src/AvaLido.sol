@@ -71,11 +71,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 timestamp,
         uint256 requestIndex
     );
-    event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
-    event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
-    event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 requestIndex);
+    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 indexed requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
+    event ProtocolConfigChanged(string indexed eventName, bytes data);
 
     // State variables
 
@@ -527,6 +528,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function setProtocolFeeBasisPoints(uint256 _protocolFeeBasisPoints) external onlyRole(ROLE_FEE_MANAGER) {
         require(_protocolFeeBasisPoints <= 10_000);
         protocolFeeBasisPoints = _protocolFeeBasisPoints;
+
+        emit ProtocolConfigChanged("setProtocolFeeBasisPoints", abi.encode(_protocolFeeBasisPoints));
     }
 
     /**
@@ -538,6 +541,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (_address == address(0)) revert InvalidAddress();
 
         principalTreasury = ITreasury(_address);
+
+        emit ProtocolConfigChanged("setPrincipalTreasuryAddress", abi.encode(_address));
     }
 
     /**
@@ -549,6 +554,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (_address == address(0)) revert InvalidAddress();
 
         rewardTreasury = ITreasury(_address);
+
+        emit ProtocolConfigChanged("setRewardTreasuryAddress", abi.encode(_address));
     }
 
     function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
@@ -556,26 +563,38 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         onlyRole(ROLE_TREASURY_MANAGER)
     {
         protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
+
+        emit ProtocolConfigChanged("setProtocolFeeSplit", abi.encode(paymentAddresses, paymentSplit));
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
+
+        emit ProtocolConfigChanged("setMinStakeBatchAmount", abi.encode(_minStakeBatchAmount));
     }
 
     function setMinStakeAmount(uint256 _minStakeAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeAmount = _minStakeAmount;
+
+        emit ProtocolConfigChanged("setMinStakeAmount", abi.encode(_minStakeAmount));
     }
 
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         stakePeriod = _stakePeriod;
+
+        emit ProtocolConfigChanged("setStakePeriod", abi.encode(_stakePeriod));
     }
 
     function setMaxUnstakeRequests(uint8 _maxUnstakeRequests) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxUnstakeRequests = _maxUnstakeRequests;
+
+        emit ProtocolConfigChanged("setMaxUnstakeRequests", abi.encode(_maxUnstakeRequests));
     }
 
     function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
+
+        emit ProtocolConfigChanged("setMaxProtocolControlledAVAX", abi.encode(_maxProtocolControlledAVAX));
     }
 
     function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
