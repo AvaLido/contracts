@@ -49,7 +49,7 @@ contract OracleTest is DSTest, Helpers {
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
         // Epoch id should be 0 to start
-        assertEq(oracle.latestEpochId(), 0);
+        assertEq(oracle.latestFinalizedEpochId(), 0);
 
         cheats.expectEmit(false, false, false, true);
         emit OracleReportReceived(epochId);
@@ -58,11 +58,11 @@ contract OracleTest is DSTest, Helpers {
         oracle.receiveFinalizedReport(epochId, reportData);
 
         // Epoch id should be 100 after report
-        assertEq(oracle.latestEpochId(), 100);
+        assertEq(oracle.latestFinalizedEpochId(), 100);
 
         Validator[] memory dataFromContract = oracle.getAllValidatorsByEpochId(epochId);
         assertEq(keccak256(abi.encode(reportData)), keccak256(abi.encode(dataFromContract)));
-        assertEq(oracle.latestEpochId(), epochId);
+        assertEq(oracle.latestFinalizedEpochId(), epochId);
     }
 
     function testReceiveFinalizedReportAfterSkippedEpochs() public {
@@ -72,17 +72,16 @@ contract OracleTest is DSTest, Helpers {
         // First report, epoch id should be 100
         cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(epochId, reportData);
-        assertEq(oracle.latestEpochId(), 100);
+        assertEq(oracle.latestFinalizedEpochId(), 100);
 
-        // Second report for epoch id of 300, should still be accepted even though the next ought to be 200
+        // Second report for epoch id of 500 should be able to be accepted
         uint256 muchLaterEpochId = 500;
         cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(muchLaterEpochId, reportData);
-        assertEq(oracle.latestEpochId(), 500);
 
         Validator[] memory dataFromContract = oracle.getAllValidatorsByEpochId(muchLaterEpochId);
         assertEq(keccak256(abi.encode(reportData)), keccak256(abi.encode(dataFromContract)));
-        assertEq(oracle.latestEpochId(), muchLaterEpochId);
+        assertEq(oracle.latestFinalizedEpochId(), muchLaterEpochId);
     }
 
     function testCannotReceiveFinalizedReportForEpochsNotMatchingDuration() public {
@@ -92,7 +91,7 @@ contract OracleTest is DSTest, Helpers {
         // First report, epoch id should be 100
         cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(epochId, reportData);
-        assertEq(oracle.latestEpochId(), 100);
+        assertEq(oracle.latestFinalizedEpochId(), 100);
 
         // Second report for epoch id of 300, should still be accepted even though the next ought to be 200
         uint256 invalidEpochId = 150;
@@ -127,22 +126,29 @@ contract OracleTest is DSTest, Helpers {
     }
 
     function testOldReportDoesNotUpdateLatest() public {
-        uint256 reportingEpochId = 100;
+        uint256 reportingEpochId = 200;
         Validator[] memory reportData = new Validator[](1);
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
         cheats.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(reportingEpochId, reportData);
 
-        // Epoch id should be 100 after report
-        assertEq(oracle.latestEpochId(), 100);
+        // Epoch id should be 200 after report
+        assertEq(oracle.latestFinalizedEpochId(), 200);
 
         // Send an old report, expect revert
         cheats.expectRevert(Oracle.InvalidReportingEpoch.selector);
-        oracle.receiveFinalizedReport(reportingEpochId - 1, reportData);
+        oracle.receiveFinalizedReport(reportingEpochId - epochDuration, reportData);
 
         // Latest should still be original epoch
-        assertEq(oracle.latestEpochId(), reportingEpochId);
+        assertEq(oracle.latestFinalizedEpochId(), reportingEpochId);
+    }
+
+    function testCurrentReportableEpoch() public {
+        // Assume we deploy at block 1337 with an epoch duration of 100
+        // Current reportable block should be 1300
+        cheats.roll(1337);
+        assertEq(oracle.currentReportableEpoch(), 1300);
     }
 
     // -------------------------------------------------------------------------

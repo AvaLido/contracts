@@ -54,6 +54,8 @@ contract OracleManagerTest is DSTest, Helpers {
         Validator[] memory reportData = new Validator[](1);
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
+        cheats.roll(epochId + 1);
+
         cheats.prank(ORACLE_MEMBERS[0]);
         cheats.expectRevert(OracleManager.OracleContractAddressNotSet.selector);
         oracleManager.receiveMemberReport(epochId, reportData);
@@ -73,6 +75,8 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.setOracleAddress(address(oracle));
 
+        cheats.roll(epochId + 1);
+
         Validator[] memory reportData = new Validator[](1);
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
         cheats.prank(ORACLE_MEMBERS[0]);
@@ -87,6 +91,8 @@ contract OracleManagerTest is DSTest, Helpers {
         reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
         Validator[] memory reportDataTwo = new Validator[](1);
         reportDataTwo[0] = ValidatorHelpers.packValidator(1, true, true, 200);
+
+        cheats.roll(epochId + 1);
 
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -109,6 +115,8 @@ contract OracleManagerTest is DSTest, Helpers {
         Validator[] memory reportDataOne = new Validator[](1);
         reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
+        cheats.roll(epochId + 1);
+
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
         cheats.prank(ORACLE_MEMBERS[1]);
@@ -126,6 +134,7 @@ contract OracleManagerTest is DSTest, Helpers {
 
         Validator[] memory reportDataOne = new Validator[](1);
         reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        cheats.roll(epochId + 1);
         cheats.startPrank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
         cheats.expectRevert(OracleManager.OracleAlreadyReported.selector);
@@ -160,9 +169,64 @@ contract OracleManagerTest is DSTest, Helpers {
         Validator[] memory reportDataInvalid = new Validator[](1);
         reportDataInvalid[0] = ValidatorHelpers.packValidator(123, true, true, 100);
 
+        cheats.roll(epochId + 1);
         cheats.expectRevert(OracleManager.InvalidValidatorIndex.selector);
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataInvalid);
+    }
+
+    function testCannotReportForEpochNotMatchingDuration() public {
+        // If the epoch duration is 100 we should not be able to report for
+        // epochs that aren't epochId % epochDuration = 0
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        oracleManager.setOracleAddress(address(oracle));
+
+        // Setup first report for epoch id 100
+        Validator[] memory reportData = new Validator[](1);
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        cheats.prank(address(oracleManager));
+        oracle.receiveFinalizedReport(100, reportData);
+        assertEq(oracle.latestFinalizedEpochId(), 100);
+
+        // Cannot report for epoch id such as 150
+        cheats.roll(150);
+        cheats.prank(ORACLE_MEMBERS[0]);
+        cheats.expectRevert(OracleManager.InvalidReportingEpoch.selector);
+        oracleManager.receiveMemberReport(150, reportData);
+    }
+
+    function testCannotReportForEarlierEpoch() public {
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        oracleManager.setOracleAddress(address(oracle));
+
+        // Setup first report for epoch id 200
+        Validator[] memory reportData = new Validator[](1);
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        cheats.prank(address(oracleManager));
+        oracle.receiveFinalizedReport(200, reportData);
+        assertEq(oracle.latestFinalizedEpochId(), 200);
+
+        cheats.roll(210);
+        cheats.prank(ORACLE_MEMBERS[0]);
+        cheats.expectRevert(OracleManager.InvalidReportingEpoch.selector);
+        oracleManager.receiveMemberReport(100, reportData);
+    }
+
+    function testCurrentReportableEpoch() public {
+        // Setup first report for epoch id 100
+        Validator[] memory reportData = new Validator[](1);
+        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        cheats.prank(address(oracleManager));
+        oracle.receiveFinalizedReport(100, reportData);
+        assertEq(oracle.latestFinalizedEpochId(), 100);
+
+        // Assume oracle misses report for the next epoch id 200.
+        // They should be able to send a report for epoch id 300.
+        cheats.roll(303);
+        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        oracleManager.setOracleAddress(address(oracle));
+        cheats.prank(ORACLE_MEMBERS[0]);
+        oracleManager.receiveMemberReport(300, reportData);
     }
 
     // -------------------------------------------------------------------------
@@ -228,6 +292,8 @@ contract OracleManagerTest is DSTest, Helpers {
         Validator[] memory reportDataOne = new Validator[](1);
         reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
+        cheats.roll(epochId + 1);
+
         // Add a report for a valid epoch
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(100, reportDataOne);
@@ -239,7 +305,9 @@ contract OracleManagerTest is DSTest, Helpers {
         cheats.prank(ORACLE_ADMIN_ADDRESS);
         oracle.setNodeIDList(newNodes);
 
-        // Ensure we are able to move forwards and get quroum for epoch 2
+        cheats.roll(220);
+
+        // Ensure we are able to move forwards and get quoroum for epoch 2
         cheats.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(200, reportDataOne);
         cheats.prank(ORACLE_MEMBERS[1]);

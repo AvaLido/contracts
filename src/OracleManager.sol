@@ -112,7 +112,7 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
         if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
 
         // Check that we are reporting for a valid epoch
-        if (!Oracle.isEpochValid(_epochId)) revert InvalidReportingEpoch();
+        if (!Oracle.isReportingEpochValid(_epochId)) revert InvalidReportingEpoch();
 
         // Check if the oracle member has already reported for the period; reverts if true
         if (reportedOraclesByEpochId[_epochId][msg.sender]) revert OracleAlreadyReported();

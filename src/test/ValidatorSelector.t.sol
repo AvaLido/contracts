@@ -99,11 +99,11 @@ contract MockOracle is IOracle {
         revert("Should be mocked");
     }
 
-    function nextReportableEpoch() external pure returns (uint256) {
+    function currentReportableEpoch() external pure returns (uint256) {
         revert("Should be mocked");
     }
 
-    function isEpochValid(uint256) external pure returns (bool) {
+    function isReportingEpochValid(uint256) external pure returns (bool) {
         revert("Should be mocked");
     }
 

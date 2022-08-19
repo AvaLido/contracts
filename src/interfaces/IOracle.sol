@@ -13,7 +13,7 @@ interface IOracle {
 
     function validatorCount() external view returns (uint256);
 
-    function nextReportableEpoch() external view returns (uint256);
+    function currentReportableEpoch() external view returns (uint256);
 
-    function isEpochValid(uint256 epochId) external view returns (bool);
+    function isReportingEpochValid(uint256 epochId) external view returns (bool);
 }
