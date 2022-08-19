@@ -93,7 +93,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     // Track the amount of AVAX in the contract which is waiting to be staked.
     // When the stake is triggered, this amount will be sent to the MPC system.
-    uint256 public amountPendingAVAX;
+    uint256 public amountPendingStakeAVAX;
+
+    // Track the amount of AVAX in the contract which is waiting to fill unstake requests,
+    // in the case where this has been limited to prevent unstake flooding.
+    uint256 public amountPendingUnstakeFillsAVAX;
 
     // Record the number of unstake requests per user so that we can limit them to our max.
     mapping(address => uint8) public unstakeRequestCount;
@@ -307,22 +311,22 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * It would be sensible for our team to also call this at a regular interval.
      */
     function initiateStake() external whenNotPaused nonReentrant returns (uint256) {
-        if (amountPendingAVAX == 0 || amountPendingAVAX < minStakeBatchAmount) {
+        if (amountPendingStakeAVAX == 0 || amountPendingStakeAVAX < minStakeBatchAmount) {
             return 0;
         }
 
         (string[] memory ids, uint256[] memory amounts, uint256 remaining) = validatorSelector.selectValidatorsForStake(
-            amountPendingAVAX
+            amountPendingStakeAVAX
         );
 
         if (ids.length == 0 || amounts.length == 0) revert NoAvailableValidators();
 
-        uint256 totalToStake = amountPendingAVAX - remaining;
+        uint256 totalToStake = amountPendingStakeAVAX - remaining;
 
         amountStakedAVAX += totalToStake;
 
         // Our pending AVAX is now whatever we couldn't allocate.
-        amountPendingAVAX = remaining;
+        amountPendingStakeAVAX = remaining;
 
         // Add some buffer to account for delay in exporting to P-chain and MPC consensus.
         uint256 startTime = block.timestamp + pChainExportBuffer;
@@ -367,13 +371,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _mint(msg.sender, amountOfStAVAXToMint);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
-        uint256 remaining = fillUnstakeRequests(amount);
 
-        // Take the remaining amount and stash it to be staked at a later time.
-        // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.
-        // This intentionally removes the ability to instantly stake and unstake, which makes the
-        // arb opportunity around trying to collect rebase value significantly riskier/impractical.
-        amountPendingAVAX += remaining;
+        // Fill unstake requests and allocate excess for restaking.
+        fillUnstakeRequests(amountPendingUnstakeFillsAVAX + amount);
     }
 
     /**
@@ -397,11 +397,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // the contract.
         amountStakedAVAX -= val;
 
-        // Fill unstake requests
-        uint256 remaining = fillUnstakeRequests(val);
-
-        // Allocate excess for restaking.
-        amountPendingAVAX += remaining;
+        // Fill unstake requests and allocate excess for restaking.
+        fillUnstakeRequests(amountPendingUnstakeFillsAVAX + amountStakedAVAX);
     }
 
     /**
@@ -429,11 +426,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 afterFee = val - protocolFee;
         emit RewardsCollectedEvent(afterFee);
 
-        // Fill unstake requests
-        uint256 remaining = fillUnstakeRequests(afterFee);
-
-        // Allocate excess for restaking.
-        amountPendingAVAX += remaining;
+        // Fill unstake requests and allocate excess for restaking.
+        fillUnstakeRequests(amountPendingUnstakeFillsAVAX + afterFee);
     }
 
     // -------------------------------------------------------------------------
@@ -456,6 +450,26 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     }
 
     /**
+     * @dev Wraps `_fillUnstakeRequests` and tracks the amount of AVAX in the
+     * contract which is pending unstake fills to prevent unstake flooding.
+     */
+    function fillUnstakeRequests(uint256 amount) private {
+        (bool completed, uint256 remaining) = _fillUnstakeRequests(amountPendingUnstakeFillsAVAX + amount);
+
+        if (!completed) {
+            amountPendingUnstakeFillsAVAX = remaining;
+            return;
+        }
+
+        // Take the remaining amount and stash it to be staked at a later time.
+        // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.
+        // This intentionally removes the ability to instantly stake and unstake, which makes the
+        // arb opportunity around trying to collect rebase value significantly riskier/impractical.
+        amountPendingStakeAVAX += remaining;
+        amountPendingUnstakeFillsAVAX = 0;
+    }
+
+    /**
      * @dev Fills the next available unstake request with the given amount.
      * This function works by reading the `unstakeRequests` queue, in-order, starting
      * from the `unfilledHead` pointer. When a request is completely filled, we update
@@ -464,10 +478,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * claimed by users.
      * @param inputAmount The amount of free'd AVAX made available to fill requests.
      */
-    function fillUnstakeRequests(uint256 inputAmount) private returns (uint256) {
-        if (inputAmount == 0) return 0;
+    function _fillUnstakeRequests(uint256 inputAmount) private returns (bool, uint256) {
+        // Queue unchecked so returns incomplete.
+        if (inputAmount == 0) return (false, 0);
 
         uint256 amountFilled = 0;
+        uint256 numberFilled = 0;
         uint256 remaining = inputAmount;
 
         // Assumes order of the array is creation order.
@@ -491,9 +507,15 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
                 }
             }
 
+            // Return early to prevent unstake flooding
+            if (numberFilled == 100) {
+                return (false, remaining);
+            }
+
             remaining = inputAmount - amountFilled;
+            numberFilled++;
         }
-        return remaining;
+        return (true, remaining);
     }
 
     function isFilled(UnstakeRequest memory request) private pure returns (bool) {

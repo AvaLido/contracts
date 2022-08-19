@@ -133,15 +133,15 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(USER1_ADDRESS, 10 ether);
         lido.deposit{value: 10 ether}();
 
-        // Test the amountPendingAVAX the contract has
-        assertEq(10 ether, lido.amountPendingAVAX());
+        // Test the amountPendingStakeAVAX the contract has
+        assertEq(10 ether, lido.amountPendingStakeAVAX());
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
 
-        // Test the amountPendingAVAX the contract has - all should have been staked
-        assertEq(0 ether, lido.amountPendingAVAX());
+        // Test the amountPendingStakeAVAX the contract has - all should have been staked
+        assertEq(0 ether, lido.amountPendingStakeAVAX());
 
         // User 1 requests a withdrawal of 2 ether
         cheats.prank(USER1_ADDRESS);
@@ -168,8 +168,8 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountClaimed, 0 ether);
         assertEq(stAVAXLocked, 2 ether);
 
-        // Test the amountPendingAVAX the contract has - should be 0 since 1/2 is partilly filled from claimUnstakedPrincipals
-        assertEq(lido.amountPendingAVAX(), 0 ether);
+        // Test the amountPendingStakeAVAX the contract has - should be 0 since 1/2 is partilly filled from claimUnstakedPrincipals
+        assertEq(lido.amountPendingStakeAVAX(), 0 ether);
 
         // User 1 requests another withdrawal
         cheats.prank(USER1_ADDRESS);
@@ -193,7 +193,7 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(stAVAXLocked2, 2 ether);
 
         //...and that there is now nothing left pending in the contract.
-        assertEq(lido.amountPendingAVAX(), 0 ether);
+        assertEq(lido.amountPendingStakeAVAX(), 0 ether);
     }
 
     // Initiate staking
@@ -250,7 +250,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertEq(staked, 9 ether);
         assertEq(address(MPC_GENERATED_ADDRESS).balance, 9 ether);
-        assertEq(lido.amountPendingAVAX(), 1 ether);
+        assertEq(lido.amountPendingStakeAVAX(), 1 ether);
     }
 
     function testInitiateStakeUnderLimit() public {
@@ -261,7 +261,7 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectMock(validatorSelectorAddress, "test", 1 ether, 1 ether);
         uint256 staked = lido.initiateStake();
         assertEq(staked, 0);
-        assertEq(lido.amountPendingAVAX(), 1 ether);
+        assertEq(lido.amountPendingStakeAVAX(), 1 ether);
     }
 
     // NOTE: This is a `testFail` to ensure that an event is *not* emitted.
@@ -276,7 +276,7 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectMock(validatorSelectorAddress, "test", 0 ether, 1 ether);
         uint256 staked = lido.initiateStake();
         assertEq(staked, 99 ether);
-        assertEq(lido.amountPendingAVAX(), 1 ether);
+        assertEq(lido.amountPendingStakeAVAX(), 1 ether);
     }
 
     // Unstake Requests
@@ -1462,7 +1462,7 @@ contract AvaLidoTest is DSTest, Helpers {
 
     function testRewardReceived() public {
         assertEq(lido.protocolControlledAVAX(), 0);
-        assertEq(lido.amountPendingAVAX(), 0);
+        assertEq(lido.amountPendingStakeAVAX(), 0);
 
         cheats.expectEmit(false, false, false, true);
         emit ProtocolFeeEvent(0.1 ether);
@@ -1474,7 +1474,7 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.claimRewards();
 
         assertEq(lido.protocolControlledAVAX(), 0.9 ether);
-        assertEq(lido.amountPendingAVAX(), 0.9 ether);
+        assertEq(lido.amountPendingStakeAVAX(), 0.9 ether);
 
         assertEq(address(lido.protocolFeeSplitter()).balance, 0.1 ether);
 
@@ -1541,7 +1541,7 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: 1 ether}();
         assertEq(lido.balanceOf(USER2_ADDRESS), 1 ether);
         assertEq(lido.protocolControlledAVAX(), 2 ether);
-        assertEq(lido.amountPendingAVAX(), 2 ether);
+        assertEq(lido.amountPendingStakeAVAX(), 2 ether);
 
         // now the exchange rate changes
         cheats.deal(rTreasuryAddress, 0.1 ether);
