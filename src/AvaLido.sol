@@ -56,9 +56,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error TooManyConcurrentUnstakeRequests();
     error NotAuthorized();
     error ClaimTooLarge();
+    error ClaimTooSoon(uint64 availableAt);
     error InsufficientBalance();
     error NoAvailableValidators();
     error InvalidAddress();
+    error InvalidConfiguration();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
@@ -69,11 +71,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 timestamp,
         uint256 requestIndex
     );
-    event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
-    event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
-    event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 requestIndex);
+    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 indexed requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
+    event ProtocolConfigChanged(string indexed eventName, bytes data);
 
     // State variables
 
@@ -119,6 +122,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Maximum unstake requests a user can open at once (prevents spamming).
     uint8 public maxUnstakeRequests;
 
+    // Time that an unstaker must wait before being able to claim.
+    uint64 public minimumClaimWaitTimeSeconds;
+
+    // Track the total AVAX buffered on this contract.
+    // Access via the `bufferedBalance` function.
+    uint256 private _bufferedBalance;
+
     // The buffer added to account for delay in exporting to P-chain
     uint256 pChainExportBuffer;
 
@@ -156,6 +166,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         maxUnstakeRequests = 10;
         maxProtocolControlledAVAX = 100_000 ether; // Initial limit for deploy.
         pChainExportBuffer = 1 hours;
+        minimumClaimWaitTimeSeconds = 3600;
 
         mpcManager = IMpcManager(_mpcManagerAddress);
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
@@ -222,27 +233,42 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * @dev This allows users to claim their AVAX back. We burn the stAVAX that we've been holding
      * at this point.
      * Note that we also allow partial claims of unstake requests so that users don't need to wait
-     * for the entire request to be filled to get some liquidity. This is the reason we set the
-     * exchange rate in requestWithdrawal instead of at claim time.
+     * for the entire request to be filled to get some liquidity. This is one of the reasons we set the
+     * exchange rate in requestWithdrawal instead of at claim time. (The other is so that unstakers don't
+     * earn rewards).
      */
-    function claim(uint256 requestIndex, uint256 amount) external whenNotPaused nonReentrant {
+    function claim(uint256 requestIndex, uint256 amountAVAX) external whenNotPaused nonReentrant {
         UnstakeRequest memory request = requestByIndex(requestIndex);
 
         if (request.requester != msg.sender) revert NotAuthorized();
-        if (amount > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
-        if (amount > address(this).balance) revert InsufficientBalance();
+        if (amountAVAX > request.amountFilled - request.amountClaimed) revert ClaimTooLarge();
+        if (amountAVAX > bufferedBalance()) revert InsufficientBalance();
+
+        uint64 availableAt = request.requestedAt + minimumClaimWaitTimeSeconds;
+        if (block.timestamp < availableAt) revert ClaimTooSoon({availableAt: availableAt});
 
         // Partial claim, update amounts.
-        request.amountClaimed += amount;
+        request.amountClaimed += amountAVAX;
         unstakeRequests[requestIndex] = request;
 
         // Burn the stAVAX in the UnstakeRequest. If it's a partial claim we need to burn a proportional amount
         // of the original stAVAX using the stAVAX and AVAX amounts in the unstake request.
-        uint256 amountOfStAVAXToBurn = Math.mulDiv(request.stAVAXLocked, amount, request.amountRequested);
+        uint256 amountOfStAVAXToBurn = Math.mulDiv(request.stAVAXLocked, amountAVAX, request.amountRequested);
+
+        // In the case that a user claims all but one wei of their avax, and then claims 1 wei separately, we
+        // will incorrectly round down the amount of stAVAX to burn, leading to a left over amount of 1 wei stAVAX
+        // in the contract, and a request which can never be fully claimed. I don't know why anyone would do this,
+        // but maybe this will keep our internal accounting more in order.
+        if (amountOfStAVAXToBurn == 0) {
+            amountOfStAVAXToBurn = 1;
+        }
         _burn(address(this), amountOfStAVAXToBurn);
 
+        // Track buffered balance.
+        _bufferedBalance -= amountAVAX;
+
         // Transfer the AVAX to the user
-        payable(msg.sender).transfer(amount);
+        payable(msg.sender).transfer(amountAVAX);
 
         // Emit claim event.
         if (isFullyClaimed(request)) {
@@ -251,13 +277,13 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
             unstakeRequestCount[msg.sender]--;
             delete unstakeRequests[requestIndex];
 
-            emit ClaimEvent(msg.sender, amount, true, requestIndex);
+            emit ClaimEvent(msg.sender, amountAVAX, true, requestIndex);
 
             return;
         }
 
         // Emit an event which describes the partial claim.
-        emit ClaimEvent(msg.sender, amount, false, requestIndex);
+        emit ClaimEvent(msg.sender, amountAVAX, false, requestIndex);
     }
 
     /**
@@ -269,7 +295,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * *This should always be >= the total supply of stAVAX*.
      */
     function protocolControlledAVAX() public view override returns (uint256) {
-        return amountStakedAVAX + address(this).balance;
+        return amountStakedAVAX + bufferedBalance();
     }
 
     /**
@@ -303,12 +329,17 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 startTime = block.timestamp + pChainExportBuffer;
         uint256 endTime = startTime + stakePeriod;
         for (uint256 i = 0; i < ids.length; i++) {
+            uint256 amount = amounts[i];
+
             // The array from selectValidatorsForStake may be sparse, so we need to ignore any validators
             // which are set with 0 amounts.
-            if (amounts[i] == 0) {
+            if (amount == 0) {
                 continue;
             }
-            mpcManager.requestStake{value: amounts[i]}(ids[i], amounts[i], startTime, endTime);
+            mpcManager.requestStake{value: amount}(ids[i], amount, startTime, endTime);
+
+            // Track buffered balance.
+            _bufferedBalance -= amount;
         }
 
         return totalToStake;
@@ -327,6 +358,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 amount = msg.value;
         if (amount < minStakeAmount) revert InvalidStakeAmount();
         if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
+
+        // Track buffered balance.
+        _bufferedBalance += amount;
 
         // Mint stAVAX for user at the currently calculated exchange rate
         // We don't want to count this deposit in protocolControlledAVAX()
@@ -354,6 +388,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (val == 0) return;
         if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
+        // Track buffered balance and claim.
+        _bufferedBalance += val;
         principalTreasury.claim(val);
 
         // We received this from an unstake, so remove from our count.
@@ -378,9 +414,16 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function claimRewards() external {
         uint256 val = address(rewardTreasury).balance;
         if (val == 0) return;
+
+        // Track buffered balance and claim.
+        _bufferedBalance += val;
         rewardTreasury.claim(val);
 
+        // Caclulate protocol fee.
         uint256 protocolFee = (val * protocolFeeBasisPoints) / 10_000;
+
+        // Track buffered balance and transfer fee.
+        _bufferedBalance -= protocolFee;
         payable(protocolFeeSplitter).transfer(protocolFee);
         emit ProtocolFeeEvent(protocolFee);
 
@@ -397,6 +440,21 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // -------------------------------------------------------------------------
     //  Private/internal functions
     // -------------------------------------------------------------------------
+
+    /**
+     * @dev Gets the total AVAX buffered on this contract.
+     */
+    function bufferedBalance() public view returns (uint256) {
+        assert(address(this).balance >= _bufferedBalance);
+        return _bufferedBalance;
+    }
+
+    /**
+     * @dev Gets unaccounted (excess) AVAX on this contract balance.
+     */
+    function unaccountedBalance() external view returns (uint256) {
+        return address(this).balance - bufferedBalance();
+    }
 
     /**
      * @dev Fills the next available unstake request with the given amount.
@@ -470,6 +528,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function setProtocolFeeBasisPoints(uint256 _protocolFeeBasisPoints) external onlyRole(ROLE_FEE_MANAGER) {
         require(_protocolFeeBasisPoints <= 10_000);
         protocolFeeBasisPoints = _protocolFeeBasisPoints;
+
+        emit ProtocolConfigChanged("setProtocolFeeBasisPoints", abi.encode(_protocolFeeBasisPoints));
     }
 
     /**
@@ -481,6 +541,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (_address == address(0)) revert InvalidAddress();
 
         principalTreasury = ITreasury(_address);
+
+        emit ProtocolConfigChanged("setPrincipalTreasuryAddress", abi.encode(_address));
     }
 
     /**
@@ -492,6 +554,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         if (_address == address(0)) revert InvalidAddress();
 
         rewardTreasury = ITreasury(_address);
+
+        emit ProtocolConfigChanged("setRewardTreasuryAddress", abi.encode(_address));
     }
 
     function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
@@ -499,30 +563,47 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         onlyRole(ROLE_TREASURY_MANAGER)
     {
         protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
+
+        emit ProtocolConfigChanged("setProtocolFeeSplit", abi.encode(paymentAddresses, paymentSplit));
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
+
+        emit ProtocolConfigChanged("setMinStakeBatchAmount", abi.encode(_minStakeBatchAmount));
     }
 
     function setMinStakeAmount(uint256 _minStakeAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeAmount = _minStakeAmount;
+
+        emit ProtocolConfigChanged("setMinStakeAmount", abi.encode(_minStakeAmount));
     }
 
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         stakePeriod = _stakePeriod;
+
+        emit ProtocolConfigChanged("setStakePeriod", abi.encode(_stakePeriod));
     }
 
     function setMaxUnstakeRequests(uint8 _maxUnstakeRequests) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxUnstakeRequests = _maxUnstakeRequests;
+
+        emit ProtocolConfigChanged("setMaxUnstakeRequests", abi.encode(_maxUnstakeRequests));
     }
 
     function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
+
+        emit ProtocolConfigChanged("setMaxProtocolControlledAVAX", abi.encode(_maxProtocolControlledAVAX));
     }
 
     function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         pChainExportBuffer = _pChainExportBuffer;
+    }
+
+    function setMinClaimWaitTimeSeconds(uint64 _minimumClaimWaitTimeSeconds) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        if (_minimumClaimWaitTimeSeconds > stakePeriod) revert InvalidConfiguration();
+        minimumClaimWaitTimeSeconds = _minimumClaimWaitTimeSeconds;
     }
 
     // -------------------------------------------------------------------------

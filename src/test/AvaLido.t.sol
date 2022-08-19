@@ -48,12 +48,19 @@ contract FakeMpcManager is IMpcManager {
     }
 }
 
+contract SelfDestructor {
+    function attack(address target) public payable {
+        selfdestruct(payable(target));
+    }
+}
+
 contract AvaLidoTest is DSTest, Helpers {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-    event RequestFullyFilledEvent(uint256 indexed requestedAmount, uint256 timestamp, uint256 requestIndex);
-    event RequestPartiallyFilledEvent(uint256 indexed fillAmount, uint256 timestamp, uint256 requestIndex);
+    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event ProtocolConfigChanged(string indexed eventName, bytes data);
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
@@ -140,7 +147,7 @@ contract AvaLidoTest is DSTest, Helpers {
         // User 1 requests a withdrawal of 2 ether
         cheats.prank(USER1_ADDRESS);
         lido.requestWithdrawal(2 ether);
-        cheats.expectEmit(true, false, false, true);
+        cheats.expectEmit(false, false, true, true);
         emit RequestPartiallyFilledEvent(1 ether, uint64(block.timestamp), 0);
         cheats.deal(pTreasuryAddress, 1 ether);
         lido.claimUnstakedPrincipals();
@@ -883,6 +890,31 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.claim(reqId, 1 ether);
     }
 
+    function testClaimTooSoon() public {
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // Withdraw as user.
+        cheats.prank(USER1_ADDRESS);
+        uint256 reqId = lido.requestWithdrawal(1 ether);
+
+        // Receive a small amount back from MPC for unstaking.
+        cheats.deal(pTreasuryAddress, 1 ether);
+        lido.claimUnstakedPrincipals();
+
+        // Attempt to claim before enough time as passed
+        uint64 availAt = uint64(block.timestamp) + lido.minimumClaimWaitTimeSeconds();
+        cheats.expectRevert(abi.encodeWithSelector(AvaLido.ClaimTooSoon.selector, availAt));
+        cheats.prank(USER1_ADDRESS);
+        lido.claim(reqId, 1 ether);
+    }
+
     function testClaimSucceeds() public {
         // Deposit as user.
         cheats.deal(USER1_ADDRESS, 10 ether);
@@ -910,6 +942,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         cheats.deal(pTreasuryAddress, 5 ether);
         lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -967,6 +1002,9 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(lido.exchangeRateAVAXToStAVAX(), 991080277502477700);
         assertEq(lido.exchangeRateStAVAXToAVAX(), 1.009 ether);
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
         // They should claim 1.009 AVAX
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -1017,6 +1055,9 @@ contract AvaLidoTest is DSTest, Helpers {
         // Some stAVAX is transferred to contract when requesting withdrawal.
         // They had 10 stAVAX and request to withdraw 1 so should have 9 left.
         assertEq(lido.balanceOf(USER1_ADDRESS), 9 ether);
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
 
         // Receive from MPC for unstaking
         cheats.deal(pTreasuryAddress, 5 ether);
@@ -1074,6 +1115,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
         cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, 0.5 ether);
 
@@ -1087,6 +1131,94 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountFilled, 1 ether);
         assertEq(amountClaimed, 0.5 ether);
         assertEq(stAVAXLocked, 1 ether);
+    }
+
+    function testPartialClaimRounding() public {
+        // Add some stake from another user so we have more to play with
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        cheats.deal(USER2_ADDRESS, 10 ether);
+        cheats.prank(USER2_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        validatorSelectMock(validatorSelectorAddress, "test", 15 ether, 5 ether);
+        lido.initiateStake();
+
+        // Add some rewards to change exchange rate.
+        cheats.deal(rTreasuryAddress, 0.1 ether);
+        lido.claimRewards();
+
+        // User has 10 stavax
+        assertEq(lido.balanceOf(USER2_ADDRESS), 10 ether);
+
+        // Withdraw it all
+        cheats.prank(USER2_ADDRESS);
+        uint256 reqId = lido.requestWithdrawal(10 ether);
+
+        // Fill the request
+        cheats.deal(pTreasuryAddress, 15 ether);
+        lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
+        (, , uint256 amountRequested, , , ) = lido.unstakeRequests(reqId);
+
+        cheats.prank(USER2_ADDRESS);
+        lido.claim(reqId, amountRequested - 1);
+
+        // Claim the one wei
+        cheats.prank(USER2_ADDRESS);
+        lido.claim(reqId, 1);
+
+        // Should have nothing left
+        assertEq(lido.balanceOf(address(lido)), 0);
+    }
+
+    function testPartialClaimRoundingInverted() public {
+        // Add some stake from another user so we have more to play with
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        cheats.deal(USER2_ADDRESS, 10 ether);
+        cheats.prank(USER2_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        validatorSelectMock(validatorSelectorAddress, "test", 15 ether, 5 ether);
+        lido.initiateStake();
+
+        // Add some rewards to change exchange rate.
+        cheats.deal(rTreasuryAddress, 0.12345633456787654 ether);
+        lido.claimRewards();
+
+        // User has 10 stavax
+        assertEq(lido.balanceOf(USER2_ADDRESS), 10 ether);
+
+        // Withdraw it all
+        cheats.prank(USER2_ADDRESS);
+        uint256 reqId = lido.requestWithdrawal(10 ether);
+
+        // Fill the request
+        cheats.deal(pTreasuryAddress, 15 ether);
+        lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
+        (, , uint256 amountRequested, , , ) = lido.unstakeRequests(reqId);
+
+        cheats.prank(USER2_ADDRESS);
+        lido.claim(reqId, 1);
+
+        // Claim everything but 1
+        cheats.prank(USER2_ADDRESS);
+        lido.claim(reqId, amountRequested - 1);
+
+        // Should have nothing left
+        assertEq(lido.balanceOf(address(lido)), 0);
     }
 
     function testPartialClaimSucceedsAfterRewards() public {
@@ -1123,6 +1255,9 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(lido.exchangeRateStAVAXToAVAX(), 1.009 ether);
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
 
         // Now we receive more rewards
         cheats.deal(rTreasuryAddress, 0.1 ether);
@@ -1163,6 +1298,9 @@ contract AvaLidoTest is DSTest, Helpers {
 
         cheats.deal(pTreasuryAddress, 1 ether);
         lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
 
         assertEq(lido.unstakeRequestCount(USER1_ADDRESS), 1);
         cheats.prank(USER1_ADDRESS);
@@ -1239,6 +1377,9 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(lido.exchangeRateAVAXToStAVAX(), 982318271119842829);
         assertEq(lido.exchangeRateStAVAXToAVAX(), 1.018 ether);
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
         // ...but their claim should still be same as test above: 1.009 AVAX
         // because the exchange rate is locked at time of request
         cheats.prank(USER1_ADDRESS);
@@ -1282,17 +1423,25 @@ contract AvaLidoTest is DSTest, Helpers {
         lido.deposit{value: x}();
         validatorSelectMock(validatorSelectorAddress, "test", x, 0);
 
+        uint256 stAVAXBalance = lido.balanceOf(USER1_ADDRESS);
+        assertEq(stAVAXBalance, x); // rate is 1:1
+
         lido.initiateStake();
 
-        cheats.startPrank(USER1_ADDRESS);
+        cheats.prank(USER1_ADDRESS);
         uint256 reqId = lido.requestWithdrawal(x);
 
         cheats.deal(pTreasuryAddress, x);
         lido.claimUnstakedPrincipals();
 
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
+        cheats.prank(USER1_ADDRESS);
         lido.claim(reqId, x);
 
-        // TODO: Assert tokens transferred correctly
+        assertEq(lido.balanceOf(USER1_ADDRESS), 0); // All stAVAX gone.
+        assertEq(lido.balanceOf(address(lido)), 0); // Lido holds no left over stAVAX either
     }
 
     // Tokens
@@ -1499,6 +1648,10 @@ contract AvaLidoTest is DSTest, Helpers {
         paymentSplit[0] = 60;
         paymentSplit[1] = 40;
 
+        string memory eventName = "setProtocolFeeSplit";
+        bytes memory data = abi.encode(paymentAddresses, paymentSplit);
+        cheats.expectEmit(true, false, false, true);
+        emit ProtocolConfigChanged(eventName, data);
         lido.setProtocolFeeSplit(paymentAddresses, paymentSplit);
         cheats.deal(rTreasuryAddress, 1 ether);
         lido.claimRewards();
@@ -1550,6 +1703,10 @@ contract AvaLidoTest is DSTest, Helpers {
 
         assertTrue(lido.hasRole(ROLE_PROTOCOL_MANAGER, DEPLOYER_ADDRESS));
 
+        string memory eventName = "setMaxProtocolControlledAVAX";
+        bytes memory data = abi.encode(2 ether);
+        cheats.expectEmit(true, false, false, true);
+        emit ProtocolConfigChanged(eventName, data);
         cheats.prank(DEPLOYER_ADDRESS);
         lido.setMaxProtocolControlledAVAX(2 ether);
 
@@ -1582,5 +1739,82 @@ contract AvaLidoTest is DSTest, Helpers {
             lido.deposit{value: 100000000 ether}();
         }
         assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
+    }
+
+    function testTriggerZeroExchangeRate() public {
+        // Increase protocol limit for test (default is low)
+        cheats.prank(DEPLOYER_ADDRESS);
+        lido.setMaxProtocolControlledAVAX(type(uint256).max);
+
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}();
+
+        // Set up validator and stake.
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        // No longer has any AVAX, but has stAVAX
+        assertEq(address(USER1_ADDRESS).balance, 0);
+        assertEq(lido.balanceOf(USER1_ADDRESS), 10 ether);
+
+        // Withdraw as user.
+        cheats.prank(USER1_ADDRESS);
+        uint256 reqId = lido.requestWithdrawal(10 ether - 1 wei);
+        cheats.deal(pTreasuryAddress, 10 ether);
+        lido.claimUnstakedPrincipals();
+
+        // Advance time beyond the minimum lock period
+        cheats.warp(block.timestamp + lido.minimumClaimWaitTimeSeconds());
+
+        // Claim all but 1 wei.
+        cheats.prank(USER1_ADDRESS);
+        lido.claim(reqId, 10 ether - 1 wei);
+
+        // Only 1 wei left in protocol.
+        uint256 totalControlled = lido.protocolControlledAVAX();
+        assertEq(totalControlled, 1 wei);
+
+        // Calculate exchange rate.
+        uint256 exchangeRateStAVAXToAVAX = lido.stAVAXToAVAX(totalControlled, 1 ether);
+        uint256 exchangeRateAVAXToStAVAX = lido.avaxToStAVAX(totalControlled, 1 ether);
+
+        assertEq(exchangeRateStAVAXToAVAX, 1 ether);
+        assertEq(exchangeRateAVAXToStAVAX, 1 ether);
+
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 1 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        // Calculate exchange rate.
+        exchangeRateStAVAXToAVAX = lido.stAVAXToAVAX(totalControlled, 1 ether);
+        exchangeRateAVAXToStAVAX = lido.avaxToStAVAX(totalControlled, 1 ether);
+
+        // Confirm that attacker has not forced exchange rate to zero.
+        assertTrue(exchangeRateStAVAXToAVAX > 0);
+        assertTrue(exchangeRateAVAXToStAVAX > 0);
+    }
+
+    function testManipulateBalanceWithSelfDestruct() public {
+        assertEq(lido.protocolControlledAVAX(), 0);
+        assertEq(lido.unaccountedBalance(), 0);
+
+        // Deposit as user.
+        cheats.deal(USER1_ADDRESS, 1 ether);
+        cheats.prank(USER1_ADDRESS);
+        lido.deposit{value: 1 ether}();
+
+        assertEq(lido.protocolControlledAVAX(), 1 ether);
+        assertEq(lido.unaccountedBalance(), 0);
+
+        // Force-send AVAX via selfdestruct
+        SelfDestructor attacker = new SelfDestructor();
+        cheats.deal(address(attacker), 50 ether);
+        attacker.attack(address(lido));
+
+        assertEq(lido.protocolControlledAVAX(), 1 ether);
+        assertEq(lido.unaccountedBalance(), 50 ether);
     }
 }

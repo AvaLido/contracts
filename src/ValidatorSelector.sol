@@ -18,6 +18,11 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
     // Errors
     error InvalidAddress();
 
+    // Events
+    event MaxChunkSizeChanged(uint256 newMaxChunkSize);
+    event OracleAddressChanged(address newOracleAddress);
+    event SmallStakeThresholdChanged(uint256 newSmallStakeThreshold);
+
     uint256 smallStakeThreshold;
     uint256 maxChunkSize;
 
@@ -200,13 +205,19 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
         if (oracleAddress == address(0)) revert InvalidAddress();
 
         oracle = IOracle(oracleAddress);
+
+        emit OracleAddressChanged(oracleAddress);
     }
 
     function setSmallStakeThreshold(uint256 _smallStakeThreshold) external onlyRole(ROLE_VALIDATOR_MANAGER) {
         smallStakeThreshold = _smallStakeThreshold;
+
+        emit SmallStakeThresholdChanged(_smallStakeThreshold);
     }
 
     function setMaxChunkSize(uint256 _maxChunkSize) external onlyRole(ROLE_VALIDATOR_MANAGER) {
         maxChunkSize = _maxChunkSize;
+
+        emit MaxChunkSizeChanged(_maxChunkSize);
     }
 }

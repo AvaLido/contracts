@@ -26,7 +26,12 @@ abstract contract stAVAX is ERC20Upgradeable {
             return stAvaxAmount;
         }
 
-        return Math.mulDiv(stAvaxAmount, totalControlled, totalSupply());
+        // Prevent exchange rate from rounding to zero.
+        uint256 avaxAmount = Math.mulDiv(stAvaxAmount, totalControlled, totalSupply());
+        if (avaxAmount == 0) {
+            return 1 wei;
+        }
+        return avaxAmount;
     }
 
     /**
@@ -41,7 +46,12 @@ abstract contract stAVAX is ERC20Upgradeable {
             return avaxAmount;
         }
 
-        return Math.mulDiv(avaxAmount, totalSupply(), totalControlled);
+        // Prevent exchange rate from rounding to zero.
+        uint256 stAVAXAmount = Math.mulDiv(avaxAmount, totalSupply(), totalControlled);
+        if (stAVAXAmount == 0) {
+            return 1 wei;
+        }
+        return stAVAXAmount;
     }
 
     /**

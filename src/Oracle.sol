@@ -26,6 +26,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
 
     // Events
     event EpochDurationChanged(uint256 epochDuration);
+    event NodeIDListChanged();
     event OracleManagerAddressChanged(address newOracleManagerAddress);
     event OracleReportReceived(uint256 epochId);
 
@@ -192,6 +193,8 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         // Remove the latest epoch data because it will no longer be valid if node indicies
         // have changed. This will happen if validators are removed from the list.
         delete reportsByEpochId[latestFinalizedEpochId];
+        
+        emit NodeIDListChanged();
     }
 
     function setEpochDuration(uint256 _epochDuration) external onlyRole(ROLE_ORACLE_ADMIN) {

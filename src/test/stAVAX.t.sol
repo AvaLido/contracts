@@ -71,6 +71,10 @@ contract stAVAXTest is DSTest, Helpers {
         cheats.assume(u1Amount < 300_000_000 ether);
         cheats.assume(u2Amount < 300_000_000 ether);
 
+        // Prevent fuzzing triggering zero exchange rate.
+        cheats.assume(u1Amount > 0);
+        cheats.assume(u2Amount > 0);
+
         stavax.deposit{value: u1Amount}(USER1_ADDRESS);
         stavax.deposit{value: u2Amount}(USER2_ADDRESS);
 
