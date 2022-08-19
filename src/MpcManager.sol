@@ -94,6 +94,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         address _principalTreasuryAddress,
         address _rewardTreasuryAddress
     ) public initializer {
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ROLE_MPC_MANAGER, _roleMpcAdmin);
         _setupRole(ROLE_PAUSE_MANAGER, _rolePauseManager);
         avaLidoAddress = _avaLidoAddress;
