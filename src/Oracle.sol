@@ -193,7 +193,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         // Remove the latest epoch data because it will no longer be valid if node indicies
         // have changed. This will happen if validators are removed from the list.
         delete reportsByEpochId[latestFinalizedEpochId];
-        
+
         emit NodeIDListChanged();
     }
 
