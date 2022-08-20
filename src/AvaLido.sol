@@ -355,8 +355,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     /**
      * @notice Deposit your AVAX to receive Staked AVAX (stAVAX) in return.
-     * @dev Receives AVAX and mints StAVAX to msg.sender. We attempt to fill
-     * any outstanding requests with the incoming AVAX for instant liquidity.
+     * @dev Receives AVAX and mints StAVAX to msg.sender.
      */
     function deposit() external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
@@ -372,6 +371,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _mint(msg.sender, amountOfStAVAXToMint);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
+
+        amountPendingStakeAVAX += amount;
     }
 
     /**
@@ -383,6 +384,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function claimUnstakedPrincipals() external {
         uint256 val = address(principalTreasury).balance;
         if (val == 0) return;
+
         if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
         // Track buffered balance and claim.
@@ -396,7 +398,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         amountStakedAVAX -= val;
 
         // Fill unstake requests and allocate excess for restaking.
-        fillUnstakeRequests(amountStakedAVAX);
+        fillUnstakeRequests(val);
     }
 
     /**
@@ -462,7 +464,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Take the remaining amount and stash it to be staked at a later time.
         // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.
         // This intentionally removes the ability to instantly stake and unstake, which makes the
-        // arb opportunity around trying to collect rebase value significantly riskier/impractical.
+        // arb opportunity around trying to collect rewards value significantly riskier/impractical.
         amountPendingStakeAVAX += remaining;
         amountPendingUnstakeFillsAVAX = 0;
     }
@@ -488,6 +490,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
             if (remaining == 0) break;
 
+            // Return early to prevent unstake flooding
+            if (numberFilled == 100) {
+                return (false, remaining);
+            }
+
             if (unstakeRequests[i].amountFilled < unstakeRequests[i].amountRequested) {
                 uint256 amountRequired = unstakeRequests[i].amountRequested - unstakeRequests[i].amountFilled;
 
@@ -503,11 +510,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
                 } else {
                     emit RequestPartiallyFilledEvent(amountToFill, block.timestamp, i);
                 }
-            }
-
-            // Return early to prevent unstake flooding
-            if (numberFilled == 100) {
-                return (false, remaining);
             }
 
             remaining = inputAmount - amountFilled;
