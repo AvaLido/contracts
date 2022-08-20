@@ -12,4 +12,8 @@ interface IOracle {
     function nodeIdByValidatorIndex(uint256 index) external view returns (string memory);
 
     function validatorCount() external view returns (uint256);
+
+    function currentReportableEpoch() external view returns (uint256);
+
+    function isReportingEpochValid(uint256 epochId) external view returns (bool);
 }

@@ -372,9 +372,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _mint(msg.sender, amountOfStAVAXToMint);
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
-
-        // Fill unstake requests and allocate excess for restaking.
-        fillUnstakeRequests(amount);
     }
 
     /**

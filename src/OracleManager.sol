@@ -28,21 +28,20 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
     error EpochAlreadyFinalized();
     error InvalidAddress();
     error InvalidQuorum();
+    error InvalidReportingEpoch();
+    error InvalidValidatorIndex();
     error OracleAlreadyReported();
     error OracleContractAddressNotSet();
     error OracleMemberExists();
     error OracleMemberNotFound();
-    //error TooFewOracleMembers();
     error ValidatorAlreadyWhitelisted();
     error ValidatorNodeIdNotFound();
-    error InvalidValidatorIndex();
 
     // Events
     event OracleAddressChanged(address oracleAddress);
     event OracleMemberAdded(address member);
     event OracleMemberRemoved(address member);
     event OracleReportSent(uint256 epochId);
-    // event RoleOracleManagerChanged(address newRoleOracleManager);
 
     // State variables
     address[] public whitelistedOraclesArray; // whitelisted addresses running our oracle daemon.
@@ -106,16 +105,19 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
         // 0. Check if Oracle deployed contract address is set
         if (oracleContractAddress == address(0)) revert OracleContractAddressNotSet();
 
-        // 1. Check if the reporting oracle is on our whitelist
+        // Check if the reporting oracle is on our whitelist
         if (!_getOracleInWhitelistMapping(msg.sender)) revert OracleMemberNotFound();
 
-        // 2. Check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
+        // Check if quorum has been reached and data sent to Oracle for this reporting period already; if yes, return
         if (finalizedReportsByEpochId[_epochId]) revert EpochAlreadyFinalized();
 
-        // 3. Check if the oracle member has already reported for the period; reverts if true
+        // Check that we are reporting for a valid epoch
+        if (!Oracle.isReportingEpochValid(_epochId)) revert InvalidReportingEpoch();
+
+        // Check if the oracle member has already reported for the period; reverts if true
         if (reportedOraclesByEpochId[_epochId][msg.sender]) revert OracleAlreadyReported();
 
-        // 4. Check that the data only references indicies within the oracle list.
+        // Check that the data only references indicies within the oracle list.
         uint256 numValidators = Oracle.validatorCount();
         if (numValidators == 0) {
             return;
@@ -127,19 +129,19 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
             }
         }
 
-        // 5. Log that the oracle has reported for this epoch
+        // Log that the oracle has reported for this epoch
         reportedOraclesByEpochId[_epochId][msg.sender] = true;
 
-        // 6. Hash the incoming data: _report
+        // Hash the incoming data: _report
         bytes32 hashedReportData = _hashReportData(_reportData);
 
-        // 7. Store the hashed data count in reportHashesByEpochId
+        // Store the hashed data count in reportHashesByEpochId
         _storeHashedDataCount(_epochId, hashedReportData);
 
-        // 8. Calculate if the hash achieves quorum
+        // Calculate if the hash achieves quorum
         bool quorumReached = _calculateQuorum(_epochId, hashedReportData);
 
-        // 9. If quorum is achieved, commit the report to Oracle.sol and log the epoch as finalized
+        // If quorum is achieved, commit the report to Oracle.sol and log the epoch as finalized
         if (quorumReached) {
             finalizedReportsByEpochId[_epochId] = true;
             Oracle.receiveFinalizedReport(_epochId, _reportData);

@@ -18,17 +18,22 @@ import "./Types.sol";
  */
 contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // Errors
+    error EpochAlreadyFinalized();
     error InvalidAddress();
+    error InvalidEpochDuration();
+    error InvalidReportingEpoch();
     error OnlyOracleManagerContract();
 
     // Events
+    event EpochDurationChanged(uint256 epochDuration);
     event NodeIDListChanged();
     event OracleManagerAddressChanged(address newOracleManagerAddress);
     event OracleReportReceived(uint256 epochId);
 
     // State variables
     address public oracleManagerContract;
-    uint256 public latestEpochId;
+    uint256 public latestFinalizedEpochId;
+    uint256 public epochDuration; // in blocks
 
     // A list of all node IDs which is supplied periodically by our service.
     // We use this as a lookup table (by index) to nodeID, rather than having to write the IDs along side
@@ -39,12 +44,17 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // Mappings
     mapping(uint256 => Validator[]) internal reportsByEpochId; // epochId => array of Validator[] structs
 
-    function initialize(address _roleOracleAdmin, address _oracleManagerContract) public initializer {
+    function initialize(
+        address _roleOracleAdmin,
+        address _oracleManagerContract,
+        uint256 _epochDuration
+    ) public initializer {
         // Roles
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ROLE_ORACLE_ADMIN, _roleOracleAdmin);
 
         oracleManagerContract = _oracleManagerContract;
+        epochDuration = _epochDuration;
     }
 
     // -------------------------------------------------------------------------
@@ -72,12 +82,18 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         external
         onlyOracleManagerContract
     {
+        // Check that we are not overwriting an already finalized epoch
+        if (reportsByEpochId[_epochId].length != 0) revert EpochAlreadyFinalized();
+
+        // Check that we are finalizing for a valid epoch
+        if (!isFinalizingEpochValid(_epochId)) revert InvalidReportingEpoch();
+
         for (uint256 i = 0; i < _reportData.length; i++) {
             reportsByEpochId[_epochId].push(_reportData[i]);
         }
-        if (_epochId > latestEpochId) {
-            latestEpochId = _epochId;
-        }
+
+        latestFinalizedEpochId = _epochId;
+
         emit OracleReportReceived(_epochId);
     }
 
@@ -98,7 +114,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
      * @notice Get all finalized data for all validators for the latest epoch.
      */
     function getLatestValidators() public view returns (Validator[] memory) {
-        return reportsByEpochId[latestEpochId];
+        return reportsByEpochId[latestFinalizedEpochId];
     }
 
     /**
@@ -120,6 +136,36 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
      */
     function allValidatorNodeIds() public view returns (string[] memory) {
         return validatorNodeIds;
+    }
+
+    /**
+     * @notice Get the current reportable epoch for daemons
+     * @dev It will be the block number previous to the current one which is
+     * evenly divisible by our epochDuration
+     */
+    function currentReportableEpoch() public view returns (uint256) {
+        return block.number - (block.number % epochDuration);
+    }
+
+    /**
+     * @notice Check validity of epoch id in OracleManager.receiveMemberReport
+     */
+    function isReportingEpochValid(uint256 epochId) public view returns (bool) {
+        bool isEpochLaterThanLatestFinalized = epochId > latestFinalizedEpochId;
+        bool isEpochNextReportable = epochId == currentReportableEpoch();
+        return isEpochLaterThanLatestFinalized && isEpochNextReportable;
+    }
+
+    /**
+     * @notice Check validity of epoch id in receiveFinalizedReport
+     * @dev Unlike isReportingEpochValid we only want to check that the epoch id
+     * is later than latestFinalizedEpochId and matches the correct duration
+     * rather than enforcing that it is the next reportable epoch.
+     */
+    function isFinalizingEpochValid(uint256 epochId) public view returns (bool) {
+        bool isEpochLaterThanLatestFinalized = epochId > latestFinalizedEpochId;
+        bool isEpochOfCorrectDuration = epochId % epochDuration == 0;
+        return isEpochLaterThanLatestFinalized && isEpochOfCorrectDuration;
     }
 
     // -------------------------------------------------------------------------
@@ -146,8 +192,17 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         }
         // Remove the latest epoch data because it will no longer be valid if node indicies
         // have changed. This will happen if validators are removed from the list.
-        delete reportsByEpochId[latestEpochId];
+        delete reportsByEpochId[latestFinalizedEpochId];
 
         emit NodeIDListChanged();
+    }
+
+    function setEpochDuration(uint256 _epochDuration) external onlyRole(ROLE_ORACLE_ADMIN) {
+        // Sanity check that epoch duration is at least greater than 0
+        if (_epochDuration < 1) revert InvalidEpochDuration();
+
+        epochDuration = _epochDuration;
+
+        emit EpochDurationChanged(_epochDuration);
     }
 }
