@@ -34,7 +34,7 @@ contract Deploy is DSTest, Helpers {
     ];
 
     // Deploy contracts
-    // Usage: forge script src/deploy/Deploy.t.sol --sig "deploy()" --broadcast --rpc-url <PRC URL> --private-key <PK>
+    // Usage: forge script src/deploy/Deploy.t.sol --sig "deploy()" --broadcast --rpc-url <RPC_URL> --private-key <PRIVATE_KEY>
     // Syntax is identical to `cast`
     function deploy() public {
         // Create a transaction

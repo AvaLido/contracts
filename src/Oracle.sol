@@ -22,6 +22,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     error OnlyOracleManagerContract();
 
     // Events
+    event NodeIDListChanged();
     event OracleManagerAddressChanged(address newOracleManagerAddress);
     event OracleReportReceived(uint256 epochId);
 
@@ -143,8 +144,10 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         for (uint256 i = 0; i < len; i++) {
             validatorNodeIds.push(nodes[i]);
         }
-        // Remove the latest epoch data becasue it will no longer be valid if node indicies
+        // Remove the latest epoch data because it will no longer be valid if node indicies
         // have changed. This will happen if validators are removed from the list.
         delete reportsByEpochId[latestEpochId];
+
+        emit NodeIDListChanged();
     }
 }
