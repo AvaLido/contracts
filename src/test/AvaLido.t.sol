@@ -778,8 +778,6 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(amountFilled2, 0);
     }
 
-    // function testFillUnstakeRequestMultiRequestSingleFill() public {}
-
     function testMultipleRequestReads() public {
         // Deposit as user.
         cheats.deal(USER1_ADDRESS, 10 ether);

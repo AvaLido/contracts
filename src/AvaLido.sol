@@ -374,7 +374,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         emit DepositEvent(msg.sender, amount, block.timestamp);
 
         // Fill unstake requests and allocate excess for restaking.
-        fillUnstakeRequests(amountPendingUnstakeFillsAVAX + amount);
+        fillUnstakeRequests(amount);
     }
 
     /**
@@ -399,7 +399,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         amountStakedAVAX -= val;
 
         // Fill unstake requests and allocate excess for restaking.
-        fillUnstakeRequests(amountPendingUnstakeFillsAVAX + amountStakedAVAX);
+        fillUnstakeRequests(amountStakedAVAX);
     }
 
     /**
@@ -428,7 +428,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         emit RewardsCollectedEvent(afterFee);
 
         // Fill unstake requests and allocate excess for restaking.
-        fillUnstakeRequests(amountPendingUnstakeFillsAVAX + afterFee);
+        fillUnstakeRequests(afterFee);
     }
 
     // -------------------------------------------------------------------------
