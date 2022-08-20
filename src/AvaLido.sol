@@ -136,6 +136,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // The buffer added to account for delay in exporting to P-chain
     uint256 pChainExportBuffer;
 
+    // Number of times we loop through unstake requests when filling
+    uint256 unstakeLoopBound;
+
     // Selector used to find validators to stake on.
     IValidatorSelector public validatorSelector;
 
@@ -171,6 +174,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         maxProtocolControlledAVAX = 100_000 ether; // Initial limit for deploy.
         pChainExportBuffer = 1 hours;
         minimumClaimWaitTimeSeconds = 3600;
+        unstakeLoopBound = 100;
 
         mpcManager = IMpcManager(_mpcManagerAddress);
         validatorSelector = IValidatorSelector(validatorSelectorAddress);
@@ -491,7 +495,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
             if (remaining == 0) break;
 
             // Return early to prevent unstake flooding
-            if (numberFilled == 100) {
+            if (numberFilled == unstakeLoopBound) {
                 return (false, remaining);
             }
 
@@ -620,11 +624,21 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         pChainExportBuffer = _pChainExportBuffer;
+
+        emit ProtocolConfigChanged("setPChainExportBuffer", abi.encode(_pChainExportBuffer));
     }
 
     function setMinClaimWaitTimeSeconds(uint64 _minimumClaimWaitTimeSeconds) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         if (_minimumClaimWaitTimeSeconds > stakePeriod) revert InvalidConfiguration();
         minimumClaimWaitTimeSeconds = _minimumClaimWaitTimeSeconds;
+
+        emit ProtocolConfigChanged("setMinClaimWaitTimeSeconds", abi.encode(_minimumClaimWaitTimeSeconds));
+    }
+
+    function setUnstakeLoopBound(uint64 _unstakeLoopBound) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        unstakeLoopBound = _unstakeLoopBound;
+
+        emit ProtocolConfigChanged("setUnstakeLoopBound", abi.encode(_unstakeLoopBound));
     }
 
     // -------------------------------------------------------------------------
