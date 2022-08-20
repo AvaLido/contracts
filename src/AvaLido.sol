@@ -388,7 +388,6 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function claimUnstakedPrincipals() external {
         uint256 val = address(principalTreasury).balance;
         if (val == 0) return;
-
         if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
 
         // Track buffered balance and claim.

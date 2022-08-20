@@ -216,26 +216,6 @@ contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
         assertEq(remaining, 0);
     }
 
-    // // TODO: figure out why this is failing on Github actions but not locally
-    // function testSelectManyValidatorsUnderThreshold() public {
-    //     // many validators with lots of capacity
-    //     oracleDataMock(nValidatorsWithFreeSpace(1000, 500 ether));
-
-    //     (string[] memory vals, uint256[] memory amounts, uint256 remaining) = selector.selectValidatorsForStake(
-    //         50 ether
-    //     );
-    //     assertEq(vals.length, 1);
-
-    //     // Note: `selector.selectValidatorsForStake` selects a node to delegate to pseudo-randomly (via hashing).
-    //     // If the selection algorithm changes, this unit test will fail as another node will have been selected.
-    //     assertEq(keccak256(bytes(vals[0])), keccak256(bytes("NodeID-947")));
-
-    //     assertEq(amounts.length, 1);
-    //     assertEq(amounts[0], 50 ether);
-
-    //     assertEq(remaining, 0);
-    // }
-
     function testSelectManyValidatorsOverThreshold() public {
         // many validators with limited of capacity
         oracleDataMock(oracleAddress, nValidatorsWithFreeSpace(1000, 500 ether));
