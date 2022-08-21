@@ -498,7 +498,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Assumes order of the array is creation order.
         for (uint256 i = unfilledHead; i < unstakeRequests.length; i++) {
-            if (remaining == 0) break;
+            if (remaining == 0) {
+                return (false, 0);
+            }
 
             // Return early to prevent unstake flooding
             if (numberFilled == unstakeLoopBound) {
