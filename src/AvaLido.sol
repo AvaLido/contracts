@@ -455,6 +455,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     /**
      * @dev Wraps `_fillUnstakeRequests` and tracks the amount of AVAX in the
      * contract which is pending unstake fills to prevent unstake flooding.
+     * @param amount The amount of free'd AVAX made available to fill requests.
      */
     function fillUnstakeRequests(uint256 amount) private {
         (bool completed, uint256 remaining) = _fillUnstakeRequests(amountPendingUnstakeFillsAVAX + amount);
@@ -480,6 +481,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * Note that filled requests are not removed from the queue, as they still must be
      * claimed by users.
      * @param inputAmount The amount of free'd AVAX made available to fill requests.
+     * @return bool Whether the queue has been completely cleared.
+     * @return uint256 The amount of AVAX that is left over after filling requests.
      */
     function _fillUnstakeRequests(uint256 inputAmount) private returns (bool, uint256) {
         // Queue unchecked so returns incomplete.
