@@ -376,6 +376,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         emit DepositEvent(msg.sender, amount, block.timestamp);
 
+        // Take the amount and stash it to be staked at a later time.
+        // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.
+        // This intentionally removes the ability to instantly stake and unstake, which makes the
+        // arb opportunity around trying to collect reward value significantly riskier/impractical.
         amountPendingStakeAVAX += amount;
     }
 
