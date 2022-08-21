@@ -891,22 +891,43 @@ contract AvaLidoTest is DSTest, Helpers {
         uint256 req1 = lido.requestWithdrawal(0.5 ether);
         uint256 req2 = lido.requestWithdrawal(0.5 ether);
         uint256 req3 = lido.requestWithdrawal(0.5 ether);
+        uint256 req4 = lido.requestWithdrawal(0.5 ether);
+        uint256 req5 = lido.requestWithdrawal(0.5 ether);
         cheats.stopPrank();
 
-        cheats.deal(pTreasuryAddress, 2 ether);
+        cheats.deal(pTreasuryAddress, 3 ether);
         lido.claimUnstakedPrincipals();
 
         (, , , uint256 amountFilled1, , ) = lido.unstakeRequests(req1);
         (, , , uint256 amountFilled2, , ) = lido.unstakeRequests(req2);
         (, , , uint256 amountFilled3, , ) = lido.unstakeRequests(req3);
+        (, , , uint256 amountFilled4, , ) = lido.unstakeRequests(req4);
+        (, , , uint256 amountFilled5, , ) = lido.unstakeRequests(req5);
         // First two should be fully filled...
         assertEq(amountFilled1, 0.5 ether);
         assertEq(amountFilled2, 0.5 ether);
-        // ...but the 3rd isn't because our loop bound is 2
+        // ...but the rest aren't because our loop bound is 2
         assertEq(amountFilled3, 0);
+        assertEq(amountFilled4, 0);
+        assertEq(amountFilled5, 0);
         // No AVAX should be waiting to stake because we have requests in the queue
         assertEq(lido.amountPendingStakeAVAX(), 0);
-        assertEq(lido.amountPendingUnstakeFillsAVAX(), 1 ether);
+        assertEq(lido.amountPendingUnstakeFillsAVAX(), 2 ether);
+
+        // Assert that amountPendingUnstakeFillsAVAX is used correctly next loop
+        cheats.deal(pTreasuryAddress, 0.25 ether);
+        lido.claimUnstakedPrincipals();
+        (, , , uint256 secondAmountFilled3, , ) = lido.unstakeRequests(req3);
+        (, , , uint256 secondAmountFilled4, , ) = lido.unstakeRequests(req4);
+        (, , , uint256 secondAmountFilled5, , ) = lido.unstakeRequests(req5);
+        assertEq(secondAmountFilled3, 0.5 ether);
+        assertEq(secondAmountFilled4, 0.5 ether);
+        // Still one left in queue
+        assertEq(secondAmountFilled5, 0);
+        // No AVAX should be waiting to stake because we have requests in the queue
+        assertEq(lido.amountPendingStakeAVAX(), 0);
+        // 2 (amountPendingUnstakeFillsAVAX previous loop) + 0,25 - (0.5 * 2) = 1.25
+        assertEq(lido.amountPendingUnstakeFillsAVAX(), 1.25 ether);
     }
 
     function testMultipleRequestReads() public {
