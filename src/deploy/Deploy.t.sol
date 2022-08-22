@@ -79,10 +79,10 @@ contract Deploy is DSTest, Helpers {
         // End transaction
         cheats.stopBroadcast();
 
-        console.log("AvaLido", address(lido));
-        console.log("Validator selector", address(validatorSelector));
-        console.log("Oracle", address(oracle));
-        console.log("Oracle Manager", address(oracleManager));
-        console.log("MPC Manager", address(mpcManager));
+        console.log("Deployed AvaLido", address(lido));
+        console.log("Deployed Validator Selector", address(validatorSelector));
+        console.log("Deployed Oracle", address(oracle));
+        console.log("Deployed Oracle Manager", address(oracleManager));
+        console.log("Deployed MPC Manager", address(mpcManager));
     }
 }
