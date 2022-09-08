@@ -11,6 +11,8 @@ contract Treasury is ITreasury {
     // Errors
     error InvalidAddress();
     error BeneficiaryOnly();
+    error TransferFailed();
+
     address payable public beneficiaryAddress;
 
     constructor(address _beneficiaryAddress) {
@@ -20,7 +22,8 @@ contract Treasury is ITreasury {
     receive() external payable {}
 
     function claim(uint256 amount) external onlyBeneficiary {
-        beneficiaryAddress.transfer(amount);
+        (bool success, ) = beneficiaryAddress.call{value: amount}("");
+        if (!success) revert TransferFailed();
     }
 
     modifier onlyBeneficiary() {

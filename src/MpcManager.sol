@@ -41,6 +41,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     error QuorumAlreadyReached();
     error AttemptToRejoin();
 
+    error TransferFailed();
+
     // Events
     event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
@@ -119,7 +121,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     ) external payable whenNotPaused onlyAvaLido {
         if (lastGenAddress == address(0)) revert KeyNotGenerated();
         if (msg.value != amount) revert InvalidAmount();
-        payable(lastGenAddress).transfer(amount);
+        (bool success, ) = payable(lastGenAddress).call{value: amount}("");
+        if (!success) revert TransferFailed();
 
         uint256 requestNumber = _getNextStakeRequestNumber();
 
