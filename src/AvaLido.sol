@@ -196,10 +196,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Return your stAVAX to receive the equivalent amount of AVAX at the current exchange rate.
+     * @notice Return your stAVAX to create an unstake request.
      * @dev We limit users to some maximum number of concurrent unstake requests to prevent
      * people flooding the queue. The amount for each unstake request is unbounded.
      * @param stAVAXAmount The amount of stAVAX to unstake.
+     * @return An unstake request ID for use when claiming AVAX.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
         if (stAVAXAmount == 0) revert InvalidStakeAmount();
@@ -385,9 +386,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     /**
      * @notice Claims the value in treasury.
-     * @dev A payable function which receives AVAX from the MPC wallet and
-     * uses it to fill unstake requests. Any remaining funds after all requests
-     * are filled are re-staked.
+     * @dev Claims AVAX from the MPC wallet and uses it to fill unstake requests.
+     * Any remaining funds after all requests are filled are re-staked.
      */
     function claimUnstakedPrincipals() external {
         uint256 val = address(principalTreasury).balance;
