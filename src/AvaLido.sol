@@ -429,8 +429,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Track buffered balance and transfer fee.
         _bufferedBalance -= protocolFee;
-        (bool success, ) = payable(protocolFeeSplitter).call{value: protocolFee}("");
-        if (!success) revert TransferFailed();
+        payable(protocolFeeSplitter).transfer(protocolFee);
 
         emit ProtocolFeeEvent(protocolFee);
 
