@@ -31,7 +31,22 @@ function main() {
       const nodes = data.result.validators.map((v) => {
         return v.nodeID;
       });
-      console.log(defaultAbiCoder.encode(["string[]"], [nodes]));
+      //   console.log(defaultAbiCoder.encode(["string[]"], [nodes]));
+
+      console.log(
+        defaultAbiCoder.encode(
+          ["string[]"],
+          [
+            [
+              "NodeID-4CWTbdvgXHY1CLXqQNAp22nJDo5nAmts6",
+              "NodeID-3VWnZNViBP2b56QBY7pNJSLzN2rkTyqnK",
+              "NodeID-LQwRLm4cbJ7T2kxcxp4uXCU5XD8DFrE1C",
+              "NodeID-84KbQHSDnojroCVY7vQ7u9Tx7pUonPaS",
+              "NodeID-4FD94p7B8o4MzFHpazLN6jbTgXPpf8mHP",
+            ],
+          ]
+        )
+      );
     });
   });
 
