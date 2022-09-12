@@ -115,7 +115,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     uint256 public minStakeBatchAmount;
 
     // Smallest amount a user can stake.
-    uint256 public minStakeAmount;
+    uint256 public minStakeAmountAVAX;
+
+    // Smallest amount a user can unstake.
+    uint256 public minUnstakeAmountStAVAX;
 
     // Period over which AVAX is staked.
     uint256 public stakePeriod;
@@ -168,7 +171,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Initialize contract variables.
         protocolFeeBasisPoints = 1000; // 1000 BPS = 10%
         minStakeBatchAmount = 10 ether;
-        minStakeAmount = 0.1 ether;
+        minStakeAmountAVAX = 0.1 ether;
+        minUnstakeAmountStAVAX = 0.05 ether;
         stakePeriod = 14 days;
         maxUnstakeRequests = 10;
         maxProtocolControlledAVAX = 100_000 ether; // Initial limit for deploy.
@@ -202,7 +206,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      * @param stAVAXAmount The amount of stAVAX to unstake.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
-        if (stAVAXAmount == 0) revert InvalidStakeAmount();
+        if (stAVAXAmount < minUnstakeAmountStAVAX) revert InvalidStakeAmount();
 
         if (unstakeRequestCount[msg.sender] >= maxUnstakeRequests) {
             revert TooManyConcurrentUnstakeRequests();
@@ -363,7 +367,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
      */
     function deposit() external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
-        if (amount < minStakeAmount) revert InvalidStakeAmount();
+        if (amount < minStakeAmountAVAX) revert InvalidStakeAmount();
         if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
 
         // Track buffered balance.
@@ -606,10 +610,16 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         emit ProtocolConfigChanged("setMinStakeBatchAmount", abi.encode(_minStakeBatchAmount));
     }
 
-    function setMinStakeAmount(uint256 _minStakeAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
-        minStakeAmount = _minStakeAmount;
+    function setMinStakeAmountAVAX(uint256 _minStakeAmountAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        minStakeAmountAVAX = _minStakeAmountAVAX;
 
-        emit ProtocolConfigChanged("setMinStakeAmount", abi.encode(_minStakeAmount));
+        emit ProtocolConfigChanged("setMinStakeAmountAVAX", abi.encode(_minStakeAmountAVAX));
+    }
+
+    function setMinUnstakeAmountStAVAX(uint256 _minUnstakeAmountStAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        minUnstakeAmountStAVAX = _minUnstakeAmountStAVAX;
+
+        emit ProtocolConfigChanged("setMinUnstakeAmountStAVAX", abi.encode(_minUnstakeAmountStAVAX));
     }
 
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {

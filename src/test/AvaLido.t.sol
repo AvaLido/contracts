@@ -120,7 +120,7 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.deal(USER1_ADDRESS, type(uint256).max);
         lido.setMaxProtocolControlledAVAX(type(uint256).max);
 
-        cheats.assume(x > lido.minStakeAmount());
+        cheats.assume(x > lido.minStakeAmountAVAX());
         cheats.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
         cheats.prank(USER1_ADDRESS);
@@ -216,6 +216,12 @@ contract AvaLidoTest is DSTest, Helpers {
         cheats.expectRevert(AvaLido.InvalidStakeAmount.selector);
         cheats.prank(USER1_ADDRESS);
         lido.requestWithdrawal(0 ether);
+    }
+
+    function testUnstakeRequestInvalidAmount() public {
+        cheats.expectRevert(AvaLido.InvalidStakeAmount.selector);
+        cheats.prank(USER1_ADDRESS);
+        lido.requestWithdrawal(0.04 ether);
     }
 
     function testTooManyConcurrentUnstakes() public {
