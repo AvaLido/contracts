@@ -7,18 +7,13 @@ import "forge-std/console.sol";
 
 import "../test/helpers.sol";
 
-// Contracts for deploy
-import "../OracleManager.sol";
 import "../Oracle.sol";
-import "../AvaLido.sol";
 
-contract Deploy is DSTest, Helpers {
+contract SetNodes is DSTest {
     // Set nodes for the Fuji network
     // Usage: forge script src/deploy/OracleFujiNodes.t.sol --sig "setNodes(address)" --broadcast --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> [address]
-    // Syntax is identical to `cast`
     function setNodes(address oracleAddress) public {
-        // cheats.startBroadcast();
-
+        cheats.startBroadcast();
         string[] memory inputs = new string[](2);
         inputs[0] = "node";
         inputs[1] = "./scripts/fuji-get-nodes.js";
@@ -30,6 +25,6 @@ contract Deploy is DSTest, Helpers {
         Oracle oracle = Oracle(address(oracleAddress));
         oracle.setNodeIDList(nodes);
 
-        // cheats.stopBroadcast();
+        cheats.stopBroadcast();
     }
 }
