@@ -16,7 +16,7 @@ abstract contract stAVAX is ERC20Upgradeable {
      * @notice Converts an amount of stAVAX to its equivalent in AVAX.
      * @param totalControlled The amount of AVAX controlled by the protocol.
      * @param stAvaxAmount The amount of stAVAX to convert.
-     * @return UnstakeRequest Its amount of equivalent AVAX.
+     * @return Equivalent AVAX at current protocol exchange rate.
      */
     function stAVAXToAVAX(uint256 totalControlled, uint256 stAvaxAmount) public view returns (uint256) {
         if (totalSupply() == 0) {
@@ -38,7 +38,7 @@ abstract contract stAVAX is ERC20Upgradeable {
      * @notice Converts an amount of AVAX to its equivalent in stAVAX.
      * @param totalControlled The amount of AVAX controlled by the protocol.
      * @param avaxAmount The amount of AVAX to convert.
-     * @return UnstakeRequest Its equivalent amount of stAVAX.
+     * @return Equivalent stAVAX at current protocol exchange rate.
      */
     function avaxToStAVAX(uint256 totalControlled, uint256 avaxAmount) public view returns (uint256) {
         // The result is always 1:1 on the first deposit.
