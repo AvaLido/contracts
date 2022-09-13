@@ -61,6 +61,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error NoAvailableValidators();
     error InvalidAddress();
     error InvalidConfiguration();
+    error TransferFailed();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
@@ -276,7 +277,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _bufferedBalance -= amountAVAX;
 
         // Transfer the AVAX to the user
-        payable(msg.sender).transfer(amountAVAX);
+        (bool success, ) = msg.sender.call{value: amountAVAX}("");
+        if (!success) revert TransferFailed();
 
         // Emit claim event.
         if (isFullyClaimed(request)) {
@@ -428,6 +430,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         // Track buffered balance and transfer fee.
         _bufferedBalance -= protocolFee;
         payable(protocolFeeSplitter).transfer(protocolFee);
+
         emit ProtocolFeeEvent(protocolFee);
 
         uint256 afterFee = val - protocolFee;
