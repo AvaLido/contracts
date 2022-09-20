@@ -197,6 +197,17 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         emit OracleManagerAddressChanged(_oracleManagerAddress);
     }
 
+    /**
+     * @dev Start a node ID update. This removes the existing data so that oracles cannot query
+     * the set of node IDs to construct a report. It also prevents any reports from being finalised
+     * until the update has finished.
+     * You must follow this function up with calls to `appendNodeIDs` and `endNodeIDUpdate` for the
+     * protocol to function correctly.
+     * Note that its possible for this to happen during the middle of an epoch being reported. In that
+     * case, the call to finalise the epoch will fail and the oracles will move on to the next reporting
+     * epoch. This means that until the next epcoh is finalised, no staking can happen. So ideally this should
+     * run relatively close to a new epoch.
+     */
     function startNodeIDUpdate() external onlyRole(ROLE_ORACLE_ADMIN) {
         if (isUpdatingNodes) {
             revert InvalidNodeIDUpdate();
@@ -208,6 +219,10 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         isUpdatingNodes = true;
     }
 
+    /**
+     * Append node IDs to the current list. Must be in an update process (i.e. call start first) for this
+     * to work.
+     */
     function appendNodeIDs(string[] calldata nodes) external onlyRole(ROLE_ORACLE_ADMIN) {
         if (!isUpdatingNodes) {
             revert InvalidNodeIDUpdate();
@@ -218,6 +233,9 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         }
     }
 
+    /**
+     * End an update, restore the flag to allow reports again.
+     */
     function endNodeIDUpdate() external onlyRole(ROLE_ORACLE_ADMIN) {
         if (!isUpdatingNodes) {
             revert InvalidNodeIDUpdate();
