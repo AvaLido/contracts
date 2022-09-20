@@ -45,10 +45,9 @@ contract SetNodes is Script {
         // We're on the last batch if we don't get a full one, or we get 0
         if (nodes.length < batchSize || nodes.length == 0) {
             console.log("Completed all nodes");
-            return;
+        } else {
+            console.log("Next index to use: ", startIndex + batchSize);
         }
-
-        console.log("Next index to use: ", startIndex + batchSize);
 
         Oracle oracle = Oracle(address(oracleAddress));
         vm.broadcast();

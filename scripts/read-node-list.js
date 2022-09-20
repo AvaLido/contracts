@@ -3,8 +3,8 @@ const { argv } = require("process");
 const fs = require("fs");
 
 function main() {
-  const batchSize = argv[2];
-  const start = argv[3];
+  const batchSize = Number(argv[2]);
+  const start = Number(argv[3]);
   const nodes = JSON.parse(fs.readFileSync("./out/node-output.json"));
 
   if (start > nodes.length - 1) {
