@@ -2,11 +2,10 @@
 pragma solidity 0.8.10;
 
 import "forge-std/Test.sol";
-import "./cheats.sol";
 import "./helpers.sol";
 import "../Types.sol";
 
-contract ValidatorHelpersTest is DSTest, Helpers {
+contract ValidatorHelpersTest is Test, Helpers {
     function setUp() public {}
 
     function testHasUptime() public {
@@ -47,7 +46,7 @@ contract ValidatorHelpersTest is DSTest, Helpers {
     }
 
     function testGetNodeIndexWithFuzzing(uint24 x) public {
-        cheats.assume(x < 4096);
+        vm.assume(x < 4096);
         uint24 data = x << 10;
         uint256 res = ValidatorHelpers.getNodeIndex(Validator.wrap(data));
         assertEq(res, x);

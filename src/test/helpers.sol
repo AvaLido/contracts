@@ -3,12 +3,11 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "forge-std/Test.sol";
 
 import "../ValidatorSelector.sol";
 import "../MpcManager.sol";
 import "../Treasury.sol";
-
-import "./cheats.sol";
 
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 address constant DEPLOYER_ADDRESS = 0x62d69f6867A0A084C6d313943dC22023Bc263691;
@@ -69,7 +68,7 @@ bytes constant MPC_BIG_P10_PUBKEY = hex"4f82f88cca6ac57866f21014fbc4f1c0d30ee105
 bytes constant MPC_BIG_P11_PUBKEY = hex"ab5a5d015a9ada82ad194e8d8b6b2f9faf4ac74d96143da8d0c2ad34401d8566107dfb554b8cf320763d75d5ed5a06b4f4703bddd4c61f78f90bdc5b1ffef4a3";
 bytes constant MPC_BIG_P12_PUBKEY = hex"293d0b9ba1d9e964214046a7955869a6c0da18076dcd95e978c1a4cee05b69aea8566a81309cf218e378d94b60aa999a6641c4821b03bc902397f46da92d2f85";
 
-abstract contract Helpers {
+abstract contract Helpers is Test {
     function validatorSelectMock(
         address validatorSelector,
         string memory node,
@@ -82,7 +81,7 @@ abstract contract Helpers {
         uint256[] memory amountResult = new uint256[](1);
         amountResult[0] = amount;
 
-        cheats.mockCall(
+        vm.mockCall(
             validatorSelector,
             abi.encodeWithSelector(ValidatorSelector.selectValidatorsForStake.selector),
             abi.encode(idResult, amountResult, remaining)
