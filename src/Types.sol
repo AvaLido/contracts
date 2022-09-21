@@ -39,10 +39,7 @@ library ValidatorHelpers {
         return uint256(hundredsOfAVAX) * 100 ether;
     }
 
-    function packValidator(
-        uint24 nodeIndex,
-        uint24 hundredsOfAvax
-    ) public pure returns (Validator) {
+    function packValidator(uint24 nodeIndex, uint24 hundredsOfAvax) public pure returns (Validator) {
         assert(nodeIndex < 16384);
         assert(hundredsOfAvax < 1024);
 
