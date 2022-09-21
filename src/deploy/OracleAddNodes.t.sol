@@ -8,15 +8,25 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import "../test/helpers.sol";
 
+import "../Avalido.sol";
 import "../Oracle.sol";
 
 // Set nodes for the oracle
+// WARNING: It is important to note that the `gather-node-list` script does some
+// *important filtering*. In order to cut down on the number of validators which we
+// need to upload to the chain (which is slow and expensive), we filter out ones which
+// will never match our staking criteria here.
+// The parameters which are used in the script must match the parameters set in the contract!
+// For example, we have a 'minimumStakeDuration' in
 contract SetNodes is Script {
-    // forge script src/deploy/OracleAddNodes.t.sol --sig "startUpdate(address)" --ffi --rpc-url $RPC_URL --private-key $FORGE_PK [address] --broadcast
-    function startUpdate(address oracleAddress) public {
-        string[] memory inputs = new string[](2);
+    // forge script src/deploy/OracleAddNodes.t.sol --sig "startUpdate(address, adress)" --ffi --rpc-url $RPC_URL --private-key $FORGE_PK [oralce] [avalido] --broadcast
+    function startUpdate(address oracleAddress, address avaAddress) public {
+        AvaLido avalido = AvaLido(avaAddress);
+
+        string[] memory inputs = new string[](3);
         inputs[0] = "node";
         inputs[1] = "./scripts/gather-node-list.js";
+        inputs[2] = cheats.toString(avalido.stakePeriod());
 
         bytes memory res = vm.ffi(inputs);
         (bool success, uint256 amount) = abi.decode(res, (bool, uint256));

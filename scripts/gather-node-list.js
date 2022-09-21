@@ -3,6 +3,11 @@ const https = require("https");
 const fs = require("fs");
 
 function main() {
+  const stakePeriodSeconds = Number(process.argv[2]);
+  if (stakePeriodSeconds <= 0) {
+    throw new Error("Invalid stake period");
+  }
+
   const requestData = {
     jsonrpc: "2.0",
     method: "platform.getCurrentValidators",
