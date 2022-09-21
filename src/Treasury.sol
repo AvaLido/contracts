@@ -13,7 +13,7 @@ contract Treasury is ITreasury {
     error BeneficiaryOnly();
     error TransferFailed();
 
-    address payable public beneficiaryAddress;
+    address payable immutable public beneficiaryAddress;
 
     constructor(address _beneficiaryAddress) {
         beneficiaryAddress = payable(_beneficiaryAddress);
