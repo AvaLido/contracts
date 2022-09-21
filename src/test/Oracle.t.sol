@@ -45,7 +45,7 @@ contract OracleTest is Test, Helpers {
 
     function testReceiveFinalizedReport() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
 
         // Epoch id should be 0 to start
         assertEq(oracle.latestFinalizedEpochId(), 0);
@@ -66,7 +66,7 @@ contract OracleTest is Test, Helpers {
 
     function testReceiveFinalizedReportAfterSkippedEpochs() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
 
         // First report, epoch id should be 100
         vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
@@ -85,7 +85,7 @@ contract OracleTest is Test, Helpers {
 
     function testCannotReceiveFinalizedReportForEpochsNotMatchingDuration() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
 
         // First report, epoch id should be 100
         vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
@@ -102,14 +102,14 @@ contract OracleTest is Test, Helpers {
 
     function testUnauthorizedReceiveFinalizedReport() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
         vm.expectRevert(Oracle.OnlyOracleManagerContract.selector);
         oracle.receiveFinalizedReport(epochId, reportData);
     }
 
     function testCannotReceiveFinalizedReportTwice() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
 
         vm.expectEmit(false, false, false, true);
         emit OracleReportReceived(epochId);
@@ -127,7 +127,7 @@ contract OracleTest is Test, Helpers {
     function testOldReportDoesNotUpdateLatest() public {
         uint256 reportingEpochId = 200;
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
 
         vm.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(reportingEpochId, reportData);
