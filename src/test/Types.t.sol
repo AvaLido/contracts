@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import "./helpers.sol";
 import "../Types.sol";
 
@@ -73,7 +73,7 @@ contract ValidatorHelpersTest is Test, Helpers {
     }
 }
 
-contract IdHelpersTest is DSTest, Helpers {
+contract IdHelpersTest is Test, Helpers {
     function setUp() public {}
 
     function testMakeGroupId() public {
@@ -131,7 +131,7 @@ contract IdHelpersTest is DSTest, Helpers {
     }
 }
 
-contract ConfirmationHelpersTest is DSTest, Helpers {
+contract ConfirmationHelpersTest is Test, Helpers {
     bytes32 constant INDICES = hex"73553de49378e407b656cae022df20a11de995d35221910115cfc0993c483700";
     uint8 constant CONFIRMATION_COUNT = 115;
     bytes32 constant CONFIRMATION = hex"73553de49378e407b656cae022df20a11de995d35221910115cfc0993c483773";
@@ -161,7 +161,7 @@ contract ConfirmationHelpersTest is DSTest, Helpers {
     }
 }
 
-contract KeygenStatusHelpersTest is DSTest, Helpers {
+contract KeygenStatusHelpersTest is Test, Helpers {
     function testMakeKeygenRequest() public {
         bytes32 req = KeygenStatusHelpers.makeKeygenRequest(MPC_GROUP_ID, 1);
         assertEq(uint256(req), uint256(MPC_GROUP_ID) + 1);

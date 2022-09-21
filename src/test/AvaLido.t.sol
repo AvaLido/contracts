@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import "../AvaLido.sol";
 import "../interfaces/IOracle.sol";
 
@@ -1852,8 +1852,6 @@ contract AvaLidoTest is Test, Helpers {
         lido.deposit{value: 1 ether}();
 
         assertTrue(lido.hasRole(ROLE_PROTOCOL_MANAGER, DEPLOYER_ADDRESS));
-
-        console.log(vm.toString(uint256(123)));
 
         string memory eventName = "setMaxProtocolControlledAVAX";
         bytes memory data = abi.encode(2 ether);

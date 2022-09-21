@@ -3,7 +3,7 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 import "../ValidatorSelector.sol";
 import "../MpcManager.sol";

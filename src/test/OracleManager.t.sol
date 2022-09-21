@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
+import {console2 as console} from "forge-std/console2.sol";
+import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 
 import "./helpers.sol";
 
 import "../OracleManager.sol";
 import "../Oracle.sol";
-
-import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 
 contract OracleManagerTest is Test, Helpers {
     OracleManager oracleManager;
