@@ -12,19 +12,19 @@ import "../MpcManager.sol";
 
 contract MpcManagerTest is DSTest, Helpers {
     uint8 constant MPC_THRESHOLD = 1;
-    bytes32 constant MPC_BIG_GROUP_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0900";
-    bytes32 constant MPC_BIG_P01_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0901";
-    bytes32 constant MPC_BIG_P02_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0902";
-    bytes32 constant MPC_BIG_P03_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0903";
-    bytes32 constant MPC_BIG_P04_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0904";
-    bytes32 constant MPC_BIG_P05_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0905";
-    bytes32 constant MPC_BIG_P06_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0906";
-    bytes32 constant MPC_BIG_P07_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0907";
-    bytes32 constant MPC_BIG_P08_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0908";
-    bytes32 constant MPC_BIG_P09_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c0909";
-    bytes32 constant MPC_BIG_P10_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c090a";
-    bytes32 constant MPC_BIG_P11_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c090b";
-    bytes32 constant MPC_BIG_P12_ID = hex"f86c407f80a75fa8151d0b55d4575789a7d8c663672286aad7ddfdf8f90c090c";
+    bytes32 constant MPC_BIG_GROUP_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0900";
+    bytes32 constant MPC_BIG_P01_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0901";
+    bytes32 constant MPC_BIG_P02_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0902";
+    bytes32 constant MPC_BIG_P03_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0903";
+    bytes32 constant MPC_BIG_P04_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0904";
+    bytes32 constant MPC_BIG_P05_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0905";
+    bytes32 constant MPC_BIG_P06_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0906";
+    bytes32 constant MPC_BIG_P07_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0907";
+    bytes32 constant MPC_BIG_P08_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0908";
+    bytes32 constant MPC_BIG_P09_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0909";
+    bytes32 constant MPC_BIG_P10_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c090a";
+    bytes32 constant MPC_BIG_P11_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c090b";
+    bytes32 constant MPC_BIG_P12_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c090c";
     bytes constant TOO_SHORT_PUKEY =
         hex"ee5cd601a19cd9bb95fe7be8b1566b73c51d3e7e375359c129b1d77bb4b3e6f06766bde6ff723360cee7f89abab428717f811f460ebf67f5186f75a9f4288d";
 
@@ -168,6 +168,16 @@ contract MpcManagerTest is DSTest, Helpers {
 
         cheats.prank(MPC_BIG_P12_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P12_ID, MPC_GENERATED_PUBKEY);
+    }
+
+    function testCreateGroupNotSorted() public {
+        cheats.prank(MPC_ADMIN_ADDRESS);
+        // Invalid public key
+        pubKeys[0] = MPC_PLAYER_3_PUBKEY;
+        pubKeys[1] = MPC_PLAYER_1_PUBKEY;
+        pubKeys[2] = MPC_PLAYER_2_PUBKEY;
+        cheats.expectRevert(MpcManager.PublicKeysNotSorted.selector);
+        mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
     }
 
     function testCreateGroup() public {
