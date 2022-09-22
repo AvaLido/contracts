@@ -10,23 +10,27 @@ import "../test/helpers.sol";
 
 import "../AvaLido.sol";
 import "../Oracle.sol";
+import "../ValidatorSelector.sol";
 
 // Set nodes for the oracle
 // WARNING: It is important to note that the `gather-node-list` script does some
 // *important filtering*. In order to cut down on the number of validators which we
 // need to upload to the chain (which is slow and expensive), we filter out ones which
 // will never match our staking criteria here.
-// The parameters which are used in the script must match the parameters set in the contract!
-// For example, we have a 'minimumStakeDuration' in
+// The parameters which are used in the script are derived from the contracts, so that
+// they do not become out of sync, even if changed.
 contract SetNodes is Script {
-    // forge script src/deploy/OracleAddNodes.t.sol --sig "startUpdate(address, adress)" --ffi --rpc-url $RPC_URL --private-key $FORGE_PK [oralce] [avalido] --broadcast
+    // forge script src/deploy/OracleAddNodes.t.sol --sig "startUpdate(address, address)" --ffi --rpc-url $RPC_URL --private-key $FORGE_PK [oracle] [avalido] --broadcast
     function startUpdate(address oracleAddress, address avaAddress) public {
         AvaLido avalido = AvaLido(avaAddress);
+        Oracle oracle = Oracle(oracleAddress);
+        ValidatorSelector selector = ValidatorSelector(address(avalido.validatorSelector()));
 
-        string[] memory inputs = new string[](3);
+        string[] memory inputs = new string[](4);
         inputs[0] = "node";
         inputs[1] = "./scripts/gather-node-list.js";
-        inputs[2] = cheats.toString(avalido.stakePeriod());
+        inputs[2] = vm.toString(avalido.stakePeriod());
+        inputs[3] = vm.toString(selector.smallStakeThreshold());
 
         bytes memory res = vm.ffi(inputs);
         (bool success, uint256 amount) = abi.decode(res, (bool, uint256));
@@ -35,7 +39,6 @@ contract SetNodes is Script {
         console.log("Got nodes:", amount);
         console.log("Start 'addNodes' with index 0");
 
-        Oracle oracle = Oracle(address(oracleAddress));
         vm.broadcast();
         oracle.startNodeIDUpdate();
     }
