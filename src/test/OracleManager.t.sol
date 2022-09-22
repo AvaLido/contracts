@@ -50,7 +50,7 @@ contract OracleManagerTest is Test, Helpers {
 
     function testOracleContractAddressNotSet() public {
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
 
         vm.roll(epochId + 1);
 
@@ -76,7 +76,7 @@ contract OracleManagerTest is Test, Helpers {
         vm.roll(epochId + 1);
 
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
         vm.prank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportData);
     }
@@ -86,9 +86,9 @@ contract OracleManagerTest is Test, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, 100);
         Validator[] memory reportDataTwo = new Validator[](1);
-        reportDataTwo[0] = ValidatorHelpers.packValidator(1, true, true, 200);
+        reportDataTwo[0] = ValidatorHelpers.packValidator(1, 200);
 
         vm.roll(epochId + 1);
 
@@ -111,7 +111,7 @@ contract OracleManagerTest is Test, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, 100);
 
         vm.roll(epochId + 1);
 
@@ -131,7 +131,7 @@ contract OracleManagerTest is Test, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, 100);
         vm.roll(epochId + 1);
         vm.startPrank(ORACLE_MEMBERS[0]);
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -145,7 +145,7 @@ contract OracleManagerTest is Test, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
         vm.expectRevert(OracleManager.OracleMemberNotFound.selector);
         oracleManager.receiveMemberReport(epochId, reportData);
     }
@@ -154,7 +154,7 @@ contract OracleManagerTest is Test, Helpers {
         vm.prank(ORACLE_ADMIN_ADDRESS);
         oracleManager.pause();
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, 100);
         vm.prank(ORACLE_MEMBERS[0]);
         vm.expectRevert("Pausable: paused");
         oracleManager.receiveMemberReport(epochId, reportDataOne);
@@ -165,7 +165,7 @@ contract OracleManagerTest is Test, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataInvalid = new Validator[](1);
-        reportDataInvalid[0] = ValidatorHelpers.packValidator(123, true, true, 100);
+        reportDataInvalid[0] = ValidatorHelpers.packValidator(123, 100);
 
         vm.roll(epochId + 1);
         vm.expectRevert(OracleManager.InvalidValidatorIndex.selector);
@@ -181,7 +181,7 @@ contract OracleManagerTest is Test, Helpers {
 
         // Setup first report for epoch id 100
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
         vm.prank(address(oracleManager));
         oracle.receiveFinalizedReport(100, reportData);
         assertEq(oracle.latestFinalizedEpochId(), 100);
@@ -199,7 +199,7 @@ contract OracleManagerTest is Test, Helpers {
 
         // Setup first report for epoch id 200
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
         vm.prank(address(oracleManager));
         oracle.receiveFinalizedReport(200, reportData);
         assertEq(oracle.latestFinalizedEpochId(), 200);
@@ -213,7 +213,7 @@ contract OracleManagerTest is Test, Helpers {
     function testCurrentReportableEpoch() public {
         // Setup first report for epoch id 100
         Validator[] memory reportData = new Validator[](1);
-        reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
         vm.prank(address(oracleManager));
         oracle.receiveFinalizedReport(100, reportData);
         assertEq(oracle.latestFinalizedEpochId(), 100);
@@ -288,7 +288,7 @@ contract OracleManagerTest is Test, Helpers {
         oracleManager.setOracleAddress(address(oracle));
 
         Validator[] memory reportDataOne = new Validator[](1);
-        reportDataOne[0] = ValidatorHelpers.packValidator(0, true, true, 100);
+        reportDataOne[0] = ValidatorHelpers.packValidator(0, 100);
 
         vm.roll(epochId + 1);
 

@@ -17,7 +17,7 @@ contract MockHelpers is Test {
     function nValidatorsWithFreeSpace(uint256 n, uint256 freeSpace) public pure returns (Validator[] memory) {
         Validator[] memory result = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
-            result[i] = ValidatorHelpers.packValidator(uint16(i), true, true, uint16(freeSpace / 100 ether));
+            result[i] = ValidatorHelpers.packValidator(uint16(i), uint16(freeSpace / 100 ether));
         }
         return result;
     }
@@ -55,12 +55,7 @@ contract MockHelpers is Test {
         uint256 freeSpace = 500;
         Validator[] memory unsuitableValidators = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
-            unsuitableValidators[i] = ValidatorHelpers.packValidator(
-                uint16(i),
-                false,
-                true,
-                uint16(freeSpace / 100 ether)
-            );
+            unsuitableValidators[i] = ValidatorHelpers.packValidator(uint16(i), uint16(freeSpace / 100 ether));
         }
         Validator[] memory suitableValidators = nValidatorsWithFreeSpace(n, 100000 ether);
 
