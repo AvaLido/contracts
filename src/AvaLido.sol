@@ -64,7 +64,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error TransferFailed();
 
     // Events
-    event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
+    event DepositEvent(address indexed from, uint256 amount, address referral);
     event WithdrawRequestSubmittedEvent(
         address indexed from,
         uint256 avaxAmount,
@@ -362,8 +362,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     /**
      * @notice Deposit your AVAX to receive Staked AVAX (stAVAX) in return.
      * @dev Receives AVAX and mints StAVAX to msg.sender.
+     * @param _referral Address of referral.
      */
-    function deposit() external payable whenNotPaused nonReentrant {
+    function deposit(address _referral) external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
         if (amount < minStakeAmount) revert InvalidStakeAmount();
         if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
@@ -376,7 +377,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 amountOfStAVAXToMint = avaxToStAVAX(protocolControlledAVAX() - amount, amount);
         _mint(msg.sender, amountOfStAVAXToMint);
 
-        emit DepositEvent(msg.sender, amount, block.timestamp);
+        emit DepositEvent(msg.sender, amount, _referral);
 
         // Take the amount and stash it to be staked at a later time.
         // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.

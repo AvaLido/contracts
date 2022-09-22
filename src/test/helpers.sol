@@ -10,6 +10,7 @@ import "../MpcManager.sol";
 import "../Treasury.sol";
 
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+address constant REFERRAL_ADDRESS = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 address constant DEPLOYER_ADDRESS = 0x62d69f6867A0A084C6d313943dC22023Bc263691;
 address constant PAUSE_ADMIN_ADDRESS = DEPLOYER_ADDRESS;
 address constant USER1_ADDRESS = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
