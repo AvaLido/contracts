@@ -69,11 +69,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         address indexed from,
         uint256 avaxAmount,
         uint256 stAvaxAmount,
-        uint256 timestamp,
         uint256 requestIndex
     );
-    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
-    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 indexed requestIndex);
+    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 indexed requestIndex);
     event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 indexed requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
@@ -223,7 +222,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), avaxAmount, 0, 0, stAVAXAmount));
 
         uint256 requestIndex = unstakeRequests.length - 1;
-        emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, stAVAXAmount, block.timestamp, requestIndex);
+        emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, stAVAXAmount, requestIndex);
 
         return requestIndex;
     }
@@ -521,9 +520,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
                 // We filled the request entirely, so move the head pointer on
                 if (isFilled(unstakeRequests[i])) {
                     unfilledHead = i + 1;
-                    emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, block.timestamp, i);
+                    emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, i);
                 } else {
-                    emit RequestPartiallyFilledEvent(amountToFill, block.timestamp, i);
+                    emit RequestPartiallyFilledEvent(amountToFill, i);
                 }
             }
 
