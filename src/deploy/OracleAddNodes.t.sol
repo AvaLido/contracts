@@ -8,7 +8,7 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 import "../test/helpers.sol";
 
-import "../Avalido.sol";
+import "../AvaLido.sol";
 import "../Oracle.sol";
 
 // Set nodes for the oracle
