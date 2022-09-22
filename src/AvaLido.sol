@@ -258,7 +258,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Partial claim, update amounts.
         request.amountClaimed += amountAVAX;
-        unstakeRequests[requestIndex] = request;
+        if (!isFullyClaimed(request)) {
+            unstakeRequests[requestIndex] = request;
+        }
 
         // Burn the stAVAX in the UnstakeRequest. If it's a partial claim we need to burn a proportional amount
         // of the original stAVAX using the stAVAX and AVAX amounts in the unstake request.
