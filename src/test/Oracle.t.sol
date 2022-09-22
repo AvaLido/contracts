@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
-import "./cheats.sol";
 import "./helpers.sol";
 
 import "../Oracle.sol";
 import "../OracleManager.sol";
 
-contract OracleTest is DSTest, Helpers {
+contract OracleTest is Test, Helpers {
     Oracle oracle;
 
     event EpochDurationChanged(uint256 epochDuration);
@@ -51,10 +50,10 @@ contract OracleTest is DSTest, Helpers {
         // Epoch id should be 0 to start
         assertEq(oracle.latestFinalizedEpochId(), 0);
 
-        cheats.expectEmit(false, false, false, true);
+        vm.expectEmit(false, false, false, true);
         emit OracleReportReceived(epochId);
 
-        cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(epochId, reportData);
 
         // Epoch id should be 100 after report
@@ -70,13 +69,13 @@ contract OracleTest is DSTest, Helpers {
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
         // First report, epoch id should be 100
-        cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(epochId, reportData);
         assertEq(oracle.latestFinalizedEpochId(), 100);
 
         // Second report for epoch id of 500 should be able to be accepted
         uint256 muchLaterEpochId = 500;
-        cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(muchLaterEpochId, reportData);
 
         Validator[] memory dataFromContract = oracle.getAllValidatorsByEpochId(muchLaterEpochId);
@@ -89,22 +88,22 @@ contract OracleTest is DSTest, Helpers {
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
         // First report, epoch id should be 100
-        cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(epochId, reportData);
         assertEq(oracle.latestFinalizedEpochId(), 100);
 
         // Second report for epoch id of 300, should still be accepted even though the next ought to be 200
         uint256 invalidEpochId = 150;
-        cheats.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
-        cheats.expectRevert(Oracle.InvalidReportingEpoch.selector);
+        vm.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.expectRevert(Oracle.InvalidReportingEpoch.selector);
         oracle.receiveFinalizedReport(invalidEpochId, reportData);
-        cheats.stopPrank();
+        vm.stopPrank();
     }
 
     function testUnauthorizedReceiveFinalizedReport() public {
         Validator[] memory reportData = new Validator[](1);
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
-        cheats.expectRevert(Oracle.OnlyOracleManagerContract.selector);
+        vm.expectRevert(Oracle.OnlyOracleManagerContract.selector);
         oracle.receiveFinalizedReport(epochId, reportData);
     }
 
@@ -112,17 +111,17 @@ contract OracleTest is DSTest, Helpers {
         Validator[] memory reportData = new Validator[](1);
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
-        cheats.expectEmit(false, false, false, true);
+        vm.expectEmit(false, false, false, true);
         emit OracleReportReceived(epochId);
 
-        cheats.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(epochId, reportData);
 
         // Should fail because epoch is already finalized
-        cheats.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
-        cheats.expectRevert(Oracle.EpochAlreadyFinalized.selector);
+        vm.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.expectRevert(Oracle.EpochAlreadyFinalized.selector);
         oracle.receiveFinalizedReport(epochId, reportData);
-        cheats.stopPrank();
+        vm.stopPrank();
     }
 
     function testOldReportDoesNotUpdateLatest() public {
@@ -130,14 +129,14 @@ contract OracleTest is DSTest, Helpers {
         Validator[] memory reportData = new Validator[](1);
         reportData[0] = ValidatorHelpers.packValidator(0, true, true, 100);
 
-        cheats.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        vm.startPrank(ORACLE_MANAGER_CONTRACT_ADDRESS);
         oracle.receiveFinalizedReport(reportingEpochId, reportData);
 
         // Epoch id should be 200 after report
         assertEq(oracle.latestFinalizedEpochId(), 200);
 
         // Send an old report, expect revert
-        cheats.expectRevert(Oracle.InvalidReportingEpoch.selector);
+        vm.expectRevert(Oracle.InvalidReportingEpoch.selector);
         oracle.receiveFinalizedReport(reportingEpochId - epochDuration, reportData);
 
         // Latest should still be original epoch
@@ -147,7 +146,7 @@ contract OracleTest is DSTest, Helpers {
     function testCurrentReportableEpoch() public {
         // Assume we deploy at block 1337 with an epoch duration of 100
         // Current reportable block should be 1300
-        cheats.roll(1337);
+        vm.roll(1337);
         assertEq(oracle.currentReportableEpoch(), 1300);
     }
 
@@ -157,16 +156,16 @@ contract OracleTest is DSTest, Helpers {
 
     function testChangeOracleManagerAddress() public {
         address newManagerAddress = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
-        cheats.expectEmit(false, false, false, true);
+        vm.expectEmit(false, false, false, true);
         emit OracleManagerAddressChanged(newManagerAddress);
 
-        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        vm.prank(ORACLE_ADMIN_ADDRESS);
         oracle.setOracleManagerAddress(newManagerAddress);
     }
 
     function testUnauthorizedChangeOracleManagerAddress() public {
         address newManagerAddress = 0x3e46faFf7369B90AA23fdcA9bC3dAd274c41E8E2;
-        cheats.expectRevert(
+        vm.expectRevert(
             "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracle.setOracleManagerAddress(newManagerAddress);
@@ -180,14 +179,14 @@ contract OracleTest is DSTest, Helpers {
         assertTrue(!oracle.hasRole(ROLE_ORACLE_ADMIN, USER2_ADDRESS));
 
         // User 2 doesn't have permission to grant roles, so this should revert.
-        cheats.expectRevert(
+        vm.expectRevert(
             "AccessControl: account 0x220866b1a2219f40e72f5c628b65d54268ca3a9d is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
         );
-        cheats.prank(USER2_ADDRESS);
+        vm.prank(USER2_ADDRESS);
         oracle.grantRole(ROLE_ORACLE_ADMIN, USER2_ADDRESS);
 
         // But the contract deployer does have permission.
-        cheats.prank(DEPLOYER_ADDRESS);
+        vm.prank(DEPLOYER_ADDRESS);
         oracle.grantRole(ROLE_ORACLE_ADMIN, USER2_ADDRESS);
 
         // User 2 now has a role 🎉
@@ -197,7 +196,7 @@ contract OracleTest is DSTest, Helpers {
     function testSetNodeIDList() public {
         assertEq(oracle.validatorCount(), 0);
 
-        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        vm.prank(ORACLE_ADMIN_ADDRESS);
         oracle.setNodeIDList(validators);
 
         assertEq(oracle.validatorCount(), 2);
@@ -206,16 +205,16 @@ contract OracleTest is DSTest, Helpers {
 
     function testChangeEpochDuration() public {
         uint256 newEpochDuration = 500;
-        cheats.expectEmit(false, false, false, true);
+        vm.expectEmit(false, false, false, true);
         emit EpochDurationChanged(newEpochDuration);
 
-        cheats.prank(ORACLE_ADMIN_ADDRESS);
+        vm.prank(ORACLE_ADMIN_ADDRESS);
         oracle.setEpochDuration(newEpochDuration);
     }
 
     function testUnauthorizedChangeEpochDuration() public {
         uint256 newEpochDuration = 500;
-        cheats.expectRevert(
+        vm.expectRevert(
             "AccessControl: account 0x62d69f6867a0a084c6d313943dc22023bc263691 is missing role 0x34a4d1a1986ad857ac4bae77830874ee3b64b359bb6bdc3f73a14cff3bb32bf6"
         );
         oracle.setEpochDuration(newEpochDuration);
@@ -223,9 +222,9 @@ contract OracleTest is DSTest, Helpers {
 
     function testChangeEpochDurationToZero() public {
         uint256 newEpochDuration = 0;
-        cheats.startPrank(ORACLE_ADMIN_ADDRESS);
-        cheats.expectRevert(Oracle.InvalidEpochDuration.selector);
+        vm.startPrank(ORACLE_ADMIN_ADDRESS);
+        vm.expectRevert(Oracle.InvalidEpochDuration.selector);
         oracle.setEpochDuration(newEpochDuration);
-        cheats.stopPrank();
+        vm.stopPrank();
     }
 }

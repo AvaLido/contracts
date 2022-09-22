@@ -2,7 +2,7 @@
 pragma solidity 0.8.10;
 
 // Test support
-import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
 import "../test/helpers.sol";
@@ -12,7 +12,7 @@ import "../OracleManager.sol";
 import "../Oracle.sol";
 import "../AvaLido.sol";
 
-contract Deploy is DSTest, Helpers {
+contract Deploy is Script, Helpers {
     // Role details
     // TODO: This should be divided into roles rather than used for everything
     address admin = 0x27F957c465214d9C3AF0bf10e52e68bd839c66d4;
@@ -38,7 +38,7 @@ contract Deploy is DSTest, Helpers {
     // Syntax is identical to `cast`
     function deploy() public {
         // Create a transaction
-        cheats.startBroadcast();
+        vm.startBroadcast();
 
         // MPC manager
         MpcManager _mpcManager = new MpcManager();
@@ -77,7 +77,7 @@ contract Deploy is DSTest, Helpers {
         mpcManager.initialize(mpcAdmin, pauseAdmin, address(lido), address(pTreasury), address(rTreasury));
 
         // End transaction
-        cheats.stopBroadcast();
+        vm.stopBroadcast();
 
         console.log("Deployed AvaLido", address(lido));
         console.log("Deployed Validator Selector", address(validatorSelector));
