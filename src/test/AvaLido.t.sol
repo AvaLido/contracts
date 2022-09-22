@@ -58,7 +58,7 @@ contract AvaLidoTest is Test, Helpers {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-    event ProtocolConfigChanged(string indexed eventName, bytes data);
+    event ProtocolConfigChanged(string indexed eventNameHash, string eventName, bytes data);
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
@@ -1799,7 +1799,7 @@ contract AvaLidoTest is Test, Helpers {
         string memory eventName = "setProtocolFeeSplit";
         bytes memory data = abi.encode(paymentAddresses, paymentSplit);
         vm.expectEmit(true, false, false, true);
-        emit ProtocolConfigChanged(eventName, data);
+        emit ProtocolConfigChanged(eventName, eventName, data);
         lido.setProtocolFeeSplit(paymentAddresses, paymentSplit);
         vm.deal(rTreasuryAddress, 1 ether);
         lido.claimRewards();
@@ -1854,7 +1854,7 @@ contract AvaLidoTest is Test, Helpers {
         string memory eventName = "setMaxProtocolControlledAVAX";
         bytes memory data = abi.encode(2 ether);
         vm.expectEmit(true, false, false, true);
-        emit ProtocolConfigChanged(eventName, data);
+        emit ProtocolConfigChanged(eventName, eventName, data);
         vm.prank(DEPLOYER_ADDRESS);
         lido.setMaxProtocolControlledAVAX(2 ether);
 

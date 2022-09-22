@@ -76,7 +76,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 indexed requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-    event ProtocolConfigChanged(string indexed eventName, bytes data);
+    event ProtocolConfigChanged(string indexed eventNameHash, string eventName, bytes data);
 
     // State variables
 
@@ -567,7 +567,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         require(_protocolFeeBasisPoints <= 10_000);
         protocolFeeBasisPoints = _protocolFeeBasisPoints;
 
-        emit ProtocolConfigChanged("setProtocolFeeBasisPoints", abi.encode(_protocolFeeBasisPoints));
+        emit ProtocolConfigChanged(
+            "setProtocolFeeBasisPoints",
+            "setProtocolFeeBasisPoints",
+            abi.encode(_protocolFeeBasisPoints)
+        );
     }
 
     /**
@@ -580,7 +584,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         principalTreasury = ITreasury(_address);
 
-        emit ProtocolConfigChanged("setPrincipalTreasuryAddress", abi.encode(_address));
+        emit ProtocolConfigChanged("setPrincipalTreasuryAddress", "setPrincipalTreasuryAddress", abi.encode(_address));
     }
 
     /**
@@ -593,7 +597,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         rewardTreasury = ITreasury(_address);
 
-        emit ProtocolConfigChanged("setRewardTreasuryAddress", abi.encode(_address));
+        emit ProtocolConfigChanged("setRewardTreasuryAddress", "setRewardTreasuryAddress", abi.encode(_address));
     }
 
     function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
@@ -602,56 +606,72 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     {
         protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
 
-        emit ProtocolConfigChanged("setProtocolFeeSplit", abi.encode(paymentAddresses, paymentSplit));
+        emit ProtocolConfigChanged(
+            "setProtocolFeeSplit",
+            "setProtocolFeeSplit",
+            abi.encode(paymentAddresses, paymentSplit)
+        );
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
 
-        emit ProtocolConfigChanged("setMinStakeBatchAmount", abi.encode(_minStakeBatchAmount));
+        emit ProtocolConfigChanged(
+            "setMinStakeBatchAmount",
+            "setMinStakeBatchAmount",
+            abi.encode(_minStakeBatchAmount)
+        );
     }
 
     function setMinStakeAmount(uint256 _minStakeAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeAmount = _minStakeAmount;
 
-        emit ProtocolConfigChanged("setMinStakeAmount", abi.encode(_minStakeAmount));
+        emit ProtocolConfigChanged("setMinStakeAmount", "setMinStakeAmount", abi.encode(_minStakeAmount));
     }
 
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         stakePeriod = _stakePeriod;
 
-        emit ProtocolConfigChanged("setStakePeriod", abi.encode(_stakePeriod));
+        emit ProtocolConfigChanged("setStakePeriod", "setStakePeriod", abi.encode(_stakePeriod));
     }
 
     function setMaxUnstakeRequests(uint8 _maxUnstakeRequests) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxUnstakeRequests = _maxUnstakeRequests;
 
-        emit ProtocolConfigChanged("setMaxUnstakeRequests", abi.encode(_maxUnstakeRequests));
+        emit ProtocolConfigChanged("setMaxUnstakeRequests", "setMaxUnstakeRequests", abi.encode(_maxUnstakeRequests));
     }
 
     function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
 
-        emit ProtocolConfigChanged("setMaxProtocolControlledAVAX", abi.encode(_maxProtocolControlledAVAX));
+        emit ProtocolConfigChanged(
+            "setMaxProtocolControlledAVAX",
+            "setMaxProtocolControlledAVAX",
+            abi.encode(_maxProtocolControlledAVAX)
+        );
     }
 
     function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         pChainExportBuffer = _pChainExportBuffer;
 
-        emit ProtocolConfigChanged("setPChainExportBuffer", abi.encode(_pChainExportBuffer));
+        emit ProtocolConfigChanged("setPChainExportBuffer", "setPChainExportBuffer", abi.encode(_pChainExportBuffer));
     }
 
     function setMinClaimWaitTimeSeconds(uint64 _minimumClaimWaitTimeSeconds) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         if (_minimumClaimWaitTimeSeconds > stakePeriod) revert InvalidConfiguration();
         minimumClaimWaitTimeSeconds = _minimumClaimWaitTimeSeconds;
 
-        emit ProtocolConfigChanged("setMinClaimWaitTimeSeconds", abi.encode(_minimumClaimWaitTimeSeconds));
+        emit ProtocolConfigChanged(
+            "setMinClaimWaitTimeSeconds",
+            "setMinClaimWaitTimeSeconds",
+            abi.encode(_minimumClaimWaitTimeSeconds)
+        );
     }
 
     function setUnstakeLoopBound(uint64 _unstakeLoopBound) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         unstakeLoopBound = _unstakeLoopBound;
 
-        emit ProtocolConfigChanged("setUnstakeLoopBound", abi.encode(_unstakeLoopBound));
+        emit ProtocolConfigChanged("setUnstakeLoopBound", "setUnstakeLoopBound", abi.encode(_unstakeLoopBound));
     }
 
     // -------------------------------------------------------------------------
