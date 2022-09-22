@@ -1795,8 +1795,8 @@ contract AvaLidoTest is DSTest, Helpers {
         paymentAddresses[1] = USER2_ADDRESS;
 
         uint256[] memory paymentSplit = new uint256[](2);
-        paymentSplit[0] = 60;
-        paymentSplit[1] = 40;
+        paymentSplit[0] = 60_000; // Although these are shares, we use BPS internally, so test this.
+        paymentSplit[1] = 40_000;
 
         string memory eventName = "setProtocolFeeSplit";
         bytes memory data = abi.encode(paymentAddresses, paymentSplit);

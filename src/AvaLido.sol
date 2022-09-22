@@ -186,8 +186,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         paymentAddresses[1] = authorFeeAddress;
 
         uint256[] memory paymentSplit = new uint256[](2);
-        paymentSplit[0] = 80;
-        paymentSplit[1] = 20;
+        paymentSplit[0] = 80_000;
+        paymentSplit[1] = 20_000;
 
         setProtocolFeeSplit(paymentAddresses, paymentSplit);
     }
