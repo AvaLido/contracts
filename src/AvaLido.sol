@@ -425,7 +425,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         rewardTreasury.claim(val);
 
         // Caclulate protocol fee.
-        uint256 protocolFee = (val * protocolFeeBasisPoints) / 10_000;
+        uint256 protocolFee = Math.mulDiv(val, protocolFeeBasisPoints, 10_000);
 
         // Track buffered balance and transfer fee.
         _bufferedBalance -= protocolFee;
