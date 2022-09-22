@@ -50,7 +50,7 @@ contract OracleManager is Pausable, AccessControlEnumerable, Initializable {
     // Mappings
     mapping(address => bool) public whitelistedOraclesMapping; // address => true if whitelisted
     mapping(uint256 => mapping(bytes32 => uint256)) internal reportHashesByEpochId; // epochId => (hashOfOracleData => countofThisHash)
-    mapping(uint256 => mapping(address => bool)) internal reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
+    mapping(uint256 => mapping(address => bool)) public reportedOraclesByEpochId; // epochId => (oracleAddress => true/false)
     mapping(uint256 => bool) public finalizedReportsByEpochId; // epochId => true/false
 
     function initialize(

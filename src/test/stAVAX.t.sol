@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
-import "./cheats.sol";
 import "./helpers.sol";
 
 import "../stAVAX.sol";
@@ -33,7 +32,7 @@ contract TestToken is stAVAX {
     }
 }
 
-contract stAVAXTest is DSTest, Helpers {
+contract stAVAXTest is Test, Helpers {
     TestToken stavax;
 
     function setUp() public {
@@ -68,12 +67,12 @@ contract stAVAXTest is DSTest, Helpers {
 
     function testDepositMultipleUserWithFuzzing(uint256 u1Amount, uint256 u2Amount) public {
         // AVAX total supply ~300m
-        cheats.assume(u1Amount < 300_000_000 ether);
-        cheats.assume(u2Amount < 300_000_000 ether);
+        vm.assume(u1Amount < 300_000_000 ether);
+        vm.assume(u2Amount < 300_000_000 ether);
 
         // Prevent fuzzing triggering zero exchange rate.
-        cheats.assume(u1Amount > 0);
-        cheats.assume(u2Amount > 0);
+        vm.assume(u1Amount > 0);
+        vm.assume(u2Amount > 0);
 
         stavax.deposit{value: u1Amount}(USER1_ADDRESS);
         stavax.deposit{value: u2Amount}(USER2_ADDRESS);
@@ -85,8 +84,8 @@ contract stAVAXTest is DSTest, Helpers {
     function testTransferNoZero() public {
         stavax.deposit{value: 10 ether}(USER1_ADDRESS);
 
-        cheats.prank(USER1_ADDRESS);
-        cheats.expectRevert("ERC20: transfer to the zero address");
+        vm.prank(USER1_ADDRESS);
+        vm.expectRevert("ERC20: transfer to the zero address");
         stavax.transfer(ZERO_ADDRESS, 1 ether);
 
         // Original balance remains
@@ -97,8 +96,8 @@ contract stAVAXTest is DSTest, Helpers {
         stavax.deposit{value: 2 ether}(USER1_ADDRESS);
         stavax.deposit{value: 10 ether}(USER2_ADDRESS);
 
-        cheats.prank(USER1_ADDRESS);
-        cheats.expectRevert("ERC20: transfer amount exceeds balance");
+        vm.prank(USER1_ADDRESS);
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
         stavax.transfer(USER2_ADDRESS, 3 ether);
 
         // Original balance remains
@@ -110,7 +109,7 @@ contract stAVAXTest is DSTest, Helpers {
 
         assertEq(stavax.balanceOf(USER1_ADDRESS), 2 ether);
 
-        cheats.prank(USER1_ADDRESS);
+        vm.prank(USER1_ADDRESS);
         bool res = stavax.transfer(USER2_ADDRESS, 1 ether);
         assertTrue(res);
 
@@ -126,14 +125,14 @@ contract stAVAXTest is DSTest, Helpers {
 
         assertEq(stavax.balanceOf(USER1_ADDRESS), 2 ether);
 
-        cheats.prank(USER1_ADDRESS);
+        vm.prank(USER1_ADDRESS);
         bool result = stavax.transfer(USER2_ADDRESS, 1 ether);
         assertTrue(result);
 
         assertEq(stavax.balanceOf(USER1_ADDRESS), 1 ether);
         assertEq(stavax.balanceOf(USER2_ADDRESS), 1 ether);
 
-        cheats.prank(USER1_ADDRESS);
+        vm.prank(USER1_ADDRESS);
         result = stavax.transfer(USER2_ADDRESS, 1 ether);
         assertTrue(result);
 
@@ -144,28 +143,28 @@ contract stAVAXTest is DSTest, Helpers {
     function testTransferUnapproved() public {
         stavax.deposit{value: 1 ether}(USER1_ADDRESS);
 
-        cheats.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert("ERC20: insufficient allowance");
         stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 1 ether);
     }
 
     function testTransferApproved() public {
         stavax.deposit{value: 1 ether}(USER1_ADDRESS);
 
-        cheats.prank(USER1_ADDRESS);
+        vm.prank(USER1_ADDRESS);
         stavax.approve(USER2_ADDRESS, 1 ether);
 
-        cheats.prank(USER2_ADDRESS);
+        vm.prank(USER2_ADDRESS);
         stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 1 ether);
     }
 
     function testTransferApprovedInsufficent() public {
         stavax.deposit{value: 1 ether}(USER1_ADDRESS);
 
-        cheats.prank(USER1_ADDRESS);
+        vm.prank(USER1_ADDRESS);
         stavax.approve(USER2_ADDRESS, 1 ether);
 
-        cheats.prank(USER2_ADDRESS);
-        cheats.expectRevert("ERC20: insufficient allowance");
+        vm.prank(USER2_ADDRESS);
+        vm.expectRevert("ERC20: insufficient allowance");
         stavax.transferFrom(USER1_ADDRESS, USER2_ADDRESS, 10 ether);
     }
 }

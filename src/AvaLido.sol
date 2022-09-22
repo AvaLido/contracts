@@ -61,6 +61,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error NoAvailableValidators();
     error InvalidAddress();
     error InvalidConfiguration();
+    error TransferFailed();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
@@ -189,8 +190,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         paymentAddresses[1] = authorFeeAddress;
 
         uint256[] memory paymentSplit = new uint256[](2);
-        paymentSplit[0] = 80;
-        paymentSplit[1] = 20;
+        paymentSplit[0] = 80_000;
+        paymentSplit[1] = 20_000;
 
         setProtocolFeeSplit(paymentAddresses, paymentSplit);
     }
@@ -200,10 +201,11 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // -------------------------------------------------------------------------
 
     /**
-     * @notice Return your stAVAX to receive the equivalent amount of AVAX at the current exchange rate.
+     * @notice Return your stAVAX to create an unstake request.
      * @dev We limit users to some maximum number of concurrent unstake requests to prevent
      * people flooding the queue. The amount for each unstake request is unbounded.
      * @param stAVAXAmount The amount of stAVAX to unstake.
+     * @return An unstake request ID for use when claiming AVAX.
      */
     function requestWithdrawal(uint256 stAVAXAmount) external whenNotPaused nonReentrant returns (uint256) {
         if (stAVAXAmount < minUnstakeAmountStAVAX) revert InvalidStakeAmount();
@@ -280,7 +282,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         _bufferedBalance -= amountAVAX;
 
         // Transfer the AVAX to the user
-        payable(msg.sender).transfer(amountAVAX);
+        (bool success, ) = msg.sender.call{value: amountAVAX}("");
+        if (!success) revert TransferFailed();
 
         // Emit claim event.
         if (isFullyClaimed(request)) {
@@ -389,9 +392,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     /**
      * @notice Claims the value in treasury.
-     * @dev A payable function which receives AVAX from the MPC wallet and
-     * uses it to fill unstake requests. Any remaining funds after all requests
-     * are filled are re-staked.
+     * @dev Claims AVAX from the MPC wallet and uses it to fill unstake requests.
+     * Any remaining funds after all requests are filled are re-staked.
      */
     function claimUnstakedPrincipals() external {
         uint256 val = address(principalTreasury).balance;
@@ -427,11 +429,12 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         rewardTreasury.claim(val);
 
         // Caclulate protocol fee.
-        uint256 protocolFee = (val * protocolFeeBasisPoints) / 10_000;
+        uint256 protocolFee = Math.mulDiv(val, protocolFeeBasisPoints, 10_000);
 
         // Track buffered balance and transfer fee.
         _bufferedBalance -= protocolFee;
         payable(protocolFeeSplitter).transfer(protocolFee);
+
         emit ProtocolFeeEvent(protocolFee);
 
         uint256 afterFee = val - protocolFee;
