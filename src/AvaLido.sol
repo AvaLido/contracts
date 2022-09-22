@@ -258,6 +258,8 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
         // Partial claim, update amounts.
         request.amountClaimed += amountAVAX;
+        // To save gas we only update the mapping on partial claims.
+        // We delete full claims at the end of the function.
         if (!isFullyClaimed(request)) {
             unstakeRequests[requestIndex] = request;
         }
@@ -364,9 +366,9 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     /**
      * @notice Deposit your AVAX to receive Staked AVAX (stAVAX) in return.
      * @dev Receives AVAX and mints StAVAX to msg.sender.
-     * @param _referral Address of referral.
+     * @param referral Address of referral.
      */
-    function deposit(address _referral) external payable whenNotPaused nonReentrant {
+    function deposit(address referral) external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
         if (amount < minStakeAmount) revert InvalidStakeAmount();
         if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
@@ -379,7 +381,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         uint256 amountOfStAVAXToMint = avaxToStAVAX(protocolControlledAVAX() - amount, amount);
         _mint(msg.sender, amountOfStAVAXToMint);
 
-        emit DepositEvent(msg.sender, amount, _referral);
+        emit DepositEvent(msg.sender, amount, referral);
 
         // Take the amount and stash it to be staked at a later time.
         // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.
