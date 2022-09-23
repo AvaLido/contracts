@@ -210,6 +210,27 @@ contract AvaLidoTest is DSTest, Helpers {
         assertEq(lido.amountPendingStakeAVAX(), 1 ether);
     }
 
+    // Receive unstaked principals and rewards
+    function testReceiveFundFromTreasuries() public {
+        // Non-Treasury cannot call
+        cheats.deal(USER1_ADDRESS, 10 ether);
+        cheats.prank(USER1_ADDRESS);
+        cheats.expectRevert(AvaLido.TreasuryOnly.selector);
+        lido.receiveFund{value: 1 ether}();
+
+        // Principal Treasury can call
+        cheats.deal(pTreasuryAddress, 10 ether);
+        cheats.prank(pTreasuryAddress);
+        lido.receiveFund{value: 1 ether}();
+        assertEq(address(lido).balance, 1 ether);
+
+        // Reward Treasury can call
+        cheats.deal(rTreasuryAddress, 10 ether);
+        cheats.prank(rTreasuryAddress);
+        lido.receiveFund{value: 1 ether}();
+        assertEq(address(lido).balance, 2 ether);
+    }
+
     // Unstake Requests
 
     function testUnstakeRequestZeroAmount() public {
