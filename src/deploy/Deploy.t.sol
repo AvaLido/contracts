@@ -62,7 +62,7 @@ contract Deploy is Script, Helpers {
 
         // AvaLido
         AvaLido _lido = new AvaLido();
-        AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
+        AvaLido lido = AvaLido(payable(proxyWrapped(address(_lido), admin)));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
         // Treasuries

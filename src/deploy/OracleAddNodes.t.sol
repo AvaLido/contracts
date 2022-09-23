@@ -22,7 +22,7 @@ import "../ValidatorSelector.sol";
 contract SetNodes is Script {
     // forge script src/deploy/OracleAddNodes.t.sol --sig "startUpdate(address, address)" --ffi --rpc-url $RPC_URL --private-key $FORGE_PK [oracle] [avalido] --broadcast
     function startUpdate(address oracleAddress, address avaAddress) public {
-        AvaLido avalido = AvaLido(avaAddress);
+        AvaLido avalido = AvaLido(payable(avaAddress));
         Oracle oracle = Oracle(oracleAddress);
         ValidatorSelector selector = ValidatorSelector(address(avalido.validatorSelector()));
 
