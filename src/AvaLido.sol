@@ -66,20 +66,19 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
     error TransferFailed();
 
     // Events
-    event DepositEvent(address indexed from, uint256 amount, uint256 timestamp);
+    event DepositEvent(address indexed from, uint256 amount, address referral);
     event WithdrawRequestSubmittedEvent(
         address indexed from,
         uint256 avaxAmount,
         uint256 stAvaxAmount,
-        uint256 timestamp,
         uint256 requestIndex
     );
-    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
-    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
+    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 indexed requestIndex);
+    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 indexed requestIndex);
     event ClaimEvent(address indexed from, uint256 claimAmount, bool indexed finalClaim, uint256 indexed requestIndex);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-    event ProtocolConfigChanged(string indexed eventName, bytes data);
+    event ProtocolConfigChanged(string indexed eventNameHash, string eventName, bytes data);
 
     // State variables
 
@@ -188,8 +187,8 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         paymentAddresses[1] = authorFeeAddress;
 
         uint256[] memory paymentSplit = new uint256[](2);
-        paymentSplit[0] = 80;
-        paymentSplit[1] = 20;
+        paymentSplit[0] = 80_000;
+        paymentSplit[1] = 20_000;
 
         setProtocolFeeSplit(paymentAddresses, paymentSplit);
     }
@@ -225,7 +224,7 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         unstakeRequests.push(UnstakeRequest(msg.sender, uint64(block.timestamp), avaxAmount, 0, 0, stAVAXAmount));
 
         uint256 requestIndex = unstakeRequests.length - 1;
-        emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, stAVAXAmount, block.timestamp, requestIndex);
+        emit WithdrawRequestSubmittedEvent(msg.sender, avaxAmount, stAVAXAmount, requestIndex);
 
         return requestIndex;
     }
@@ -261,7 +260,11 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
 
         // Partial claim, update amounts.
         request.amountClaimed += amountAVAX;
-        unstakeRequests[requestIndex] = request;
+        // To save gas we only update the mapping on partial claims.
+        // We delete full claims at the end of the function.
+        if (!isFullyClaimed(request)) {
+            unstakeRequests[requestIndex] = request;
+        }
 
         // Burn the stAVAX in the UnstakeRequest. If it's a partial claim we need to burn a proportional amount
         // of the original stAVAX using the stAVAX and AVAX amounts in the unstake request.
@@ -365,8 +368,9 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
     /**
      * @notice Deposit your AVAX to receive Staked AVAX (stAVAX) in return.
      * @dev Receives AVAX and mints StAVAX to msg.sender.
+     * @param referral Address of referral.
      */
-    function deposit() external payable whenNotPaused nonReentrant {
+    function deposit(address referral) external payable whenNotPaused nonReentrant {
         uint256 amount = msg.value;
         if (amount < minStakeAmount) revert InvalidStakeAmount();
         if (protocolControlledAVAX() + amount > maxProtocolControlledAVAX) revert ProtocolStakedAmountTooLarge();
@@ -379,7 +383,7 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         uint256 amountOfStAVAXToMint = avaxToStAVAX(protocolControlledAVAX() - amount, amount);
         _mint(msg.sender, amountOfStAVAXToMint);
 
-        emit DepositEvent(msg.sender, amount, block.timestamp);
+        emit DepositEvent(msg.sender, amount, referral);
 
         // Take the amount and stash it to be staked at a later time.
         // Note that we explicitly do not subsequently use this pending amount to fill unstake requests.
@@ -431,7 +435,7 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         rewardTreasury.claim(val);
 
         // Caclulate protocol fee.
-        uint256 protocolFee = (val * protocolFeeBasisPoints) / 10_000;
+        uint256 protocolFee = Math.mulDiv(val, protocolFeeBasisPoints, 10_000);
 
         // Track buffered balance and transfer fee.
         _bufferedBalance -= protocolFee;
@@ -527,9 +531,9 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
                 // We filled the request entirely, so move the head pointer on
                 if (isFilled(unstakeRequests[i])) {
                     unfilledHead = i + 1;
-                    emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, block.timestamp, i);
+                    emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, i);
                 } else {
-                    emit RequestPartiallyFilledEvent(amountToFill, block.timestamp, i);
+                    emit RequestPartiallyFilledEvent(amountToFill, i);
                 }
             }
 
@@ -571,7 +575,11 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         require(_protocolFeeBasisPoints <= 10_000);
         protocolFeeBasisPoints = _protocolFeeBasisPoints;
 
-        emit ProtocolConfigChanged("setProtocolFeeBasisPoints", abi.encode(_protocolFeeBasisPoints));
+        emit ProtocolConfigChanged(
+            "setProtocolFeeBasisPoints",
+            "setProtocolFeeBasisPoints",
+            abi.encode(_protocolFeeBasisPoints)
+        );
     }
 
     /**
@@ -584,7 +592,7 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
 
         principalTreasury = ITreasury(_address);
 
-        emit ProtocolConfigChanged("setPrincipalTreasuryAddress", abi.encode(_address));
+        emit ProtocolConfigChanged("setPrincipalTreasuryAddress", "setPrincipalTreasuryAddress", abi.encode(_address));
     }
 
     /**
@@ -597,7 +605,7 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
 
         rewardTreasury = ITreasury(_address);
 
-        emit ProtocolConfigChanged("setRewardTreasuryAddress", abi.encode(_address));
+        emit ProtocolConfigChanged("setRewardTreasuryAddress", "setRewardTreasuryAddress", abi.encode(_address));
     }
 
     function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
@@ -606,56 +614,72 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
     {
         protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
 
-        emit ProtocolConfigChanged("setProtocolFeeSplit", abi.encode(paymentAddresses, paymentSplit));
+        emit ProtocolConfigChanged(
+            "setProtocolFeeSplit",
+            "setProtocolFeeSplit",
+            abi.encode(paymentAddresses, paymentSplit)
+        );
     }
 
     function setMinStakeBatchAmount(uint256 _minStakeBatchAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeBatchAmount = _minStakeBatchAmount;
 
-        emit ProtocolConfigChanged("setMinStakeBatchAmount", abi.encode(_minStakeBatchAmount));
+        emit ProtocolConfigChanged(
+            "setMinStakeBatchAmount",
+            "setMinStakeBatchAmount",
+            abi.encode(_minStakeBatchAmount)
+        );
     }
 
     function setMinStakeAmount(uint256 _minStakeAmount) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         minStakeAmount = _minStakeAmount;
 
-        emit ProtocolConfigChanged("setMinStakeAmount", abi.encode(_minStakeAmount));
+        emit ProtocolConfigChanged("setMinStakeAmount", "setMinStakeAmount", abi.encode(_minStakeAmount));
     }
 
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         stakePeriod = _stakePeriod;
 
-        emit ProtocolConfigChanged("setStakePeriod", abi.encode(_stakePeriod));
+        emit ProtocolConfigChanged("setStakePeriod", "setStakePeriod", abi.encode(_stakePeriod));
     }
 
     function setMaxUnstakeRequests(uint8 _maxUnstakeRequests) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxUnstakeRequests = _maxUnstakeRequests;
 
-        emit ProtocolConfigChanged("setMaxUnstakeRequests", abi.encode(_maxUnstakeRequests));
+        emit ProtocolConfigChanged("setMaxUnstakeRequests", "setMaxUnstakeRequests", abi.encode(_maxUnstakeRequests));
     }
 
     function setMaxProtocolControlledAVAX(uint256 _maxProtocolControlledAVAX) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         maxProtocolControlledAVAX = _maxProtocolControlledAVAX;
 
-        emit ProtocolConfigChanged("setMaxProtocolControlledAVAX", abi.encode(_maxProtocolControlledAVAX));
+        emit ProtocolConfigChanged(
+            "setMaxProtocolControlledAVAX",
+            "setMaxProtocolControlledAVAX",
+            abi.encode(_maxProtocolControlledAVAX)
+        );
     }
 
     function setPChainExportBuffer(uint256 _pChainExportBuffer) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         pChainExportBuffer = _pChainExportBuffer;
 
-        emit ProtocolConfigChanged("setPChainExportBuffer", abi.encode(_pChainExportBuffer));
+        emit ProtocolConfigChanged("setPChainExportBuffer", "setPChainExportBuffer", abi.encode(_pChainExportBuffer));
     }
 
     function setMinClaimWaitTimeSeconds(uint64 _minimumClaimWaitTimeSeconds) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         if (_minimumClaimWaitTimeSeconds > stakePeriod) revert InvalidConfiguration();
         minimumClaimWaitTimeSeconds = _minimumClaimWaitTimeSeconds;
 
-        emit ProtocolConfigChanged("setMinClaimWaitTimeSeconds", abi.encode(_minimumClaimWaitTimeSeconds));
+        emit ProtocolConfigChanged(
+            "setMinClaimWaitTimeSeconds",
+            "setMinClaimWaitTimeSeconds",
+            abi.encode(_minimumClaimWaitTimeSeconds)
+        );
     }
 
     function setUnstakeLoopBound(uint64 _unstakeLoopBound) external onlyRole(ROLE_PROTOCOL_MANAGER) {
         unstakeLoopBound = _unstakeLoopBound;
 
-        emit ProtocolConfigChanged("setUnstakeLoopBound", abi.encode(_unstakeLoopBound));
+        emit ProtocolConfigChanged("setUnstakeLoopBound", "setUnstakeLoopBound", abi.encode(_unstakeLoopBound));
     }
 
     // -------------------------------------------------------------------------

@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
-import "./cheats.sol";
 import "./helpers.sol";
 import "../stAVAX.sol";
 
 import "../interfaces/IOracle.sol";
 
-contract MockHelpers {
+contract MockHelpers is Test {
     function timeFromNow(uint256 time) public view returns (uint64) {
         return uint64(block.timestamp + time);
     }
@@ -18,13 +17,13 @@ contract MockHelpers {
     function nValidatorsWithFreeSpace(uint256 n, uint256 freeSpace) public pure returns (Validator[] memory) {
         Validator[] memory result = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
-            result[i] = ValidatorHelpers.packValidator(uint16(i), true, true, uint16(freeSpace / 100 ether));
+            result[i] = ValidatorHelpers.packValidator(uint16(i), uint16(freeSpace / 100 ether));
         }
         return result;
     }
 
     function oracleDataMock(address oracle, Validator[] memory data) public {
-        cheats.mockCall(oracle, abi.encodeWithSelector(IOracle.getLatestValidators.selector), abi.encode(data));
+        vm.mockCall(oracle, abi.encodeWithSelector(IOracle.getLatestValidators.selector), abi.encode(data));
     }
 
     function oracleIndexMock(
@@ -32,11 +31,7 @@ contract MockHelpers {
         uint256 index,
         string memory nodeId
     ) public {
-        cheats.mockCall(
-            oracle,
-            abi.encodeWithSelector(IOracle.nodeIdByValidatorIndex.selector, index),
-            abi.encode(nodeId)
-        );
+        vm.mockCall(oracle, abi.encodeWithSelector(IOracle.nodeIdByValidatorIndex.selector, index), abi.encode(nodeId));
     }
 
     function mixOfBigAndSmallValidators() public pure returns (Validator[] memory) {
@@ -60,12 +55,7 @@ contract MockHelpers {
         uint256 freeSpace = 500;
         Validator[] memory unsuitableValidators = new Validator[](n);
         for (uint256 i = 0; i < n; i++) {
-            unsuitableValidators[i] = ValidatorHelpers.packValidator(
-                uint16(i),
-                false,
-                true,
-                uint16(freeSpace / 100 ether)
-            );
+            unsuitableValidators[i] = ValidatorHelpers.packValidator(uint16(i), uint16(freeSpace / 100 ether));
         }
         Validator[] memory suitableValidators = nValidatorsWithFreeSpace(n, 100000 ether);
 
@@ -116,7 +106,7 @@ contract MockOracle is IOracle {
     }
 }
 
-contract ValidatorSelectorTest is DSTest, MockHelpers, Helpers {
+contract ValidatorSelectorTest is Test, MockHelpers, Helpers {
     ValidatorSelector selector;
 
     address oracleAddress;

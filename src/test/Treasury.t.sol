@@ -4,7 +4,6 @@ pragma solidity 0.8.10;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import "./cheats.sol";
 import "./helpers.sol";
 
 import "../interfaces/ITreasury.sol";
@@ -57,7 +56,7 @@ contract TreasuryTest is DSTest, Helpers {
     function testNonBeneficiaryCannotClaimFromTreasury() public {
         payable(address(treasury)).transfer(1 ether);
         assertEq(address(treasury).balance, 1 ether);
-        cheats.expectRevert(Treasury.BeneficiaryOnly.selector);
+        vm.expectRevert(Treasury.BeneficiaryOnly.selector);
         treasury.claim(1 ether);
     }
 }

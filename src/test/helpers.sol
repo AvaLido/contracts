@@ -3,14 +3,14 @@ pragma solidity 0.8.10;
 
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {Test} from "forge-std/Test.sol";
 
 import "../ValidatorSelector.sol";
 import "../MpcManager.sol";
 import "../Treasury.sol";
 
-import "./cheats.sol";
-
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+address constant REFERRAL_ADDRESS = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
 address constant DEPLOYER_ADDRESS = 0x62d69f6867A0A084C6d313943dC22023Bc263691;
 address constant PAUSE_ADMIN_ADDRESS = DEPLOYER_ADDRESS;
 address constant USER1_ADDRESS = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
@@ -70,7 +70,7 @@ bytes constant MPC_BIG_P10_PUBKEY = hex"93e9525121fe370ac326e5d5d4e350e98e2df653
 bytes constant MPC_BIG_P11_PUBKEY = hex"ab5a5d015a9ada82ad194e8d8b6b2f9faf4ac74d96143da8d0c2ad34401d8566107dfb554b8cf320763d75d5ed5a06b4f4703bddd4c61f78f90bdc5b1ffef4a3";
 bytes constant MPC_BIG_P12_PUBKEY = hex"f2c20457d313ea2e71a3ef0ff7611289d8877e64f56b1860e051a24c2b7286af107ce65824118e41219fb863a3bfe8a4141b2a1d09ad84439ad4de051ed62330";
 
-abstract contract Helpers {
+abstract contract Helpers is Test {
     function validatorSelectMock(
         address validatorSelector,
         string memory node,
@@ -83,7 +83,7 @@ abstract contract Helpers {
         uint256[] memory amountResult = new uint256[](1);
         amountResult[0] = amount;
 
-        cheats.mockCall(
+        vm.mockCall(
             validatorSelector,
             abi.encodeWithSelector(ValidatorSelector.selectValidatorsForStake.selector),
             abi.encode(idResult, amountResult, remaining)

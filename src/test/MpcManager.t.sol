@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import {Test} from "forge-std/Test.sol";
+import {console2 as console} from "forge-std/console2.sol";
 
-import "./cheats.sol";
 import "./helpers.sol";
 
 import "../interfaces/IMpcManager.sol";
 import "../MpcManager.sol";
 
-contract MpcManagerTest is DSTest, Helpers {
+contract MpcManagerTest is Test, Helpers {
     uint8 constant MPC_THRESHOLD = 1;
     bytes32 constant MPC_BIG_GROUP_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0900";
     bytes32 constant MPC_BIG_P01_ID = hex"270b05bac4f59f0c069249ee5d68364fc56b326bf6d63b8d5577fcd8c20c0901";
@@ -111,8 +110,8 @@ contract MpcManagerTest is DSTest, Helpers {
         for (uint256 i = 0; i < 249; i++) {
             pubKeysTooBig[i] = MPC_PLAYER_1_PUBKEY;
         }
-        cheats.prank(MPC_ADMIN_ADDRESS);
-        cheats.expectRevert(MpcManager.InvalidGroupSize.selector);
+        vm.prank(MPC_ADMIN_ADDRESS);
+        vm.expectRevert(MpcManager.InvalidGroupSize.selector);
         mpcManager.createGroup(pubKeysTooBig, 200);
     }
 
@@ -130,9 +129,9 @@ contract MpcManagerTest is DSTest, Helpers {
         pubKeys12[9] = MPC_BIG_P10_PUBKEY;
         pubKeys12[10] = MPC_BIG_P11_PUBKEY;
         pubKeys12[11] = MPC_BIG_P12_PUBKEY;
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.createGroup(pubKeys12, 9);
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.requestKeygen(MPC_BIG_GROUP_ID);
 
         bytes[] memory participants = mpcManager.getGroup(MPC_BIG_GROUP_ID);
@@ -140,64 +139,64 @@ contract MpcManagerTest is DSTest, Helpers {
         assertEq0(pubKeys12[1], participants[1]);
         assertEq0(pubKeys12[2], participants[2]);
 
-        cheats.prank(MPC_BIG_P01_ADDRESS);
+        vm.prank(MPC_BIG_P01_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P01_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P02_ADDRESS);
+        vm.prank(MPC_BIG_P02_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P02_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P03_ADDRESS);
+        vm.prank(MPC_BIG_P03_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P03_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P04_ADDRESS);
+        vm.prank(MPC_BIG_P04_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P04_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P05_ADDRESS);
+        vm.prank(MPC_BIG_P05_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P05_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P06_ADDRESS);
+        vm.prank(MPC_BIG_P06_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P06_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P07_ADDRESS);
+        vm.prank(MPC_BIG_P07_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P07_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P08_ADDRESS);
+        vm.prank(MPC_BIG_P08_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P08_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P09_ADDRESS);
+        vm.prank(MPC_BIG_P09_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P09_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P10_ADDRESS);
+        vm.prank(MPC_BIG_P10_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P10_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_BIG_P11_ADDRESS);
+        vm.prank(MPC_BIG_P11_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P11_ID, MPC_GENERATED_PUBKEY);
 
-        cheats.expectEmit(false, false, true, true);
+        vm.expectEmit(false, false, true, true);
         emit KeyGenerated(MPC_BIG_GROUP_ID, MPC_GENERATED_PUBKEY);
 
-        cheats.prank(MPC_BIG_P12_ADDRESS);
+        vm.prank(MPC_BIG_P12_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P12_ID, MPC_GENERATED_PUBKEY);
     }
 
     function testCreateGroupNotSorted() public {
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         // Invalid public key
         pubKeys[0] = MPC_PLAYER_3_PUBKEY;
         pubKeys[1] = MPC_PLAYER_1_PUBKEY;
         pubKeys[2] = MPC_PLAYER_2_PUBKEY;
-        cheats.expectRevert(MpcManager.PublicKeysNotSorted.selector);
+        vm.expectRevert(MpcManager.PublicKeysNotSorted.selector);
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
     }
 
     function testCreateGroup() public {
         // Non admin
-        cheats.prank(USER1_ADDRESS);
-        cheats.expectRevert(
+        vm.prank(USER1_ADDRESS);
+        vm.expectRevert(
             "AccessControl: account 0xd8da6bf26964af9d7eed9e03e53415d37aa96045 is missing role 0x9fece4792c7ff5d25a4f6041da7db799a6228be21fcb6358ef0b12f1dd685cb6"
         );
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
 
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         // Invalid public key
         pubKeys[2] = TOO_SHORT_PUKEY;
-        cheats.expectRevert(MpcManager.InvalidPublicKey.selector);
+        vm.expectRevert(MpcManager.InvalidPublicKey.selector);
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
 
         // Success case
         resetParticipantPublicKeys();
-        cheats.prank(MPC_ADMIN_ADDRESS);
-        cheats.expectEmit(false, false, true, true);
+        vm.prank(MPC_ADMIN_ADDRESS);
+        vm.expectEmit(false, false, true, true);
         emit ParticipantAdded(MPC_PLAYER_1_PUBKEY, MPC_GROUP_ID, 1);
         emit ParticipantAdded(MPC_PLAYER_2_PUBKEY, MPC_GROUP_ID, 2);
         emit ParticipantAdded(MPC_PLAYER_3_PUBKEY, MPC_GROUP_ID, 3);
@@ -215,48 +214,48 @@ contract MpcManagerTest is DSTest, Helpers {
     function testKeygenRequest() public {
         setupGroup();
 
-        cheats.prank(MPC_ADMIN_ADDRESS);
-        cheats.expectEmit(false, false, true, true);
+        vm.prank(MPC_ADMIN_ADDRESS);
+        vm.expectEmit(false, false, true, true);
         emit KeygenRequestAdded(MPC_GROUP_ID, 1);
         mpcManager.requestKeygen(MPC_GROUP_ID);
         assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_GROUP_ID) + uint8(KeygenStatus.REQUESTED));
 
         // Can cancel before started
-        cheats.prank(MPC_ADMIN_ADDRESS);
-        cheats.expectEmit(false, false, true, true);
+        vm.prank(MPC_ADMIN_ADDRESS);
+        vm.expectEmit(false, false, true, true);
         emit KeygenRequestCanceled(MPC_GROUP_ID, 1);
         mpcManager.cancelKeygen();
         assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_GROUP_ID) + uint8(KeygenStatus.CANCELED));
         // Cannot report if canceled
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
-        cheats.expectRevert(MpcManager.KeygenNotRequested.selector);
+        vm.prank(MPC_PLAYER_1_ADDRESS);
+        vm.expectRevert(MpcManager.KeygenNotRequested.selector);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
 
         // Request again
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.requestKeygen(MPC_GROUP_ID);
 
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        vm.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT2_ID, MPC_GENERATED_PUBKEY);
 
         // Can cancel before done
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.cancelKeygen();
 
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.requestKeygen(MPC_GROUP_ID);
 
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        vm.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT2_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_PLAYER_3_ADDRESS);
+        vm.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT3_ID, MPC_GENERATED_PUBKEY);
 
         // Cannot cancel after done
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.cancelKeygen();
     }
 
@@ -264,18 +263,18 @@ contract MpcManagerTest is DSTest, Helpers {
         setupKeygenRequest();
 
         // first participant reports generated key
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
 
         // second participant reports generated key
-        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        vm.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT2_ID, MPC_GENERATED_PUBKEY);
 
         // event is emitted when the last participant reports generated key
-        cheats.expectEmit(false, false, true, true);
+        vm.expectEmit(false, false, true, true);
         emit KeyGenerated(MPC_GROUP_ID, MPC_GENERATED_PUBKEY);
 
-        cheats.prank(MPC_PLAYER_3_ADDRESS);
+        vm.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT3_ID, MPC_GENERATED_PUBKEY);
     }
 
@@ -287,30 +286,30 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testRequestStaking() public {
         // Called by wrong sender
-        cheats.prank(USER1_ADDRESS);
-        cheats.deal(USER1_ADDRESS, STAKE_AMOUNT);
-        cheats.expectRevert(MpcManager.AvaLidoOnly.selector);
+        vm.prank(USER1_ADDRESS);
+        vm.deal(USER1_ADDRESS, STAKE_AMOUNT);
+        vm.expectRevert(MpcManager.AvaLidoOnly.selector);
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
 
         // Called before keygen
-        cheats.prank(AVALIDO_ADDRESS);
-        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        vm.prank(AVALIDO_ADDRESS);
+        vm.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
 
-        cheats.expectRevert(MpcManager.KeyNotGenerated.selector);
+        vm.expectRevert(MpcManager.KeyNotGenerated.selector);
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
 
         setupKey();
 
         // Called with incorrect amount
-        cheats.prank(AVALIDO_ADDRESS);
-        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
-        cheats.expectRevert(MpcManager.InvalidAmount.selector);
+        vm.prank(AVALIDO_ADDRESS);
+        vm.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        vm.expectRevert(MpcManager.InvalidAmount.selector);
         mpcManager.requestStake{value: STAKE_AMOUNT - 1}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
 
         // Called with correct sender and after keygen
-        cheats.prank(AVALIDO_ADDRESS);
-        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
-        cheats.expectEmit(false, false, true, true);
+        vm.prank(AVALIDO_ADDRESS);
+        vm.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        vm.expectEmit(false, false, true, true);
         emit StakeRequestAdded(1, MPC_GENERATED_PUBKEY, VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
         assertEq(address(MPC_GENERATED_ADDRESS).balance, STAKE_AMOUNT);
@@ -318,18 +317,18 @@ contract MpcManagerTest is DSTest, Helpers {
 
     function testCannotRequestStakingWhenPaused() public {
         setupKey();
-        cheats.prank(PAUSE_ADMIN_ADDRESS);
+        vm.prank(PAUSE_ADMIN_ADDRESS);
         mpcManager.pause();
 
-        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
-        cheats.prank(AVALIDO_ADDRESS);
-        cheats.expectRevert("Pausable: paused");
+        vm.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        vm.prank(AVALIDO_ADDRESS);
+        vm.expectRevert("Pausable: paused");
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
 
-        cheats.prank(PAUSE_ADMIN_ADDRESS);
+        vm.prank(PAUSE_ADMIN_ADDRESS);
         mpcManager.resume();
-        cheats.prank(AVALIDO_ADDRESS);
-        cheats.expectEmit(false, false, true, true);
+        vm.prank(AVALIDO_ADDRESS);
+        vm.expectEmit(false, false, true, true);
         emit StakeRequestAdded(1, MPC_GENERATED_PUBKEY, VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
         assertEq(address(MPC_GENERATED_ADDRESS).balance, STAKE_AMOUNT);
@@ -338,19 +337,19 @@ contract MpcManagerTest is DSTest, Helpers {
     function testJoinStakingRequest() public {
         setupStakingRequest();
 
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.joinRequest(MPC_PARTICIPANT1_ID, bytes32(uint256(1)));
 
         // Event emitted after required t+1 participants have joined
-        cheats.expectEmit(false, false, true, true);
+        vm.expectEmit(false, false, true, true);
         uint256 indices = INDEX_1 + INDEX_2;
         emit RequestStarted(bytes32(uint256(1)), indices);
-        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        vm.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.joinRequest(MPC_PARTICIPANT2_ID, bytes32(uint256(1)));
 
         // Cannot join anymore after required t+1 participants have joined
-        cheats.prank(MPC_PLAYER_3_ADDRESS);
-        cheats.expectRevert(MpcManager.QuorumAlreadyReached.selector);
+        vm.prank(MPC_PLAYER_3_ADDRESS);
+        vm.expectRevert(MpcManager.QuorumAlreadyReached.selector);
         mpcManager.joinRequest(MPC_PARTICIPANT3_ID, bytes32(uint256(1)));
     }
 
@@ -359,30 +358,30 @@ contract MpcManagerTest is DSTest, Helpers {
     // -------------------------------------------------------------------------
 
     function setupGroup() private {
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.createGroup(pubKeys, MPC_THRESHOLD);
     }
 
     function setupKeygenRequest() private {
         setupGroup();
-        cheats.prank(MPC_ADMIN_ADDRESS);
+        vm.prank(MPC_ADMIN_ADDRESS);
         mpcManager.requestKeygen(MPC_GROUP_ID);
     }
 
     function setupKey() private {
         setupKeygenRequest();
-        cheats.prank(MPC_PLAYER_1_ADDRESS);
+        vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT1_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_PLAYER_2_ADDRESS);
+        vm.prank(MPC_PLAYER_2_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT2_ID, MPC_GENERATED_PUBKEY);
-        cheats.prank(MPC_PLAYER_3_ADDRESS);
+        vm.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT3_ID, MPC_GENERATED_PUBKEY);
     }
 
     function setupStakingRequest() private {
         setupKey();
-        cheats.prank(AVALIDO_ADDRESS);
-        cheats.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
+        vm.prank(AVALIDO_ADDRESS);
+        vm.deal(AVALIDO_ADDRESS, STAKE_AMOUNT);
         mpcManager.requestStake{value: STAKE_AMOUNT}(VALIDATOR_1, STAKE_AMOUNT, STAKE_START_TIME, STAKE_END_TIME);
     }
 }

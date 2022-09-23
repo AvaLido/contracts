@@ -169,12 +169,6 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
             if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
                 continue;
             }
-            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
-                continue;
-            }
-            if (!ValidatorHelpers.hasAcceptableUptime(validators[index])) {
-                continue;
-            }
             countOfSuitableValidators++;
         }
 
@@ -183,12 +177,6 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
         uint256 resultIndexCount = 0;
         for (uint256 index = 0; index < validators.length; index++) {
             if (ValidatorHelpers.freeSpace(validators[index]) < amount) {
-                continue;
-            }
-            if (!ValidatorHelpers.hasTimeRemaining(validators[index])) {
-                continue;
-            }
-            if (!ValidatorHelpers.hasAcceptableUptime(validators[index])) {
                 continue;
             }
             result[resultIndexCount] = validators[index];
