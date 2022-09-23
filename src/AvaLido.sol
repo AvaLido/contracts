@@ -62,6 +62,7 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     error InvalidAddress();
     error InvalidConfiguration();
     error TransferFailed();
+    error ReceiveNotAllowed();
 
     // Events
     event DepositEvent(address indexed from, uint256 amount, address referral);
@@ -688,6 +689,14 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
 
     function _msgData() internal view override(Context, ContextUpgradeable) returns (bytes calldata) {
         return Context._msgData();
+    }
+
+    /**
+     * @dev Fallback function override to prevent AVAX being sent directly to protocol.
+     */
+    receive() external payable {
+        // To stake, call the contract's `deposit` method.
+        revert ReceiveNotAllowed();
     }
 }
 

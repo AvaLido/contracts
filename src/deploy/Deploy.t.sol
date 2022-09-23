@@ -65,13 +65,13 @@ contract Deploy is Script, Helpers {
         AvaLido lido = PayableAvaLido(payable(address(proxyWrapped(address(_lido), admin))));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
-        // // Treasuries
+        // Treasuries
         Treasury pTreasury = new Treasury(address(lido));
         Treasury rTreasury = new Treasury(address(lido));
         lido.setPrincipalTreasuryAddress(address(pTreasury));
         lido.setRewardTreasuryAddress(address(rTreasury));
 
-        // // MPC manager setup
+        // MPC manager setup
         mpcManager.initialize(mpcAdmin, pauseAdmin, address(lido), address(pTreasury), address(rTreasury));
 
         // End transaction
