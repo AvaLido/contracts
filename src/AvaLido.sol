@@ -393,6 +393,10 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         amountPendingStakeAVAX += amount;
     }
 
+    /**
+     * @dev Called from Treasury contracts when depositing funds.
+     * `_bufferedBalance` is updated from the `claimRewards` method.
+     */
     function receiveFund() external payable {
         if (msg.sender != address(principalTreasury) && msg.sender != address(rewardTreasury)) revert TreasuryOnly();
     }
