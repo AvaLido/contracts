@@ -85,8 +85,8 @@ contract AvaLidoTest is Test, Helpers {
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
 
-        AvaLido _lido = new PayableAvaLido();
-        lido = PayableAvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
+        AvaLido _lido = new AvaLido();
+        lido = AvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
         lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
 
         Treasury pTreasury = new Treasury(address(lido));
@@ -206,6 +206,27 @@ contract AvaLidoTest is Test, Helpers {
         uint256 staked = lido.initiateStake();
         assertEq(staked, 99 ether);
         assertEq(lido.amountPendingStakeAVAX(), 1 ether);
+    }
+
+    // Receive unstaked principals and rewards
+    function testReceiveFundFromTreasuries() public {
+        // Non-Treasury cannot call
+        vm.deal(USER1_ADDRESS, 10 ether);
+        vm.prank(USER1_ADDRESS);
+        vm.expectRevert(AvaLido.TreasuryOnly.selector);
+        lido.receiveFund{value: 1 ether}();
+
+        // Principal Treasury can call
+        vm.deal(pTreasuryAddress, 10 ether);
+        vm.prank(pTreasuryAddress);
+        lido.receiveFund{value: 1 ether}();
+        assertEq(address(lido).balance, 1 ether);
+
+        // Reward Treasury can call
+        vm.deal(rTreasuryAddress, 10 ether);
+        vm.prank(rTreasuryAddress);
+        lido.receiveFund{value: 1 ether}();
+        assertEq(address(lido).balance, 2 ether);
     }
 
     // Unstake Requests

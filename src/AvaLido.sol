@@ -44,13 +44,15 @@ import "./stAVAX.sol";
 import "./interfaces/IValidatorSelector.sol";
 import "./interfaces/IMpcManager.sol";
 import "./interfaces/ITreasury.sol";
+import "./interfaces/ITreasuryBeneficiary.sol";
 
 /**
  * @title Lido on Avalanche
  * @author Hyperelliptic Labs and RockX
  */
-contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
+contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     // Errors
+    error TreasuryOnly();
     error InvalidStakeAmount();
     error ProtocolStakedAmountTooLarge();
     error TooManyConcurrentUnstakeRequests();
@@ -390,6 +392,10 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
         amountPendingStakeAVAX += amount;
     }
 
+    function receiveFund() external payable {
+        if (msg.sender != address(principalTreasury) && msg.sender != address(rewardTreasury)) revert TreasuryOnly();
+    }
+
     /**
      * @notice Claims the value in treasury.
      * @dev Claims AVAX from the MPC wallet and uses it to fill unstake requests.
@@ -689,8 +695,4 @@ contract AvaLido is Pausable, ReentrancyGuard, stAVAX, AccessControlEnumerable {
     function _msgData() internal view override(Context, ContextUpgradeable) returns (bytes calldata) {
         return Context._msgData();
     }
-}
-
-contract PayableAvaLido is AvaLido {
-    receive() external payable {}
 }
