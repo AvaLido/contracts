@@ -87,8 +87,8 @@ contract AvaLidoTest is DSTest, Helpers {
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
 
-        AvaLido _lido = new PayableAvaLido();
-        lido = PayableAvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
+        AvaLido _lido = new AvaLido();
+        lido = AvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
         lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
 
         Treasury pTreasury = new Treasury(address(lido));

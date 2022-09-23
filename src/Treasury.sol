@@ -6,28 +6,26 @@ import "openzeppelin-contracts/contracts/access/AccessControlEnumerable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/ITreasury.sol";
+import "./interfaces/ITreasuryBeneficiary.sol";
 
 contract Treasury is ITreasury {
     // Errors
     error InvalidAddress();
     error BeneficiaryOnly();
-    error TransferFailed();
-
-    address payable public immutable beneficiaryAddress;
+    ITreasuryBeneficiary public beneficiary;
 
     constructor(address _beneficiaryAddress) {
-        beneficiaryAddress = payable(_beneficiaryAddress);
+        beneficiary = ITreasuryBeneficiary(_beneficiaryAddress);
     }
 
     receive() external payable {}
 
     function claim(uint256 amount) external onlyBeneficiary {
-        (bool success, ) = beneficiaryAddress.call{value: amount}("");
-        if (!success) revert TransferFailed();
+        beneficiary.receiveFund{value: amount}();
     }
 
     modifier onlyBeneficiary() {
-        if (msg.sender != beneficiaryAddress) revert BeneficiaryOnly();
+        if (msg.sender != address(beneficiary)) revert BeneficiaryOnly();
         _;
     }
 }

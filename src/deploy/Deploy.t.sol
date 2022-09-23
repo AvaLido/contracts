@@ -63,8 +63,8 @@ contract Deploy is DSTest, Helpers {
         validatorSelector.initialize(address(oracle));
 
         // AvaLido
-        AvaLido _lido = new PayableAvaLido();
-        AvaLido lido = PayableAvaLido(payable(address(proxyWrapped(address(_lido), admin))));
+        AvaLido _lido = new AvaLido();
+        AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
         // Treasuries
