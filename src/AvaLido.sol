@@ -637,13 +637,19 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         emit ProtocolConfigChanged("setMinStakeAmount", "setMinStakeAmount", abi.encode(_minStakeAmount));
     }
 
+    // Setter check reflects Avalanche P-chain minimum and maximum staking periods.
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        if (_stakePeriod < 14 days || _stakePeriod > 365 days) revert InvalidConfiguration();
+
         stakePeriod = _stakePeriod;
 
         emit ProtocolConfigChanged("setStakePeriod", "setStakePeriod", abi.encode(_stakePeriod));
     }
 
+    // Maximum number of unstake requests a user can have open at once, to help prevent spamming.
     function setMaxUnstakeRequests(uint8 _maxUnstakeRequests) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        if (_maxUnstakeRequests == 0 || _maxUnstakeRequests > 1000) revert InvalidConfiguration();
+
         maxUnstakeRequests = _maxUnstakeRequests;
 
         emit ProtocolConfigChanged("setMaxUnstakeRequests", "setMaxUnstakeRequests", abi.encode(_maxUnstakeRequests));
@@ -676,7 +682,13 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         );
     }
 
+    // Be extremely careful when modifying this value: it must be large enough that the unstake queue
+    // doesn't grow faster than it can be processed, but small enough that in processing it doesn't
+    // reach the Avalanche block gas limit (currently 8M, much smaller than Ethereum's 30M limit).
+    // Approximate ranges can be found experimentally using `forge test --gas-report`.
     function setUnstakeLoopBound(uint64 _unstakeLoopBound) external onlyRole(ROLE_PROTOCOL_MANAGER) {
+        if (_unstakeLoopBound == 0 || _unstakeLoopBound > 1000) revert InvalidConfiguration();
+
         unstakeLoopBound = _unstakeLoopBound;
 
         emit ProtocolConfigChanged("setUnstakeLoopBound", "setUnstakeLoopBound", abi.encode(_unstakeLoopBound));
