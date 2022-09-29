@@ -1,20 +1,40 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.10;
 
-import {Test} from "forge-std/Test.sol";
-import {console2 as console} from "forge-std/console2.sol";
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
+import "./helpers.sol";
 
 import "../interfaces/ITreasury.sol";
+import "../interfaces/ITreasuryBeneficiary.sol";
 import "../Treasury.sol";
+import "../AvaLido.sol";
 
-contract TreasuryTest is Test {
-    address constant AVALIDO_ADDRESS = 0x1000000000000000000000000000000000012345;
-    address constant NON_AVALIDO_ADDRESS = 0x1111111111111111111111111111111111111111;
-
+contract FakeBeneficiary is ITreasuryBeneficiary {
     ITreasury treasury;
 
+    function receiveFund() external payable {}
+
+    function claimFromTreasury() external {
+        uint256 val = address(treasury).balance;
+        if (val == 0) return;
+        treasury.claim(val);
+    }
+
+    function setTreasuryAddress(address _treasuryAddress) external {
+        treasury = ITreasury(_treasuryAddress);
+    }
+}
+
+contract TreasuryTest is DSTest, Helpers {
+    ITreasury treasury;
+    FakeBeneficiary beneficiary;
+
     function setUp() public {
-        treasury = new Treasury(AVALIDO_ADDRESS);
+        beneficiary = new FakeBeneficiary();
+        treasury = new Treasury(address(beneficiary));
+        beneficiary.setTreasuryAddress(address(treasury));
     }
 
     // -------------------------------------------------------------------------
@@ -28,16 +48,14 @@ contract TreasuryTest is Test {
     function testCanClaimFromTreasury() public {
         payable(address(treasury)).transfer(1 ether);
         assertEq(address(treasury).balance, 1 ether);
-        vm.prank(AVALIDO_ADDRESS);
-        treasury.claim(1 ether);
+        beneficiary.claimFromTreasury();
         assertEq(address(treasury).balance, 0 ether);
-        assertEq(address(AVALIDO_ADDRESS).balance, 1 ether);
+        assertEq(address(beneficiary).balance, 1 ether);
     }
 
     function testNonBeneficiaryCannotClaimFromTreasury() public {
         payable(address(treasury)).transfer(1 ether);
         assertEq(address(treasury).balance, 1 ether);
-        vm.prank(NON_AVALIDO_ADDRESS);
         vm.expectRevert(Treasury.BeneficiaryOnly.selector);
         treasury.claim(1 ether);
     }

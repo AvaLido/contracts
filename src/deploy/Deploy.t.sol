@@ -28,9 +28,7 @@ contract Deploy is Script, Helpers {
     address[] oracleAllowlist = [
         0x03C1196617387899390d3a98fdBdfD407121BB67,
         0x6C58f6E7DB68D9F75F2E417aCbB67e7Dd4e413bf,
-        0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018,
-        0xE339767906891bEE026285803DA8d8F2f346842C,
-        0x0309a747a34befD1625b5dcae0B00625FAa30460
+        0xa7bB9405eAF98f36e2683Ba7F36828e260BD0018
     ];
 
     // Deploy contracts
@@ -63,17 +61,17 @@ contract Deploy is Script, Helpers {
         validatorSelector.initialize(address(oracle));
 
         // AvaLido
-        AvaLido _lido = new PayableAvaLido();
-        AvaLido lido = PayableAvaLido(payable(address(proxyWrapped(address(_lido), admin))));
+        AvaLido _lido = new AvaLido();
+        AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), admin)));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
-        // Treasuries
+        // // Treasuries
         Treasury pTreasury = new Treasury(address(lido));
         Treasury rTreasury = new Treasury(address(lido));
         lido.setPrincipalTreasuryAddress(address(pTreasury));
         lido.setRewardTreasuryAddress(address(rTreasury));
 
-        // MPC manager setup
+        // // MPC manager setup
         mpcManager.initialize(mpcAdmin, pauseAdmin, address(lido), address(pTreasury), address(rTreasury));
 
         // End transaction

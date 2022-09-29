@@ -58,9 +58,7 @@ contract AvaLidoTest is Test, Helpers {
     event FakeStakeRequested(string validator, uint256 amount, uint256 stakeStartTime, uint256 stakeEndTime);
     event RewardsCollectedEvent(uint256 amount);
     event ProtocolFeeEvent(uint256 amount);
-    event RequestFullyFilledEvent(uint256 requestedAmount, uint256 timestamp, uint256 indexed requestIndex);
-    event RequestPartiallyFilledEvent(uint256 fillAmount, uint256 timestamp, uint256 indexed requestIndex);
-    event ProtocolConfigChanged(string indexed eventName, bytes data);
+    event ProtocolConfigChanged(string indexed eventNameHash, string eventName, bytes data);
 
     AvaLido lido;
     ValidatorSelector validatorSelector;
@@ -87,8 +85,8 @@ contract AvaLidoTest is Test, Helpers {
         validatorSelectorAddress = address(validatorSelector);
         mpcManagerAddress = address(fakeMpcManager);
 
-        AvaLido _lido = new PayableAvaLido();
-        lido = PayableAvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
+        AvaLido _lido = new AvaLido();
+        lido = AvaLido(payable(proxyWrapped(address(_lido), ROLE_PROXY_ADMIN)));
         lido.initialize(feeAddressLido, feeAddressAuthor, validatorSelectorAddress, mpcManagerAddress);
 
         Treasury pTreasury = new Treasury(address(lido));
@@ -107,13 +105,13 @@ contract AvaLidoTest is Test, Helpers {
     function testStakeBasic() public {
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
         assertEq(lido.balanceOf(USER1_ADDRESS), 1 ether);
     }
 
     function testStakeZeroDeposit() public {
         vm.expectRevert(AvaLido.InvalidStakeAmount.selector);
-        lido.deposit{value: 0 ether}();
+        lido.deposit{value: 0 ether}(REFERRAL_ADDRESS);
     }
 
     function testStakeWithFuzzing(uint256 x) public {
@@ -124,7 +122,7 @@ contract AvaLidoTest is Test, Helpers {
         vm.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: x}();
+        lido.deposit{value: x}(REFERRAL_ADDRESS);
         assertEq(lido.balanceOf(USER1_ADDRESS), x);
     }
 
@@ -138,7 +136,7 @@ contract AvaLidoTest is Test, Helpers {
     function testInitiateStakeNoValidators() public {
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         string[] memory idResult = new string[](0);
         uint256[] memory amountResult = new uint256[](0);
@@ -156,7 +154,7 @@ contract AvaLidoTest is Test, Helpers {
     function testInitiateStakeFullAllocation() public {
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         validatorSelectMock(validatorSelectorAddress, "test-node", 10 ether, 0);
 
@@ -171,7 +169,7 @@ contract AvaLidoTest is Test, Helpers {
     function testInitiateStakePartialAllocation() public {
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         validatorSelectMock(validatorSelectorAddress, "test-node", 9 ether, 1 ether);
 
@@ -187,7 +185,7 @@ contract AvaLidoTest is Test, Helpers {
     function testInitiateStakeUnderLimit() public {
         vm.deal(USER1_ADDRESS, 1 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
 
         validatorSelectMock(validatorSelectorAddress, "test", 1 ether, 1 ether);
         uint256 staked = lido.initiateStake();
@@ -199,7 +197,7 @@ contract AvaLidoTest is Test, Helpers {
     function testFailStakeSparseArray() public {
         vm.deal(USER1_ADDRESS, 100 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 100 ether}();
+        lido.deposit{value: 100 ether}(REFERRAL_ADDRESS);
 
         vm.expectEmit(false, false, false, false);
         emit FakeStakeRequested("test-node", 99 ether, 1801, 1211401);
@@ -208,6 +206,27 @@ contract AvaLidoTest is Test, Helpers {
         uint256 staked = lido.initiateStake();
         assertEq(staked, 99 ether);
         assertEq(lido.amountPendingStakeAVAX(), 1 ether);
+    }
+
+    // Receive unstaked principals and rewards
+    function testReceiveFundFromTreasuries() public {
+        // Non-Treasury cannot call
+        vm.deal(USER1_ADDRESS, 10 ether);
+        vm.prank(USER1_ADDRESS);
+        vm.expectRevert(AvaLido.TreasuryOnly.selector);
+        lido.receiveFund{value: 1 ether}();
+
+        // Principal Treasury can call
+        vm.deal(pTreasuryAddress, 10 ether);
+        vm.prank(pTreasuryAddress);
+        lido.receiveFund{value: 1 ether}();
+        assertEq(address(lido).balance, 1 ether);
+
+        // Reward Treasury can call
+        vm.deal(rTreasuryAddress, 10 ether);
+        vm.prank(rTreasuryAddress);
+        lido.receiveFund{value: 1 ether}();
+        assertEq(address(lido).balance, 2 ether);
     }
 
     // Unstake Requests
@@ -228,7 +247,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.startPrank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 100 ether);
-        lido.deposit{value: 100 ether}();
+        lido.deposit{value: 100 ether}(REFERRAL_ADDRESS);
         // Do all the allowed requests
         for (uint256 i = 1; i <= lido.maxUnstakeRequests(); i++) {
             lido.requestWithdrawal(1 ether);
@@ -244,7 +263,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -306,7 +325,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -380,7 +399,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -405,7 +424,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -438,7 +457,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -474,7 +493,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -519,7 +538,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -541,7 +560,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -573,7 +592,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -598,7 +617,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -632,7 +651,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Check event emission for staking.
         vm.expectEmit(false, false, false, true);
@@ -663,7 +682,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -698,7 +717,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -734,7 +753,7 @@ contract AvaLidoTest is Test, Helpers {
 
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
         vm.startPrank(USER1_ADDRESS);
@@ -764,7 +783,7 @@ contract AvaLidoTest is Test, Helpers {
 
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
         vm.startPrank(USER1_ADDRESS);
@@ -797,7 +816,7 @@ contract AvaLidoTest is Test, Helpers {
 
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
         vm.startPrank(USER1_ADDRESS);
@@ -827,7 +846,7 @@ contract AvaLidoTest is Test, Helpers {
 
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
         vm.startPrank(USER1_ADDRESS);
@@ -861,7 +880,7 @@ contract AvaLidoTest is Test, Helpers {
 
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
         vm.startPrank(USER1_ADDRESS);
@@ -890,7 +909,7 @@ contract AvaLidoTest is Test, Helpers {
 
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
         vm.startPrank(USER1_ADDRESS);
@@ -940,7 +959,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -952,7 +971,7 @@ contract AvaLidoTest is Test, Helpers {
         // Make a request as somebody else.
         vm.deal(USER2_ADDRESS, 0.2 ether);
         vm.startPrank(USER2_ADDRESS);
-        lido.deposit{value: 0.2 ether}();
+        lido.deposit{value: 0.2 ether}(REFERRAL_ADDRESS);
         lido.requestWithdrawal(0.2 ether);
         vm.stopPrank();
 
@@ -973,7 +992,7 @@ contract AvaLidoTest is Test, Helpers {
         vm.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: x}();
+        lido.deposit{value: x}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", x, 0);
@@ -1002,7 +1021,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1026,7 +1045,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1050,7 +1069,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1075,7 +1094,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1125,7 +1144,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1187,7 +1206,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1259,7 +1278,7 @@ contract AvaLidoTest is Test, Helpers {
         vm.deal(USER1_ADDRESS, 10 ether);
 
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
@@ -1293,11 +1312,11 @@ contract AvaLidoTest is Test, Helpers {
         // Add some stake from another user so we have more to play with
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         vm.deal(USER2_ADDRESS, 10 ether);
         vm.prank(USER2_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         validatorSelectMock(validatorSelectorAddress, "test", 15 ether, 5 ether);
         lido.initiateStake();
@@ -1337,11 +1356,11 @@ contract AvaLidoTest is Test, Helpers {
         // Add some stake from another user so we have more to play with
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         vm.deal(USER2_ADDRESS, 10 ether);
         vm.prank(USER2_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         validatorSelectMock(validatorSelectorAddress, "test", 15 ether, 5 ether);
         lido.initiateStake();
@@ -1381,7 +1400,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1444,7 +1463,7 @@ contract AvaLidoTest is Test, Helpers {
     function testMultiplePartialClaims() public {
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
         lido.initiateStake();
@@ -1493,7 +1512,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1576,7 +1595,7 @@ contract AvaLidoTest is Test, Helpers {
         vm.assume(x < 300_000_000 ether); // Roughly all circulating AVAX
 
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: x}();
+        lido.deposit{value: x}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", x, 0);
 
         uint256 stAVAXBalance = lido.balanceOf(USER1_ADDRESS);
@@ -1603,7 +1622,7 @@ contract AvaLidoTest is Test, Helpers {
     // Tokens
 
     function protocolControlledAVAX() public {
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
         assertEq(lido.protocolControlledAVAX(), 1 ether);
 
         vm.deal(pTreasuryAddress, 0.6 ether);
@@ -1643,7 +1662,7 @@ contract AvaLidoTest is Test, Helpers {
     }
 
     function testRewardsReceivedFillUnstakeRequests() public {
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
 
         lido.initiateStake();
@@ -1671,11 +1690,11 @@ contract AvaLidoTest is Test, Helpers {
 
         // user 1 deposits
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
         assertEq(lido.balanceOf(USER1_ADDRESS), 1 ether);
 
         vm.prank(USER2_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
 
         assertEq(lido.balanceOf(USER2_ADDRESS), 1 ether);
         assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
@@ -1688,12 +1707,12 @@ contract AvaLidoTest is Test, Helpers {
 
         // user 1 deposits, stAVAX:AVAX 1:1
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
         assertEq(lido.balanceOf(USER1_ADDRESS), 1 ether);
 
         // user 2 deposits, stAVAX:AVAX 1:1
         vm.prank(USER2_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
         assertEq(lido.balanceOf(USER2_ADDRESS), 1 ether);
         assertEq(lido.protocolControlledAVAX(), 2 ether);
         assertEq(lido.amountPendingStakeAVAX(), 2 ether);
@@ -1712,9 +1731,9 @@ contract AvaLidoTest is Test, Helpers {
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.deal(USER2_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
         vm.prank(USER2_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
         vm.deal(rTreasuryAddress, 0.1 ether);
         lido.claimRewards();
         assertEq(lido.exchangeRateAVAXToStAVAX(), 956937799043062200);
@@ -1724,7 +1743,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit an amount
         vm.prank(USER1_ADDRESS);
         vm.deal(USER1_ADDRESS, 10 ether);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Note the exchange rate
         assertEq(lido.exchangeRateAVAXToStAVAX(), 956937799043062200);
@@ -1747,7 +1766,7 @@ contract AvaLidoTest is Test, Helpers {
     //     // Setup non 1:1 exchange rate
     //     vm.deal(USER1_ADDRESS, 11 ether);
     //     vm.prank(USER1_ADDRESS);
-    //     lido.deposit{value: 10 ether}();
+    //     lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
     //     validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
     //     lido.initiateStake();
@@ -1762,13 +1781,13 @@ contract AvaLidoTest is Test, Helpers {
     //     // I stake some AVAX, I should get 0.991 stAVAX
     //     vm.deal(USER2_ADDRESS, 1 ether);
     //     vm.prank(USER2_ADDRESS);
-    //     lido.deposit{value: 1 ether}();
+    //     lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
     //     uint256 user2StAVAXBalance = lido.balanceOf(USER2_ADDRESS);
     //     assertEq(user2StAVAXBalance, EXCHANGE_RATE);
 
     //     // Do some stuff that isn't rewards like deposit and receive principle
     //     vm.prank(USER1_ADDRESS);
-    //     lido.deposit{value: 1 ether}();
+    //     lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
     //     lido.receivePrincipalFromMPC{value: 5 ether}();
 
     //     // Unstake all stAVAX, I shouldn't be able to claim more than 1 AVAX
@@ -1807,7 +1826,7 @@ contract AvaLidoTest is Test, Helpers {
         string memory eventName = "setProtocolFeeSplit";
         bytes memory data = abi.encode(paymentAddresses, paymentSplit);
         vm.expectEmit(true, false, false, true);
-        emit ProtocolConfigChanged(eventName, data);
+        emit ProtocolConfigChanged(eventName, eventName, data);
         lido.setProtocolFeeSplit(paymentAddresses, paymentSplit);
         vm.deal(rTreasuryAddress, 1 ether);
         lido.claimRewards();
@@ -1855,20 +1874,20 @@ contract AvaLidoTest is Test, Helpers {
     function testMaxProtocolControlledAVAX() public {
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
 
         assertTrue(lido.hasRole(ROLE_PROTOCOL_MANAGER, DEPLOYER_ADDRESS));
 
         string memory eventName = "setMaxProtocolControlledAVAX";
         bytes memory data = abi.encode(2 ether);
         vm.expectEmit(true, false, false, true);
-        emit ProtocolConfigChanged(eventName, data);
+        emit ProtocolConfigChanged(eventName, eventName, data);
         vm.prank(DEPLOYER_ADDRESS);
         lido.setMaxProtocolControlledAVAX(2 ether);
 
         vm.expectRevert(AvaLido.ProtocolStakedAmountTooLarge.selector);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1.1 ether}();
+        lido.deposit{value: 1.1 ether}(REFERRAL_ADDRESS);
     }
 
     function testExploitZeroValueStAVAX() public {
@@ -1879,12 +1898,12 @@ contract AvaLidoTest is Test, Helpers {
         // Let a user stake 1 AVAX and get stAVAX
         vm.deal(USER1_ADDRESS, 1 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
 
         // Attacker now creates 1 stAVAX
         vm.deal(USER1_ADDRESS, type(uint256).max);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
 
         // Rate is 1:1 still
         assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
@@ -1892,7 +1911,7 @@ contract AvaLidoTest is Test, Helpers {
         // Then attacker forces stAVAX value to zero
         vm.prank(USER1_ADDRESS);
         for (uint256 index = 0; index < 500; index++) {
-            lido.deposit{value: 100000000 ether}();
+            lido.deposit{value: 100000000 ether}(REFERRAL_ADDRESS);
         }
         assertEq(lido.exchangeRateAVAXToStAVAX(), 1 ether);
     }
@@ -1905,7 +1924,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 10 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 10 ether}();
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
 
         // Set up validator and stake.
         validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
@@ -1942,7 +1961,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 1 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
 
         // Calculate exchange rate.
         exchangeRateStAVAXToAVAX = lido.stAVAXToAVAX(totalControlled, 1 ether);
@@ -1960,7 +1979,7 @@ contract AvaLidoTest is Test, Helpers {
         // Deposit as user.
         vm.deal(USER1_ADDRESS, 1 ether);
         vm.prank(USER1_ADDRESS);
-        lido.deposit{value: 1 ether}();
+        lido.deposit{value: 1 ether}(REFERRAL_ADDRESS);
 
         assertEq(lido.protocolControlledAVAX(), 1 ether);
         assertEq(lido.unaccountedBalance(), 0);

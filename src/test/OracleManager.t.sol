@@ -40,8 +40,11 @@ contract OracleManagerTest is Test, Helpers {
         oracle = Oracle(proxyWrapped(address(_oracle), ROLE_PROXY_ADMIN));
         oracle.initialize(ORACLE_ADMIN_ADDRESS, address(oracleManager), epochDuration);
 
-        vm.prank(ORACLE_ADMIN_ADDRESS);
-        oracle.setNodeIDList(nodeIds);
+        vm.startPrank(ORACLE_ADMIN_ADDRESS);
+        oracle.startNodeIDUpdate();
+        oracle.appendNodeIDs(nodeIds);
+        oracle.endNodeIDUpdate();
+        vm.stopPrank();
     }
 
     // -------------------------------------------------------------------------
@@ -300,8 +303,11 @@ contract OracleManagerTest is Test, Helpers {
         newNodes[0] = "test";
 
         // Change the nodeID list
-        vm.prank(ORACLE_ADMIN_ADDRESS);
-        oracle.setNodeIDList(newNodes);
+        vm.startPrank(ORACLE_ADMIN_ADDRESS);
+        oracle.startNodeIDUpdate();
+        oracle.appendNodeIDs(newNodes);
+        oracle.endNodeIDUpdate();
+        vm.stopPrank();
 
         vm.roll(220);
 
