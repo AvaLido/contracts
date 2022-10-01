@@ -12,7 +12,7 @@ contract Treasury is ITreasury {
     // Errors
     error InvalidAddress();
     error BeneficiaryOnly();
-    ITreasuryBeneficiary public beneficiary;
+    ITreasuryBeneficiary public immutable beneficiary;
 
     constructor(address _beneficiaryAddress) {
         beneficiary = ITreasuryBeneficiary(_beneficiaryAddress);
