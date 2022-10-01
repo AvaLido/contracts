@@ -23,8 +23,8 @@ contract ValidatorSelector is Initializable, AccessControlEnumerable {
     event OracleAddressChanged(address newOracleAddress);
     event SmallStakeThresholdChanged(uint256 newSmallStakeThreshold);
 
-    uint256 smallStakeThreshold;
-    uint256 maxChunkSize;
+    uint256 public smallStakeThreshold;
+    uint256 public maxChunkSize;
 
     IOracle public oracle;
 

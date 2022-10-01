@@ -193,14 +193,71 @@ contract OracleTest is Test, Helpers {
         assertTrue(oracle.hasRole(ROLE_ORACLE_ADMIN, USER2_ADDRESS));
     }
 
-    function testSetNodeIDList() public {
-        assertEq(oracle.validatorCount(), 0);
+    function testStartNodeUpdate() public {
+        assertTrue(!oracle.isUpdatingNodes());
+        vm.prank(ORACLE_ADMIN_ADDRESS);
+        oracle.startNodeIDUpdate();
+        assertTrue(oracle.isUpdatingNodes());
+    }
+
+    function testStartNodeUpdateRemoveData() public {
+        Validator[] memory reportData = new Validator[](1);
+        reportData[0] = ValidatorHelpers.packValidator(0, 100);
+
+        vm.prank(ORACLE_MANAGER_CONTRACT_ADDRESS);
+        oracle.receiveFinalizedReport(epochId, reportData);
+
+        assertEq(oracle.latestFinalizedEpochId(), 100);
+        Validator[] memory vals = oracle.getLatestValidators();
+        assertEq(vals.length, 1);
 
         vm.prank(ORACLE_ADMIN_ADDRESS);
-        oracle.setNodeIDList(validators);
+        oracle.startNodeIDUpdate();
+        Validator[] memory newVals = oracle.getLatestValidators();
+        assertEq(newVals.length, 0);
+    }
+
+    function testStartNodeUpdateWhileUpdating() public {
+        assertTrue(!oracle.isUpdatingNodes());
+        vm.startPrank(ORACLE_ADMIN_ADDRESS);
+        oracle.startNodeIDUpdate();
+        assertTrue(oracle.isUpdatingNodes());
+
+        vm.expectRevert(Oracle.InvalidNodeIDUpdate.selector);
+        oracle.startNodeIDUpdate();
+    }
+
+    function testAddNodeIDsStartStop() public {
+        vm.startPrank(ORACLE_ADMIN_ADDRESS);
+        oracle.startNodeIDUpdate();
+
+        string[] memory nodes = new string[](2);
+        nodes[0] = "foo";
+        nodes[1] = "bar";
+        oracle.appendNodeIDs(nodes);
+
+        oracle.endNodeIDUpdate();
+        assertTrue(!oracle.isUpdatingNodes());
+        assertEq(oracle.validatorCount(), 2);
+    }
+
+    function testAddNodeIDsMultiple() public {
+        vm.startPrank(ORACLE_ADMIN_ADDRESS);
+        oracle.startNodeIDUpdate();
+
+        string[] memory nodes = new string[](2);
+        nodes[0] = "foo";
+        nodes[1] = "bar";
+        oracle.appendNodeIDs(nodes);
 
         assertEq(oracle.validatorCount(), 2);
-        assertEq(oracle.nodeIdByValidatorIndex(0), validators[0]);
+
+        string[] memory nodes2 = new string[](2);
+        nodes2[0] = "baz";
+        nodes2[1] = "qux";
+        oracle.appendNodeIDs(nodes2);
+
+        assertEq(oracle.validatorCount(), 4);
     }
 
     function testChangeEpochDuration() public {

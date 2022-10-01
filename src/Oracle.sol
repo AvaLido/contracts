@@ -23,6 +23,8 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     error InvalidEpochDuration();
     error InvalidReportingEpoch();
     error OnlyOracleManagerContract();
+    error InvalidNodeIDUpdate();
+    error CannotFinalizeWhileUpdating();
 
     // Events
     event EpochDurationChanged(uint256 epochDuration);
@@ -40,6 +42,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
     // our oracle report. This means we can store this expensive data on a lower frequency (e.g. once a week/month)
     // rather than on every report.
     string[] public validatorNodeIds;
+    bool public isUpdatingNodes;
 
     // Mappings
     mapping(uint256 => Validator[]) internal reportsByEpochId; // epochId => array of Validator[] structs
@@ -55,6 +58,7 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
 
         oracleManagerContract = _oracleManagerContract;
         epochDuration = _epochDuration;
+        isUpdatingNodes = false;
     }
 
     // -------------------------------------------------------------------------
@@ -82,6 +86,9 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         external
         onlyOracleManagerContract
     {
+        if (isUpdatingNodes) {
+            revert CannotFinalizeWhileUpdating();
+        }
         // Check that we are not overwriting an already finalized epoch
         if (reportsByEpochId[_epochId].length != 0) revert EpochAlreadyFinalized();
 
@@ -114,6 +121,12 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
      * @notice Get all finalized data for all validators for the latest epoch.
      */
     function getLatestValidators() public view returns (Validator[] memory) {
+        if (isUpdatingNodes) {
+            // If we're in the middle of an update, then don't return any validators
+            // because the pointers back into the nodeID list may become invalid.
+            Validator[] memory empty = new Validator[](0);
+            return empty;
+        }
         return reportsByEpochId[latestFinalizedEpochId];
     }
 
@@ -184,16 +197,50 @@ contract Oracle is IOracle, AccessControlEnumerable, Initializable {
         emit OracleManagerAddressChanged(_oracleManagerAddress);
     }
 
-    function setNodeIDList(string[] calldata nodes) external onlyRole(ROLE_ORACLE_ADMIN) {
+    /**
+     * @dev Start a node ID update. This removes the existing data so that oracles cannot query
+     * the set of node IDs to construct a report. It also prevents any reports from being finalised
+     * until the update has finished.
+     * You must follow this function up with calls to `appendNodeIDs` and `endNodeIDUpdate` for the
+     * protocol to function correctly.
+     * Note that its possible for this to happen during the middle of an epoch being reported. In that
+     * case, the call to finalise the epoch will fail and the oracles will move on to the next reporting
+     * epoch. This means that until the next epcoh is finalised, no staking can happen. So ideally this should
+     * run relatively close to a new epoch.
+     */
+    function startNodeIDUpdate() external onlyRole(ROLE_ORACLE_ADMIN) {
+        if (isUpdatingNodes) {
+            revert InvalidNodeIDUpdate();
+        }
         delete validatorNodeIds;
+        // Remove the latest epoch data because it will no longer be valid if node indicies
+        // have changed. This will happen if validators are removed from the list.
+        delete reportsByEpochId[latestFinalizedEpochId];
+        isUpdatingNodes = true;
+    }
+
+    /**
+     * Append node IDs to the current list. Must be in an update process (i.e. call start first) for this
+     * to work.
+     */
+    function appendNodeIDs(string[] calldata nodes) external onlyRole(ROLE_ORACLE_ADMIN) {
+        if (!isUpdatingNodes) {
+            revert InvalidNodeIDUpdate();
+        }
         uint256 len = nodes.length;
         for (uint256 i = 0; i < len; i++) {
             validatorNodeIds.push(nodes[i]);
         }
-        // Remove the latest epoch data because it will no longer be valid if node indicies
-        // have changed. This will happen if validators are removed from the list.
-        delete reportsByEpochId[latestFinalizedEpochId];
+    }
 
+    /**
+     * End an update, restore the flag to allow reports again.
+     */
+    function endNodeIDUpdate() external onlyRole(ROLE_ORACLE_ADMIN) {
+        if (!isUpdatingNodes) {
+            revert InvalidNodeIDUpdate();
+        }
+        isUpdatingNodes = false;
         emit NodeIDListChanged();
     }
 
