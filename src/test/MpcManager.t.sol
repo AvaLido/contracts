@@ -54,7 +54,7 @@ contract MpcManagerTest is Test, Helpers {
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
-    event RequestStarted(bytes32 indexed requestId, uint256 participantIndices);
+    event RequestStarted(bytes32 requestHash, uint256 participantIndices);
     event StakeRequestAdded(
         uint256 requestId,
         bytes indexed publicKey,
