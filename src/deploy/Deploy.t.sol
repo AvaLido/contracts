@@ -11,6 +11,7 @@ import "../test/helpers.sol";
 import "../OracleManager.sol";
 import "../Oracle.sol";
 import "../AvaLido.sol";
+import "../MockMpcManager.sol";
 
 contract Deploy is Script, Helpers {
     // Role details
@@ -33,10 +34,14 @@ contract Deploy is Script, Helpers {
 
     // Deploy contracts
     // Usage: forge script src/deploy/Deploy.t.sol --sig "deploy()" --broadcast --rpc-url <RPC_URL> --private-key <PRIVATE_KEY>
+    // forge script src/deploy/Deploy.t.sol --sig "deploy()" --broadcast --rpc-url http://34.172.25.188:9650/ext/bc/C/rpc --private-key 56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027
     // Syntax is identical to `cast`
     function deploy() public {
         // Create a transaction
         vm.startBroadcast();
+
+        // Mock MPC Manager
+        MockMpcManager mockMM = new MockMpcManager();
 
         // MPC manager
         MpcManager _mpcManager = new MpcManager();
@@ -77,6 +82,7 @@ contract Deploy is Script, Helpers {
         // End transaction
         vm.stopBroadcast();
 
+        console.log("Deployed Mock MPC Manager", address(mockMM));
         console.log("Deployed AvaLido", address(lido));
         console.log("Deployed Validator Selector", address(validatorSelector));
         console.log("Deployed Oracle", address(oracle));
