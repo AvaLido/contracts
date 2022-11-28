@@ -83,10 +83,10 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     mapping(bytes => bytes32) private _keyToGroupIds;
 
     // keygenRequestNumber -> key -> confirmation map
-    mapping(uint256 => mapping(bytes => uint256)) private _keyConfirmations;
+    mapping(uint256 => mapping(bytes => uint256)) private keyConfirmations;
 
     // groupId -> requestHash -> request status
-    mapping(bytes32 => mapping(bytes32 => uint256)) private _requestConfirmations; // Last Byte = total-Confirmation, Rest = Confirmation flags (for max of 248 members)
+    mapping(bytes32 => mapping(bytes32 => uint256)) public requestConfirmations; // Last Byte = total-Confirmation, Rest = Confirmation flags (for max of 248 members)
 
     uint256 private _lastStakeRequestNumber;
 
@@ -207,7 +207,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
         uint8 myIndex = participantId.getParticipantIndex();
         uint8 groupSize = participantId.getGroupSize();
-        uint256 confirmation = _keyConfirmations[lastKeygenRequestNumber][generatedPublicKey];
+        uint256 confirmation = keyConfirmations[lastKeygenRequestNumber][generatedPublicKey];
         uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
         if ((confirmation & myConfirm) > 0) revert AttemptToReconfirmKey();
 
@@ -223,7 +223,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
             lastKeygenRequest = KeygenStatusHelpers.makeKeygenRequest(groupId, uint8(KeygenStatus.COMPLETED));
             emit KeyGenerated(groupId, generatedPublicKey);
         }
-        _keyConfirmations[lastKeygenRequestNumber][generatedPublicKey] = ConfirmationHelpers.makeConfirmation(
+        keyConfirmations[lastKeygenRequestNumber][generatedPublicKey] = ConfirmationHelpers.makeConfirmation(
             indices,
             confirmationCount
         );
@@ -238,7 +238,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint8 myIndex = participantId.getParticipantIndex();
         uint8 threshold = participantId.getThreshold();
 
-        uint256 confirmation = _requestConfirmations[groupId][requestHash];
+        uint256 confirmation = requestConfirmations[groupId][requestHash];
         uint8 confirmationCount = confirmation.getConfirmationCount();
         if (confirmationCount > threshold) revert QuorumAlreadyReached();
         uint256 indices = confirmation.getIndices();
@@ -253,7 +253,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (confirmationCount == threshold + 1) {
             emit RequestStarted(requestHash, indices);
         }
-        _requestConfirmations[groupId][requestHash] = ConfirmationHelpers.makeConfirmation(indices, confirmationCount);
+        requestConfirmations[groupId][requestHash] = ConfirmationHelpers.makeConfirmation(indices, confirmationCount);
     }
 
     // -------------------------------------------------------------------------
