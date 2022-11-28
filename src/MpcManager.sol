@@ -243,7 +243,6 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (confirmationCount > threshold) revert QuorumAlreadyReached();
         uint256 indices = confirmation.getIndices();
 
-        ConfirmationHelpers.confirm(myIndex);
         uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
 
