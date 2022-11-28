@@ -342,7 +342,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
             uint256 curr = uint256(bytes32(publicKeys[i][:32]));
-            if (curr < prev) {
+            if (curr <= prev) {
                 return false;
             }
             prev = curr;
