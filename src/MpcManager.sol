@@ -142,11 +142,11 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 groupSize = publicKeys.length;
         if (groupSize < 2 || groupSize > MAX_GROUP_SIZE) revert InvalidGroupSize();
         if (threshold < 1 || threshold >= groupSize) revert InvalidThreshold();
+        if (!_isSortedAscendingOrder(publicKeys)) revert PublicKeysNotSorted();
 
         bytes memory b;
         for (uint256 i = 0; i < groupSize; i++) {
-            if (publicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();
-            if (!_isSortedAscendingOrder(publicKeys)) revert PublicKeysNotSorted();
+            if (publicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();            
             b = bytes.concat(b, publicKeys[i]);
         }
         bytes32 groupId = IdHelpers.makeGroupId(keccak256(b), groupSize, threshold);
