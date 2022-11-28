@@ -77,18 +77,18 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     address public rewardTreasuryAddress;
 
     // participantId -> participant
-    mapping(bytes32 => ParticipantInfo) private _groupParticipants;
+    mapping(bytes32 => ParticipantInfo) public groupParticipants;
 
     // key -> groupId
-    mapping(bytes => bytes32) private _keyToGroupIds;
+    mapping(bytes => bytes32) public keyGroupIds;
 
     // keygenRequestNumber -> key -> confirmation map
-    mapping(uint256 => mapping(bytes => uint256)) private _keyConfirmations;
+    mapping(uint256 => mapping(bytes => uint256)) public keyConfirmations;
 
     // groupId -> requestHash -> request status
-    mapping(bytes32 => mapping(bytes32 => uint256)) private _requestConfirmations; // Last Byte = total-Confirmation, Rest = Confirmation flags (for max of 248 members)
+    mapping(bytes32 => mapping(bytes32 => uint256)) public requestConfirmations; // Last Byte = total-Confirmation, Rest = Confirmation flags (for max of 248 members)
 
-    uint256 private _lastStakeRequestNumber;
+    uint256 public lastStakeRequestNumber;
 
     function initialize(
         address _roleMpcAdmin, // Role that can add mpc group and request for keygen.
@@ -142,23 +142,23 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 groupSize = publicKeys.length;
         if (groupSize < 2 || groupSize > MAX_GROUP_SIZE) revert InvalidGroupSize();
         if (threshold < 1 || threshold >= groupSize) revert InvalidThreshold();
+        if (!_isSortedAscendingOrder(publicKeys)) revert PublicKeysNotSorted();
 
         bytes memory b;
         for (uint256 i = 0; i < groupSize; i++) {
             if (publicKeys[i].length != PUBKEY_LENGTH) revert InvalidPublicKey();
-            if (!_isSortedAscendingOrder(publicKeys)) revert PublicKeysNotSorted();
             b = bytes.concat(b, publicKeys[i]);
         }
         bytes32 groupId = IdHelpers.makeGroupId(keccak256(b), groupSize, threshold);
 
         bytes32 participantId = groupId.makeParticipantId(1);
-        address knownFirstParticipantAddr = _groupParticipants[participantId].ethAddress;
+        address knownFirstParticipantAddr = groupParticipants[participantId].ethAddress;
         if (knownFirstParticipantAddr != address(0)) revert AttemptToReaddGroup();
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
             participantId = groupId.makeParticipantId(i + 1);
-            _groupParticipants[participantId].publicKey = publicKeys[i]; // Participant index is 1-based.
-            _groupParticipants[participantId].ethAddress = _calculateAddress(publicKeys[i]); // Participant index is 1-based.
+            groupParticipants[participantId].publicKey = publicKeys[i]; // Participant index is 1-based.
+            groupParticipants[participantId].ethAddress = _calculateAddress(publicKeys[i]); // Participant index is 1-based.
             emit ParticipantAdded(publicKeys[i], groupId, i + 1);
         }
     }
@@ -207,7 +207,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
         uint8 myIndex = participantId.getParticipantIndex();
         uint8 groupSize = participantId.getGroupSize();
-        uint256 confirmation = _keyConfirmations[lastKeygenRequestNumber][generatedPublicKey];
+        uint256 confirmation = keyConfirmations[lastKeygenRequestNumber][generatedPublicKey];
         uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
         if ((confirmation & myConfirm) > 0) revert AttemptToReconfirmKey();
 
@@ -217,12 +217,13 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         confirmationCount++;
 
         if (confirmationCount == groupSize) {
-            _keyToGroupIds[generatedPublicKey] = groupId;
+            keyGroupIds[generatedPublicKey] = groupId;
             lastGenPubKey = generatedPublicKey;
             lastGenAddress = _calculateAddress(generatedPublicKey);
+            lastKeygenRequest = KeygenStatusHelpers.makeKeygenRequest(groupId, uint8(KeygenStatus.COMPLETED));
             emit KeyGenerated(groupId, generatedPublicKey);
         }
-        _keyConfirmations[lastKeygenRequestNumber][generatedPublicKey] = ConfirmationHelpers.makeConfirmation(
+        keyConfirmations[lastKeygenRequestNumber][generatedPublicKey] = ConfirmationHelpers.makeConfirmation(
             indices,
             confirmationCount
         );
@@ -237,12 +238,11 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint8 myIndex = participantId.getParticipantIndex();
         uint8 threshold = participantId.getThreshold();
 
-        uint256 confirmation = _requestConfirmations[groupId][requestHash];
+        uint256 confirmation = requestConfirmations[groupId][requestHash];
         uint8 confirmationCount = confirmation.getConfirmationCount();
         if (confirmationCount > threshold) revert QuorumAlreadyReached();
         uint256 indices = confirmation.getIndices();
 
-        ConfirmationHelpers.confirm(myIndex);
         uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
 
@@ -252,7 +252,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (confirmationCount == threshold + 1) {
             emit RequestStarted(requestHash, indices);
         }
-        _requestConfirmations[groupId][requestHash] = ConfirmationHelpers.makeConfirmation(indices, confirmationCount);
+        requestConfirmations[groupId][requestHash] = ConfirmationHelpers.makeConfirmation(indices, confirmationCount);
     }
 
     // -------------------------------------------------------------------------
@@ -265,19 +265,19 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         bytes[] memory participants = new bytes[](count);
 
         bytes32 participantId = groupId.makeParticipantId(1);
-        bytes memory participant1 = _groupParticipants[participantId].publicKey; // Participant index is 1-based.
+        bytes memory participant1 = groupParticipants[participantId].publicKey; // Participant index is 1-based.
         if (participant1.length == 0) revert GroupNotFound();
         participants[0] = participant1;
 
         for (uint256 i = 1; i < count; i++) {
             participantId = groupId.makeParticipantId(i + 1);
-            participants[i] = _groupParticipants[participantId].publicKey; // Participant index is 1-based.
+            participants[i] = groupParticipants[participantId].publicKey; // Participant index is 1-based.
         }
         return (participants);
     }
 
     function getGroupIdByKey(bytes calldata publicKey) external view returns (bytes32) {
-        return _keyToGroupIds[publicKey];
+        return keyGroupIds[publicKey];
     }
 
     // -------------------------------------------------------------------------
@@ -302,7 +302,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     }
 
     modifier onlyGroupMember(bytes32 participantId) {
-        if (msg.sender != _groupParticipants[participantId].ethAddress) revert InvalidGroupMembership();
+        if (msg.sender != groupParticipants[participantId].ethAddress) revert InvalidGroupMembership();
         _;
     }
 
@@ -316,8 +316,8 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     }
 
     function _getNextStakeRequestNumber() internal returns (uint256) {
-        _lastStakeRequestNumber += 1;
-        return _lastStakeRequestNumber;
+        lastStakeRequestNumber += 1;
+        return lastStakeRequestNumber;
     }
 
     // -------------------------------------------------------------------------
@@ -341,7 +341,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
         for (uint256 i = 0; i < publicKeys.length; i++) {
             uint256 curr = uint256(bytes32(publicKeys[i][:32]));
-            if (curr < prev) {
+            if (curr <= prev) {
                 return false;
             }
             prev = curr;

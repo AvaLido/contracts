@@ -167,6 +167,7 @@ contract MpcManagerTest is Test, Helpers {
 
         vm.prank(MPC_BIG_P12_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_BIG_P12_ID, MPC_GENERATED_PUBKEY);
+        assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_BIG_GROUP_ID) + uint8(KeygenStatus.COMPLETED));
     }
 
     function testCreateGroupNotSorted() public {
@@ -276,6 +277,7 @@ contract MpcManagerTest is Test, Helpers {
 
         vm.prank(MPC_PLAYER_3_ADDRESS);
         mpcManager.reportGeneratedKey(MPC_PARTICIPANT3_ID, MPC_GENERATED_PUBKEY);
+        assertEq(uint256(mpcManager.lastKeygenRequest()), uint256(MPC_GROUP_ID) + uint8(KeygenStatus.COMPLETED));
     }
 
     function testGetKey() public {
