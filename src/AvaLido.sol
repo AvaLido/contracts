@@ -586,11 +586,6 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         );
     }
 
-    /**
-     * @dev The two treasury addresses should be set in intialize. Separate them due to
-     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
-     * struct to hold all the arguments of initialize call?
-     */
     function setPrincipalTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
 
@@ -599,11 +594,6 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         emit ProtocolConfigChanged("setPrincipalTreasuryAddress", "setPrincipalTreasuryAddress", abi.encode(_address));
     }
 
-    /**
-     * @dev The two treasury addresses should be set in intialize. Separate them due to
-     * stack too deep issue. Need to check if there's a better way to handle, e.g. use a
-     * struct to hold all the arguments of initialize call?
-     */
     function setRewardTreasuryAddress(address _address) external onlyRole(ROLE_TREASURY_MANAGER) {
         if (_address == address(0)) revert InvalidAddress();
 
