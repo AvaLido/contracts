@@ -220,6 +220,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
             _keyToGroupIds[generatedPublicKey] = groupId;
             lastGenPubKey = generatedPublicKey;
             lastGenAddress = _calculateAddress(generatedPublicKey);
+            lastKeygenRequest = KeygenStatusHelpers.makeKeygenRequest(groupId, uint8(KeygenStatus.COMPLETED));
             emit KeyGenerated(groupId, generatedPublicKey);
         }
         _keyConfirmations[lastKeygenRequestNumber][generatedPublicKey] = ConfirmationHelpers.makeConfirmation(
