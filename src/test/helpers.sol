@@ -11,7 +11,8 @@ import "../Treasury.sol";
 
 address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 address constant REFERRAL_ADDRESS = 0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF;
-address constant DEPLOYER_ADDRESS = 0x62d69f6867A0A084C6d313943dC22023Bc263691;
+// Note: if AccessControl suddenly fails, and there has been a Forge update, the address below may have changed
+address constant DEPLOYER_ADDRESS = 0x34A1D3fff3958843C43aD80F30b94c510645C316;
 address constant PAUSE_ADMIN_ADDRESS = DEPLOYER_ADDRESS;
 address constant USER1_ADDRESS = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
 address constant USER2_ADDRESS = 0x220866B1A2219f40e72f5c628B65D54268cA3A9D;
