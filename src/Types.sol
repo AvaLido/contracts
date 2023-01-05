@@ -25,7 +25,7 @@ type Validator is uint24;
 
 library ValidatorHelpers {
     function getNodeIndex(Validator data) public pure returns (uint256) {
-        // Take 12 bits from the middle which represents our index.
+        // Take the first 14 bits which represents our index.
         uint24 value = Validator.unwrap(data) & 16776192; // 111111111111110000000000
         // Shift right 10 places to align
         uint24 shifted = value >> 10;
