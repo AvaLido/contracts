@@ -524,21 +524,19 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
                 return (false, remaining);
             }
 
-            if (unstakeRequests[i].amountFilled < unstakeRequests[i].amountRequested) {
-                uint256 amountRequired = unstakeRequests[i].amountRequested - unstakeRequests[i].amountFilled;
+            uint256 amountRequired = unstakeRequests[i].amountRequested - unstakeRequests[i].amountFilled;
 
-                uint256 amountToFill = Math.min(amountRequired, remaining);
-                amountFilled += amountToFill;
+            uint256 amountToFill = Math.min(amountRequired, remaining);
+            amountFilled += amountToFill;
 
-                unstakeRequests[i].amountFilled += amountToFill;
+            unstakeRequests[i].amountFilled += amountToFill;
 
-                // We filled the request entirely, so move the head pointer on
-                if (isFilled(unstakeRequests[i])) {
-                    unfilledHead = i + 1;
-                    emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, i);
-                } else {
-                    emit RequestPartiallyFilledEvent(amountToFill, i);
-                }
+            // We filled the request entirely, so move the head pointer on
+            if (isFilled(unstakeRequests[i])) {
+                unfilledHead = i + 1;
+                emit RequestFullyFilledEvent(unstakeRequests[i].amountRequested, i);
+            } else {
+                emit RequestPartiallyFilledEvent(amountToFill, i);
             }
 
             remaining = inputAmount - amountFilled;
