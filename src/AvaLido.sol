@@ -286,24 +286,21 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         // Track buffered balance.
         _bufferedBalance -= amountAVAX;
 
-        // Transfer the AVAX to the user
-        (bool success, ) = msg.sender.call{value: amountAVAX}("");
-        if (!success) revert TransferFailed();
-
         // Emit claim event.
-        if (isFullyClaimed(request)) {
-            // Final claim, remove this request.
-            // Note that we just delete for gas refunds, this doesn't alter the indicies of the other requests.
+        bool fullyClaimed = isFullyClaimed(request);
+        if (fullyClaimed) {
+            // Final claim, remove this request so that it can't be claimed again.
+            // Note, this doesn't alter the indicies of the other requests.
             unstakeRequestCount[msg.sender]--;
             delete unstakeRequests[requestIndex];
-
-            emit ClaimEvent(msg.sender, amountAVAX, true, requestIndex);
-
-            return;
         }
 
         // Emit an event which describes the partial claim.
-        emit ClaimEvent(msg.sender, amountAVAX, false, requestIndex);
+        emit ClaimEvent(msg.sender, amountAVAX, fullyClaimed, requestIndex);
+
+        // Transfer the AVAX to the user
+        (bool success, ) = msg.sender.call{value: amountAVAX}("");
+        if (!success) revert TransferFailed();
     }
 
     /**
