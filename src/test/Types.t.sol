@@ -131,12 +131,14 @@ contract RequestRecordHelpersTest is Test, Helpers {
 
     function testQuorumReached() public {
         uint256 record = uint256(RECORD);
+        assertEq(record.isQuorumReached(), false);
         record = record.setQuorumReached();
         assertEq(record.isQuorumReached(), true);
     }
 
     function testSetFailed() public {
         uint256 record = uint256(RECORD);
+        assertEq(record.isFailed(), false);
         record = record.setFailed();
         assertEq(record.isFailed(), true);
     }

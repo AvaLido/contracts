@@ -134,7 +134,7 @@ library RequestRecordHelpers {
     }
 
     function isFailed(uint256 record) public pure returns (bool) {
-        return (record | FAILED) > 0;
+        return (record & FAILED) > 0;
     }
 }
 
