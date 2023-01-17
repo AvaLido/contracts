@@ -100,22 +100,23 @@ contract IdHelpersTest is Test, Helpers {
 }
 
 contract RequestRecordHelpersTest is Test, Helpers {
+    using RequestRecordHelpers for uint256;
     bytes32 constant INDICES = bytes32(uint256(0x0115cfc0993c483700));
     uint8 constant CONFIRMATION_COUNT = 27;
-    bytes32 constant CONFIRMATION = bytes32(uint256(0x0115cfc0993c48371b));
+    bytes32 constant RECORD = bytes32(uint256(0x0115cfc0993c48371b));
 
-    function testMakeConfirmation() public {
-        uint256 confirmation = RequestRecordHelpers.makeConfirmation(uint256(INDICES), CONFIRMATION_COUNT);
-        assertEq(confirmation, uint256(CONFIRMATION));
+    function testMakeRecord() public {
+        uint256 record = RequestRecordHelpers.makeRecord(uint256(INDICES), CONFIRMATION_COUNT);
+        assertEq(record, uint256(RECORD));
     }
 
     function testGetIndices() public {
-        uint256 indices = RequestRecordHelpers.getIndices(uint256(CONFIRMATION));
+        uint256 indices = RequestRecordHelpers.getIndices(uint256(RECORD));
         assertEq(indices, uint256(INDICES));
     }
 
     function testGetConfirmationCount() public {
-        uint8 count = RequestRecordHelpers.getConfirmationCount(uint256(CONFIRMATION));
+        uint8 count = RequestRecordHelpers.getConfirmationCount(uint256(RECORD));
         assertEq(count, CONFIRMATION_COUNT);
     }
 
@@ -126,6 +127,18 @@ contract RequestRecordHelpersTest is Test, Helpers {
         assertEq(confirm, uint256(INDEX_2));
         confirm = RequestRecordHelpers.confirm(3);
         assertEq(confirm, uint256(INDEX_3));
+    }
+
+    function testQuorumReached() public {
+        uint256 record = uint256(RECORD);
+        record = record.setQuorumReached();
+        assertEq(record.isQuorumReached(), true);
+    }
+
+    function testSetFailed() public {
+        uint256 record = uint256(RECORD);
+        record = record.setFailed();
+        assertEq(record.isFailed(), true);
     }
 }
 

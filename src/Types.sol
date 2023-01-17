@@ -101,22 +101,40 @@ library IdHelpers {
 library RequestRecordHelpers {
     uint256 constant INIT_INDEX_BIT =               0x800000000000000000;
     bytes32 constant INDICES_MASK = bytes32(uint256(0xffffffffffffffff00));
+    uint256 constant QUORUM_REACHED = 0x0100000000000000000000000000000000000000000000000000000000000000;
+    uint256 constant FAILED = 0x0200000000000000000000000000000000000000000000000000000000000000;
 
-    function makeConfirmation(uint256 indices, uint8 confirmationCount) public pure returns (uint256) {
+    function makeRecord(uint256 indices, uint8 confirmationCount) public pure returns (uint256) {
         assert(indices & uint256(LAST_BYTE_MASK) == 0);
         return indices | confirmationCount;
     }
 
-    function getIndices(uint256 confirmation) public pure returns (uint256) {
-        return confirmation & uint256(INDICES_MASK);
+    function getIndices(uint256 record) public pure returns (uint256) {
+        return record & uint256(INDICES_MASK);
     }
 
-    function getConfirmationCount(uint256 confirmation) public pure returns (uint8) {
-        return uint8(confirmation & uint256(LAST_BYTE_MASK));
+    function getConfirmationCount(uint256 record) public pure returns (uint8) {
+        return uint8(record & uint256(LAST_BYTE_MASK));
     }
 
     function confirm(uint8 myIndex) public pure returns (uint256) {
         return INIT_INDEX_BIT >> (myIndex - 1); // Set bit representing my confirm.
+    }
+
+    function setQuorumReached(uint256 record) public pure returns (uint256) {
+        return record | QUORUM_REACHED;
+    }
+
+    function setFailed(uint256 record) public pure returns (uint256) {
+        return record | FAILED;
+    }
+
+    function isQuorumReached(uint256 record) public pure returns (bool) {
+        return (record & QUORUM_REACHED) > 0;
+    }
+
+    function isFailed(uint256 record) public pure returns (bool) {
+        return (record | FAILED) > 0;
     }
 }
 
