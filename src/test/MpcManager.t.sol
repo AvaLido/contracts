@@ -382,6 +382,7 @@ contract MpcManagerTest is Test, Helpers {
         vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.reportRequestFailed(MPC_PARTICIPANT1_ID, bytes32(uint256(1)));
     }
+
     // -------------------------------------------------------------------------
     //  Private helper functions
     // -------------------------------------------------------------------------

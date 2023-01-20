@@ -99,7 +99,7 @@ library IdHelpers {
 // i.e. when the first bit set to 1, it means participant 1 has confirmed.
 // The last byte records the number participants that have confirmed.
 library RequestRecordHelpers {
-    uint256 constant INIT_INDEX_BIT =               0x800000000000000000;
+    uint256 constant INIT_INDEX_BIT = 0x800000000000000000;
     bytes32 constant INDICES_MASK = bytes32(uint256(0xffffffffffffffff00));
     uint256 constant QUORUM_REACHED = 0x0100000000000000000000000000000000000000000000000000000000000000;
     uint256 constant FAILED = 0x0200000000000000000000000000000000000000000000000000000000000000;
