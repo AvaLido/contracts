@@ -62,7 +62,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     );
 
     event RequestStarted(bytes32 requestHash, uint256 participantIndices);
-    event RequestFailed(bytes32 requestHash);
+    event RequestFailed(bytes32 requestHash, bytes data);
 
     // Types
     struct ParticipantInfo {
@@ -261,7 +261,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         requestRecords[groupId][requestHash] = record;
     }
 
-    function reportRequestFailed(bytes32 participantId, bytes32 requestHash) external onlyGroupMember(participantId) {
+    function reportRequestFailed(bytes32 participantId, bytes32 requestHash, bytes calldata data) external onlyGroupMember(participantId) {
         bytes32 groupId = participantId.getGroupId();
         uint8 myIndex = participantId.getParticipantIndex();
 
@@ -271,7 +271,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         if (record & myConfirm == 0) revert NotInQuorum();
 
         requestRecords[groupId][requestHash] = record.setFailed();
-        emit RequestFailed(requestHash);
+        emit RequestFailed(requestHash, data);
     }
 
     // -------------------------------------------------------------------------

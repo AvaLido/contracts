@@ -55,7 +55,7 @@ contract MpcManagerTest is Test, Helpers {
     event SignRequestAdded(uint256 requestId, bytes indexed publicKey, bytes message);
     event SignRequestStarted(uint256 requestId, bytes indexed publicKey, bytes message);
     event RequestStarted(bytes32 requestHash, uint256 participantIndices);
-    event RequestFailed(bytes32 requestHash);
+    event RequestFailed(bytes32 requestHash, bytes data);
     event StakeRequestAdded(
         uint256 requestId,
         bytes indexed publicKey,
@@ -361,11 +361,13 @@ contract MpcManagerTest is Test, Helpers {
 
         vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.joinRequest(MPC_PARTICIPANT1_ID, bytes32(uint256(1)));
-
+        
+        bytes memory data = hex"11";
+        
         // Cannot report failed before quorum reached
         vm.prank(MPC_PLAYER_1_ADDRESS);
         vm.expectRevert(MpcManager.QuorumNotReached.selector);
-        mpcManager.reportRequestFailed(MPC_PARTICIPANT1_ID, bytes32(uint256(1)));
+        mpcManager.reportRequestFailed(MPC_PARTICIPANT1_ID, bytes32(uint256(1)), data);
 
         // Quorum reached
         vm.prank(MPC_PLAYER_2_ADDRESS);
@@ -374,13 +376,13 @@ contract MpcManagerTest is Test, Helpers {
         // Cannot report failed if not a member of quorum
         vm.prank(MPC_PLAYER_3_ADDRESS);
         vm.expectRevert(MpcManager.NotInQuorum.selector);
-        mpcManager.reportRequestFailed(MPC_PARTICIPANT3_ID, bytes32(uint256(1)));
+        mpcManager.reportRequestFailed(MPC_PARTICIPANT3_ID, bytes32(uint256(1)), data);
 
         // Can report failed after quorum reached
         vm.expectEmit(false, false, true, true);
-        emit RequestFailed(bytes32(uint256(1)));
+        emit RequestFailed(bytes32(uint256(1)), data);
         vm.prank(MPC_PLAYER_1_ADDRESS);
-        mpcManager.reportRequestFailed(MPC_PARTICIPANT1_ID, bytes32(uint256(1)));
+        mpcManager.reportRequestFailed(MPC_PARTICIPANT1_ID, bytes32(uint256(1)), data);
     }
 
     // -------------------------------------------------------------------------
