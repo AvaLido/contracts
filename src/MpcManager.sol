@@ -12,7 +12,7 @@ import "./interfaces/IMpcManager.sol";
 
 contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializable {
     using IdHelpers for bytes32;
-    using ConfirmationHelpers for uint256;
+    using RequestRecordHelpers for uint256;
     enum KeygenStatus {
         NOT_EXIST,
         REQUESTED,
@@ -44,6 +44,9 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
     error TransferFailed();
 
+    error QuorumNotReached();
+    error NotInQuorum();
+
     // Events
     event ParticipantAdded(bytes indexed publicKey, bytes32 groupId, uint256 index);
     event KeyGenerated(bytes32 indexed groupId, bytes publicKey);
@@ -59,6 +62,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     );
 
     event RequestStarted(bytes32 requestHash, uint256 participantIndices);
+    event RequestFailed(bytes32 requestHash, bytes data);
 
     // Types
     struct ParticipantInfo {
@@ -83,10 +87,10 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
     mapping(bytes => bytes32) public keyGroupIds;
 
     // keygenRequestNumber -> key -> confirmation map
-    mapping(uint256 => mapping(bytes => uint256)) public keyConfirmations;
+    mapping(uint256 => mapping(bytes => uint256)) public keyRecords;
 
     // groupId -> requestHash -> request status
-    mapping(bytes32 => mapping(bytes32 => uint256)) public requestConfirmations; // Last Byte = total-Confirmation, Rest = Confirmation flags (for max of 248 members)
+    mapping(bytes32 => mapping(bytes32 => uint256)) public requestRecords;
 
     uint256 public lastStakeRequestNumber;
 
@@ -207,13 +211,13 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
 
         uint8 myIndex = participantId.getParticipantIndex();
         uint8 groupSize = participantId.getGroupSize();
-        uint256 confirmation = keyConfirmations[lastKeygenRequestNumber][generatedPublicKey];
-        uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
-        if ((confirmation & myConfirm) > 0) revert AttemptToReconfirmKey();
+        uint256 record = keyRecords[lastKeygenRequestNumber][generatedPublicKey];
+        uint256 myConfirm = RequestRecordHelpers.confirm(myIndex);
+        if ((record & myConfirm) > 0) revert AttemptToReconfirmKey();
 
-        uint256 indices = confirmation.getIndices();
+        uint256 indices = record.getIndices();
         indices += myConfirm;
-        uint8 confirmationCount = confirmation.getConfirmationCount();
+        uint8 confirmationCount = record.getConfirmationCount();
         confirmationCount++;
 
         if (confirmationCount == groupSize) {
@@ -223,7 +227,7 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
             lastKeygenRequest = KeygenStatusHelpers.makeKeygenRequest(groupId, uint8(KeygenStatus.COMPLETED));
             emit KeyGenerated(groupId, generatedPublicKey);
         }
-        keyConfirmations[lastKeygenRequestNumber][generatedPublicKey] = ConfirmationHelpers.makeConfirmation(
+        keyRecords[lastKeygenRequestNumber][generatedPublicKey] = RequestRecordHelpers.makeRecord(
             indices,
             confirmationCount
         );
@@ -238,21 +242,40 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint8 myIndex = participantId.getParticipantIndex();
         uint8 threshold = participantId.getThreshold();
 
-        uint256 confirmation = requestConfirmations[groupId][requestHash];
-        uint8 confirmationCount = confirmation.getConfirmationCount();
+        uint256 record = requestRecords[groupId][requestHash];
+        uint8 confirmationCount = record.getConfirmationCount();
         if (confirmationCount > threshold) revert QuorumAlreadyReached();
-        uint256 indices = confirmation.getIndices();
+        uint256 indices = record.getIndices();
 
-        uint256 myConfirm = ConfirmationHelpers.confirm(myIndex);
+        uint256 myConfirm = RequestRecordHelpers.confirm(myIndex);
         if (indices & myConfirm > 0) revert AttemptToRejoin();
 
         indices += myConfirm;
         confirmationCount++;
+        record = RequestRecordHelpers.makeRecord(indices, confirmationCount);
 
         if (confirmationCount == threshold + 1) {
             emit RequestStarted(requestHash, indices);
+            record = record.setQuorumReached();
         }
-        requestConfirmations[groupId][requestHash] = ConfirmationHelpers.makeConfirmation(indices, confirmationCount);
+        requestRecords[groupId][requestHash] = record;
+    }
+
+    function reportRequestFailed(
+        bytes32 participantId,
+        bytes32 requestHash,
+        bytes calldata data
+    ) external onlyGroupMember(participantId) {
+        bytes32 groupId = participantId.getGroupId();
+        uint8 myIndex = participantId.getParticipantIndex();
+
+        uint256 record = requestRecords[groupId][requestHash];
+        if (!record.isQuorumReached()) revert QuorumNotReached();
+        uint256 myConfirm = RequestRecordHelpers.confirm(myIndex);
+        if (record & myConfirm == 0) revert NotInQuorum();
+
+        requestRecords[groupId][requestHash] = record.setFailed();
+        emit RequestFailed(requestHash, data);
     }
 
     // -------------------------------------------------------------------------
