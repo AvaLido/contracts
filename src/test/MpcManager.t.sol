@@ -361,9 +361,9 @@ contract MpcManagerTest is Test, Helpers {
 
         vm.prank(MPC_PLAYER_1_ADDRESS);
         mpcManager.joinRequest(MPC_PARTICIPANT1_ID, bytes32(uint256(1)));
-        
+
         bytes memory data = hex"11";
-        
+
         // Cannot report failed before quorum reached
         vm.prank(MPC_PLAYER_1_ADDRESS);
         vm.expectRevert(MpcManager.QuorumNotReached.selector);

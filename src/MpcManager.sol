@@ -261,7 +261,11 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         requestRecords[groupId][requestHash] = record;
     }
 
-    function reportRequestFailed(bytes32 participantId, bytes32 requestHash, bytes calldata data) external onlyGroupMember(participantId) {
+    function reportRequestFailed(
+        bytes32 participantId,
+        bytes32 requestHash,
+        bytes calldata data
+    ) external onlyGroupMember(participantId) {
         bytes32 groupId = participantId.getGroupId();
         uint8 myIndex = participantId.getParticipantIndex();
 
