@@ -274,8 +274,10 @@ contract MpcManager is Pausable, AccessControlEnumerable, IMpcManager, Initializ
         uint256 myConfirm = RequestRecordHelpers.confirm(myIndex);
         if (record & myConfirm == 0) revert NotInQuorum();
 
-        requestRecords[groupId][requestHash] = record.setFailed();
-        emit RequestFailed(requestHash, data);
+        if (!record.isFailed()) {
+            requestRecords[groupId][requestHash] = record.setFailed();
+            emit RequestFailed(requestHash, data);
+        }
     }
 
     // -------------------------------------------------------------------------
