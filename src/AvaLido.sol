@@ -638,7 +638,7 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
 
     // Setter check reflects Avalanche P-chain minimum and maximum staking periods.
     function setStakePeriod(uint256 _stakePeriod) external onlyRole(ROLE_PROTOCOL_MANAGER) {
-        if (_stakePeriod < 14 days || _stakePeriod > 365 days) revert InvalidConfiguration();
+        if (_stakePeriod < 1 minutes || _stakePeriod > 365 days) revert InvalidConfiguration();
 
         stakePeriod = _stakePeriod;
 
