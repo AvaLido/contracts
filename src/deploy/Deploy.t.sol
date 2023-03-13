@@ -52,6 +52,7 @@ contract Deploy is Script, Helpers {
         Oracle _oracle = new Oracle();
         Oracle oracle = Oracle(address(proxyWrapped(address(_oracle), proxyAdmin)));
         oracle.initialize(oracleAdmin, address(oracleManager), epochDuration);
+        oracleManager.setOracleAddress(address(oracle));
 
         // Validator selector
         ValidatorSelector _validatorSelector = new ValidatorSelector();
