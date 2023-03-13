@@ -40,6 +40,17 @@ To set up MetaMask for the local network, add:
 RPC URL: `http://127.0.0.1:9650/ext/bc/C/rpc`
 Chain ID: `43112`
 
+#### Test Admin Accounts
+
+The default deploy script uses the following accounts for testing:
+
+- `Pause admin` - `0x000f54f73696298dEDffB4c37f8B6564F486EAA3` PK `13f21141047f0771acec5295eeed52f335744cfe11ef322f5143ecbdbb4048da`
+- `Proxy admin` - `0x999a1D7349249B2a93B512f4ffcBF03DB760d15B` PK `f650126bfe6e9b5191b5fd33e1f500d38dad2c6022ad02da46c454e488e16b85`
+- `Lido fee address` - `0x11144C7f850415Ac4Fb446A6fE76b1DbD533FC55` PK `9230e8f42dc71541d791e98aab7824381df0464568368e760c5312cf4d4422c2`
+- `Author fee address` - `0x222D9E71E9f66e0B7cB2Ba837Be1B9B87052e612` PK `f43abd9a5c4a94d97923816aa2401ee5231ff2c99d08c63a27ed53c5b6a449cb`
+
+These are for use in test only, they should never be used in mainnet.
+
 #### Setting NodeIDs
 
 We need to run an occasional process to change the list of validator NodeIDs which the oracle knows about. Unfortunately, due to block gas limits, we have to do this in multiple transactions across many blocks. There is a script called `OracleAddNodes` which has 3 functions which need to be called:
