@@ -32,6 +32,7 @@ The local network has a few pre-funded accounts to make development easier:
 - 🐪 `MPC Player 1` - `0x3051bA2d313840932B7091D2e8684672496E9A4B` PK `59d1c6956f08477262c9e827239457584299cf583027a27c1d472087e8c35f21`
 - 🐪 `MPC Player 2` - `0x7Ac8e2083E3503bE631a0557b3f2A8543EaAdd90` PK `6c326909bee727d5fc434e2c75a3e0126df2ec4f49ad02cdd6209cf19f91da33`
 - 🐪 `MPC Player 3` - `0x3600323b486F115CE127758ed84F26977628EeaA` PK `5431ed99fbcc291f2ed8906d7d46fdf45afbb1b95da65fecd4707d16a6b3301b`
+- 🏁 `Initiator` - `0xbfE4168b9d65BFddB21c9E3d18bC82B774bB99d8` PK `676be76d4db5ee0a5b3ee5632646ee6c9f527c793885c8a8420f78e682943ceb`
 
 The network stores state in the `node-N` directories in the `network` folder. This means you can kill and restart the network without losing state. You should be able to use MetaMask like normal to test out the network.
 
