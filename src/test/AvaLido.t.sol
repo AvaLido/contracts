@@ -1992,4 +1992,61 @@ contract AvaLidoTest is Test, Helpers {
         assertEq(lido.protocolControlledAVAX(), 1 ether);
         assertEq(lido.unaccountedBalance(), 50 ether);
     }
+
+    function testGetAllUnstakeRequestsOfUser() public {
+        // setup
+        vm.deal(USER1_ADDRESS, 10 ether);
+        vm.deal(USER2_ADDRESS, 5 ether);
+
+        vm.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
+        validatorSelectMock(validatorSelectorAddress, "test", 10 ether, 0);
+        lido.initiateStake();
+
+        vm.prank(USER2_ADDRESS);
+        lido.deposit{value: 5 ether}(REFERRAL_ADDRESS);
+        validatorSelectMock(validatorSelectorAddress, "test", 5 ether, 0);
+        lido.initiateStake();
+
+        assertEq(lido.balanceOf(USER1_ADDRESS), 10 ether);
+        assertEq(lido.balanceOf(USER2_ADDRESS), 5 ether);
+
+        // make some unstake reqs as User1, User2
+        vm.startPrank(USER1_ADDRESS);
+        lido.approve(address(lido), 10 ether);
+        assertEq(lido.allowance(USER1_ADDRESS, address(lido)), 10 ether);
+        uint256 requestId = lido.requestWithdrawal(7 ether);
+        assertEq(requestId, 0);
+        uint256 requestId2 = lido.requestWithdrawal(3 ether);
+        assertEq(requestId2, 1);
+        vm.stopPrank();
+
+        vm.startPrank(USER2_ADDRESS);
+        lido.approve(address(lido), 5 ether);
+        assertEq(lido.allowance(USER2_ADDRESS, address(lido)), 5 ether);
+        uint256 requestId3 = lido.requestWithdrawal(1 ether);
+        assertEq(requestId3, 2);
+        uint256 requestId4 = lido.requestWithdrawal(1 ether);
+        assertEq(requestId4, 3);
+        uint256 requestId5 = lido.requestWithdrawal(1 ether);
+        assertEq(requestId5, 4);
+        uint256 requestId6 = lido.requestWithdrawal(1 ether);
+        assertEq(requestId6, 5);
+        uint256 requestId7 = lido.requestWithdrawal(1 ether);
+        assertEq(requestId7, 6);
+        vm.stopPrank();
+
+        // assert that we are fetching the correct number for User1, User2
+        UnstakeRequest[] memory user1Reqs = lido.requestsOfAddress(USER1_ADDRESS);
+        assertEq(user1Reqs.length, 2);
+        assertEq(user1Reqs[0].amountRequested, 7 ether);
+        assertEq(user1Reqs[1].amountRequested, 3 ether);
+        UnstakeRequest[] memory user2Reqs = lido.requestsOfAddress(USER2_ADDRESS);
+        assertEq(user2Reqs.length, 5);
+        assertEq(user2Reqs[0].amountRequested, 1 ether);
+        assertEq(user2Reqs[1].amountRequested, 1 ether);
+        assertEq(user2Reqs[2].amountRequested, 1 ether);
+        assertEq(user2Reqs[3].amountRequested, 1 ether);
+        assertEq(user2Reqs[4].amountRequested, 1 ether);
+    }
 }

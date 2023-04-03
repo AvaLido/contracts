@@ -244,6 +244,24 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
     }
 
     /**
+     * @notice Get all unstake requests of a user's address.
+     * @param user Wallet address to look up.
+     * @return UnstakeRequest[] All UnstakeRequest structs of the address.
+     */
+    function requestsOfAddress(address user) public view returns (UnstakeRequest[] memory) {
+        UnstakeRequest[] memory usersRequests = new UnstakeRequest[](unstakeRequestCount[user]);
+        uint256 count = 0;
+        for (uint256 i = 0; i < unstakeRequests.length; i++) {
+            UnstakeRequest memory request = requestByIndex(i);
+            if (request.requester == user) {
+                usersRequests[count] = request;
+                count++;
+            }
+        }
+        return usersRequests;
+    }
+
+    /**
      * @notice Claim your AVAX from a completed unstake requested.
      * @dev This allows users to claim their AVAX back. We burn the stAVAX that we've been holding
      * at this point.
