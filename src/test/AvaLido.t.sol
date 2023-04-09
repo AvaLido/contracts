@@ -16,12 +16,7 @@ contract FakeMpcManager is IMpcManager {
 
     function setAvaLidoAddress(address avaLidoAddress) external {}
 
-    function requestStake(
-        string calldata nodeID,
-        uint256 amount,
-        uint256 startTime,
-        uint256 endTime
-    ) external payable {
+    function requestStake(string calldata nodeID, uint256 amount, uint256 startTime, uint256 endTime) external payable {
         require(msg.value == amount, "Incorrect value.");
         payable(MPC_GENERATED_ADDRESS).transfer(amount);
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
@@ -1991,5 +1986,30 @@ contract AvaLidoTest is Test, Helpers {
 
         assertEq(lido.protocolControlledAVAX(), 1 ether);
         assertEq(lido.unaccountedBalance(), 50 ether);
+    }
+
+    function testExcessFundsTreasury() public {
+        // Stake 10 ether
+        vm.deal(USER1_ADDRESS, 10 ether);
+        vm.prank(USER1_ADDRESS);
+        lido.deposit{value: 10 ether}(REFERRAL_ADDRESS);
+
+        validatorSelectMock(validatorSelectorAddress, "test-node", 10 ether, 0);
+
+        // Call initiate to move to staking
+        uint256 staked = lido.initiateStake();
+        assertEq(staked, 10 ether);
+
+        // Simulate principal and rewards
+        vm.deal(pTreasuryAddress, 10 ether);
+        vm.deal(rTreasuryAddress, 0.5 ether);
+
+        // Attacker adds extra wei to the treasury
+        address attacker = vm.addr(0xA11CE);
+        vm.deal(attacker, 1 ether);
+        vm.prank(attacker);
+        payable(pTreasuryAddress).transfer(0.5 ether);
+
+        lido.claimUnstakedPrincipals();
     }
 }
