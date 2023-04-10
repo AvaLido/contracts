@@ -16,7 +16,12 @@ contract FakeMpcManager is IMpcManager {
 
     function setAvaLidoAddress(address avaLidoAddress) external {}
 
-    function requestStake(string calldata nodeID, uint256 amount, uint256 startTime, uint256 endTime) external payable {
+    function requestStake(
+        string calldata nodeID,
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) external payable {
         require(msg.value == amount, "Incorrect value.");
         payable(MPC_GENERATED_ADDRESS).transfer(amount);
         emit FakeStakeRequested(nodeID, amount, startTime, endTime);
