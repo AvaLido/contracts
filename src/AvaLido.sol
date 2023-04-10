@@ -603,10 +603,10 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
         emit ProtocolConfigChanged("setRewardTreasuryAddress", "setRewardTreasuryAddress", abi.encode(_address));
     }
 
-    function setProtocolFeeSplit(
-        address[] memory paymentAddresses,
-        uint256[] memory paymentSplit
-    ) public onlyRole(ROLE_TREASURY_MANAGER) {
+    function setProtocolFeeSplit(address[] memory paymentAddresses, uint256[] memory paymentSplit)
+        public
+        onlyRole(ROLE_TREASURY_MANAGER)
+    {
         protocolFeeSplitter = new PaymentSplitter(paymentAddresses, paymentSplit);
 
         emit ProtocolConfigChanged(
