@@ -403,22 +403,28 @@ contract AvaLido is ITreasuryBeneficiary, Pausable, ReentrancyGuard, stAVAX, Acc
      * Any remaining funds after all requests are filled are re-staked.
      */
     function claimUnstakedPrincipals() external {
-        uint256 val = address(principalTreasury).balance;
-        if (val == 0) return;
-        if (amountStakedAVAX == 0 || amountStakedAVAX < val) revert InvalidStakeAmount();
+        if (amountStakedAVAX == 0) revert InvalidStakeAmount();
+
+        uint256 principalBalance = address(principalTreasury).balance;
+        if (principalBalance == 0) return;
+
+        // Claim up to a maximum of the amount staked.
+        // This defends against the treasury balance being larger than the amount staked
+        // which could happen if people send money to the treasury directly.
+        uint256 amountToClaim = Math.min(principalBalance, amountStakedAVAX);
 
         // Track buffered balance and claim.
-        _bufferedBalance += val;
-        principalTreasury.claim(val);
+        _bufferedBalance += amountToClaim;
+        principalTreasury.claim(amountToClaim);
 
         // We received this from an unstake, so remove from our count.
         // Anything restaked will be counted again on the way out.
         // Note: This avoids double counting, as the total count includes AVAX held by
         // the contract.
-        amountStakedAVAX -= val;
+        amountStakedAVAX -= amountToClaim;
 
         // Fill unstake requests and allocate excess for restaking.
-        fillUnstakeRequests(val);
+        fillUnstakeRequests(amountToClaim);
     }
 
     /**
