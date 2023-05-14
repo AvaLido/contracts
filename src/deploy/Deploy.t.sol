@@ -66,13 +66,13 @@ contract Deploy is Script, Helpers {
         AvaLido lido = AvaLido(address(proxyWrapped(address(_lido), proxyAdmin)));
         lido.initialize(lidoFeeAddress, authorFeeAddress, address(validatorSelector), address(mpcManager));
 
-        // // Treasuries
+        // Treasuries
         Treasury pTreasury = new Treasury(address(lido));
         Treasury rTreasury = new Treasury(address(lido));
         lido.setPrincipalTreasuryAddress(address(pTreasury));
         lido.setRewardTreasuryAddress(address(rTreasury));
 
-        // // MPC manager setup
+        // MPC manager setup
         mpcManager.initialize(mpcAdmin, pauseAdmin, address(lido), address(pTreasury), address(rTreasury));
 
         // End transaction
@@ -83,5 +83,18 @@ contract Deploy is Script, Helpers {
         console.log("Deployed Oracle", address(oracle));
         console.log("Deployed Oracle Manager", address(oracleManager));
         console.log("Deployed MPC Manager", address(mpcManager));
+    }
+
+    function redeployAvaLido() public {
+        // Create a transaction
+        vm.startBroadcast();
+
+        // AvaLido
+        AvaLido implementation = new AvaLido();
+
+        // End transaction
+        vm.stopBroadcast();
+
+        console.log("Redeployed AvaLido Implementation", address(implementation));
     }
 }
