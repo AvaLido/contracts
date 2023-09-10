@@ -88,3 +88,7 @@ To pass arguments to a function, you'll need to split them out: `task call -- <A
 Unit tests are run with `forge test`. Integration tests are run using [Jest](https://jestjs.io/docs/getting-started_) with `jest integration`.
 
 Important: integration tests expect that the `AVALIDO` and `VALIDATOR_ORACLE` environment variables have been set to the deployed contract addresses.
+
+### Audit
+
+The most recent audit, conducted by Dedaub, can be found here: [Lido Avalanche Re-audit, November 2022](https://docs.google.com/document/d/1ZRUu4ogcnHKa_XgTktAAtWDAnMY_jQ36pkOfUFgjquY/edit).
